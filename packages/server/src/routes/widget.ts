@@ -1,7 +1,8 @@
 import { readFile, stat } from 'node:fs/promises';
 
-import fastifyRateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
+
+import { registerIpRateLimit } from '../lib/rate-limit.js';
 
 /**
  * Long enough to matter - this is fetched on every page load of every
@@ -35,12 +36,8 @@ export async function widgetRoutes(app: FastifyInstance): Promise<void> {
   // Registered in this route's own scope, so it keeps its own in-memory store:
   // bundle fetches do not spend a visitor's budget for the public button
   // routes, and /healthz stays unthrottled. Same per-process caveat as the
-  // public limit (see `publicRoutes`).
-  await app.register(fastifyRateLimit, {
-    max: app.appConfig.widgetRateLimitMax,
-    timeWindow: app.appConfig.rateLimitWindow,
-    keyGenerator: (request) => request.ip,
-  });
+  // public limit (see `registerIpRateLimit`).
+  await registerIpRateLimit(app, app.appConfig.widgetRateLimitMax);
 
   let cached: CachedBundle | undefined;
 

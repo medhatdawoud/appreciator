@@ -107,6 +107,13 @@ button's origin allowlist and a per-IP rate limit:
 | `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `ClickCounts`        |
 | `POST` | `/v1/buttons/:publicKey/click`  | `{ "item": … }` → `ClickCounts` |
 
+The rate limit (`RATE_LIMIT_MAX` per `RATE_LIMIT_WINDOW` per IP) is checked
+before anything else, so requests that are going to be refused (an unknown
+public key, a disallowed origin, a malformed body) count against it too, and a
+throttled request never reaches the database. A `429` therefore carries no
+`Access-Control-Allow-Origin`: page script sees a failed request rather than the
+status.
+
 Unauthenticated, outside the per-button scope:
 
 | Method | Path         |                                                                           |

@@ -783,6 +783,48 @@ describe('rate limiting', () => {
     expect(statuses.filter((status) => status === 429)).toHaveLength(3);
   });
 
+  it('counts requests the button routes reject, before they reach the database', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/pk_${'0'.repeat(32)}/config`,
+        headers: { origin: ORIGIN },
+        remoteAddress: '203.0.113.2',
+      });
+      statuses.push(response.statusCode);
+    }
+
+    expect(statuses.filter((status) => status === 404)).toHaveLength(5);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(3);
+  });
+
+  it('counts requests from a disallowed origin', async () => {
+    const tenant = await seedTenant(context.pool, 'Disallowed');
+    const created = (
+      await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: buttonInput(),
+      })
+    ).json() as CreateButtonResponse;
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.publicKey}/config`,
+        headers: { origin: 'https://evil.test' },
+        remoteAddress: '203.0.113.3',
+      });
+      statuses.push(response.statusCode);
+    }
+
+    expect(statuses.filter((status) => status === 403)).toHaveLength(5);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(3);
+  });
+
   it('leaves management routes unthrottled', async () => {
     const tenant = await seedTenant(context.pool, 'Unthrottled');
 

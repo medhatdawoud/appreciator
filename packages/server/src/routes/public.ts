@@ -1,5 +1,4 @@
 import fastifyCors, { type FastifyCorsOptions } from '@fastify/cors';
-import fastifyRateLimit from '@fastify/rate-limit';
 import type {
   ButtonPublicConfig,
   ClickCounts,
@@ -13,6 +12,7 @@ import { findButtonByPublicKey, toButtonConfig } from '../db/buttons.js';
 import { isOriginAllowed } from '../lib/auth.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { incrementClick, readCounts } from '../lib/guarded-increment.js';
+import { registerIpRateLimit } from '../lib/rate-limit.js';
 import { ItemKeyError, normalizeItemKey } from '../lib/url-normalize.js';
 import { hashVisitor } from '../lib/visitor-hash.js';
 import { colorsSchema, svgSourcesSchema } from './schemas.js';
@@ -198,22 +198,20 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   app.decorateRequest('button', null);
   app.decorateRequest('buttonResolved', false);
 
+  // First, ahead of the CORS delegate, which already loads the button: a
+  // request is counted before it costs a query, whatever happens to it next.
+  // The price is that a 429 carries no Access-Control-Allow-Origin, so page
+  // script sees a failed request rather than the status.
+  await registerIpRateLimit(app, app.appConfig.rateLimitMax);
+
   // `delegator`, not a bare function: Fastify treats a function passed as
   // plugin options as a factory taking the instance, which would silently
   // leave CORS on its permissive defaults.
   await app.register(fastifyCors, { delegator: corsDelegate });
-  await app.register(fastifyRateLimit, {
-    max: app.appConfig.rateLimitMax,
-    timeWindow: app.appConfig.rateLimitWindow,
-    // In-memory and therefore per-process: this bounds casual abuse, and a
-    // deployment running several instances behind a load balancer needs a
-    // shared store to make it a hard limit.
-    keyGenerator: (request) => request.ip,
-  });
 
-  // Registered after the CORS and rate-limit plugins so their onRequest hooks
-  // run first, and at onRequest rather than preHandler so an unknown button or
-  // a disallowed origin is answered before we parse and validate a body.
+  // Registered after the rate limit and CORS so their onRequest hooks run
+  // first, and at onRequest rather than preHandler so an unknown button or a
+  // disallowed origin is answered before we parse and validate a body.
   app.addHook('onRequest', requireAllowedButton);
 
   app.get<{ Params: PublicKeyParams }>(
