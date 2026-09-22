@@ -1,0 +1,56 @@
+name: Landing page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same shape the server answers at /config.json, so the pages need
+      # not know where they are served from. Without SITE_API_URL the pages
+      # deploy with the live parts switched off.
+      - name: Write config.json from repository variables
+        env:
+          SITE_API_URL: ${{ vars.SITE_API_URL }}
+          SITE_DEMO_KEY: ${{ vars.SITE_DEMO_KEY }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          node -e '
+            const apiUrl = process.env.SITE_API_URL || null;
+            const config = {
+              apiUrl,
+              demoKey: process.env.SITE_DEMO_KEY || null,
+              signInEnabled: apiUrl !== null,
+              repoUrl: process.env.REPO_URL,
+              leaderboardEnabled: apiUrl !== null,
+            };
+            require("fs").writeFileSync("site/config.json", JSON.stringify(config, null, 2));
+            console.log(config);
+          '
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

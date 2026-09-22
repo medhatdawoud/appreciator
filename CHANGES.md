@@ -3,6 +3,35 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-22 — Landing page, leaderboard page and dashboard served by the API
+
+- **Pages.** `site/` (landing and leaderboard, also deployed to GitHub Pages
+  by `.github/workflows/pages.yml`) and `packages/server/src/web/` (the
+  dashboard) are served by the server: `/`, `/leaderboard`, `/dashboard`,
+  `/site/<file>`, `/web/<file>`, and `/<file>` for the landing page's relative
+  asset links, plus `/config.json` alongside `/web/config.json`. Only
+  html/css/js/svg, paths checked to stay in their folder, pages `no-store`,
+  assets `max-age=300`, and `nosniff`, `X-Frame-Options: DENY` and a CSP with
+  no inline code on every response. `npm run build` copies both folders into
+  `dist/`. The Dockerfile still needs `COPY site site` before the server
+  build.
+- **Dashboard** talks to the real sites and buttons API with the session
+  cookie and CSRF header, and walks a new account through site → API key
+  shown once → first button → highlighted snippet. Draft fixes: a copy button
+  read `event.currentTarget` after an await, clipboard failures now change the
+  label, the first route renders once, the leaderboard link hides when it is
+  off, and `[hidden]` now wins over class display rules.
+- **Widget under CSP.** Shadow styles are a constructed stylesheet, and the
+  sanitizer keeps an icon's `style` attributes away from the parser and applies
+  them through the CSSOM, so a `style-src` without `'unsafe-inline'` no longer
+  breaks the button.
+- **e2e.** The Playwright harness provisions the demo button, switches the
+  leaderboard and sign-in on, seeds an account and mints its session cookie
+  into the fixture. New specs: landing (zero console errors and CSP
+  violations, live demo click, snippet, sign-in CTA), leaderboard (delta from
+  real clicks, demo tenant absent), dashboard (the whole flow through counts,
+  origin filter, edit, key rotation, deletes and sign-out).
+
 ## 2026-09-22 — Full README with architecture diagrams
 
 - README rewritten as the complete system reference: who it is for (self-host
