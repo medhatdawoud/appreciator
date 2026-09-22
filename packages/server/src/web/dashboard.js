@@ -81,16 +81,31 @@
     return data;
   }
 
+  /**
+   * Makes `button` copy whatever `text()` returns when clicked. The clipboard
+   * is unavailable on insecure origins and in some embedded browsers, in
+   * which case the label says so instead of the click doing nothing.
+   */
+  function wireCopy(button, text) {
+    button.addEventListener('click', async () => {
+      let label = 'Copied';
+      try {
+        await navigator.clipboard.writeText(text());
+      } catch {
+        label = 'Select and copy';
+      }
+      button.textContent = label;
+      setTimeout(() => {
+        button.textContent = 'Copy';
+      }, 1500);
+    });
+  }
+
   function copyButtons(root = document) {
     for (const button of root.querySelectorAll('[data-copy]')) {
       if (button.dataset.wired) continue;
       button.dataset.wired = '1';
-      button.addEventListener('click', async () => {
-        const target = $(button.dataset.copy);
-        await navigator.clipboard.writeText(target?.textContent ?? '');
-        button.textContent = 'Copied';
-        setTimeout(() => (button.textContent = 'Copy'), 1500);
-      });
+      wireCopy(button, () => $(button.dataset.copy)?.textContent ?? '');
     }
   }
 
@@ -217,11 +232,7 @@
         $('[data-button-row-snippet]', row).textContent = button.embedSnippet;
         $('[data-button-row-items]', row).href = `#/sites/${siteId}/buttons/${button.id}/items`;
         $('[data-button-row-edit]', row).href = `#/sites/${siteId}/buttons/${button.id}/edit`;
-        $('[data-copy-snippet]', row).addEventListener('click', async (event) => {
-          await navigator.clipboard.writeText(button.embedSnippet);
-          event.currentTarget.textContent = 'Copied';
-          setTimeout(() => (event.target.textContent = 'Copy'), 1500);
-        });
+        wireCopy($('[data-copy-snippet]', row), () => button.embedSnippet);
         $('[data-button-row-delete]', row).addEventListener('click', async () => {
           if (!confirm(`Delete "${button.name || button.publicKey}"? Its counts are lost.`)) return;
           try {
@@ -500,7 +511,7 @@
   $('[data-logout]').addEventListener('click', async () => {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
     state.account = null;
-    location.hash = '';
+    history.replaceState(null, '', location.pathname);
     renderSignedOut();
   });
 
@@ -512,6 +523,7 @@
       for (const link of document.querySelectorAll('[data-repo-link]'))
         link.href = `${state.config.repoUrl}#readme`;
     }
+    if (state.config.leaderboardEnabled === false) $('[data-leaderboard-link]').hidden = true;
     try {
       state.account = await api('/auth/me');
     } catch {
@@ -523,7 +535,9 @@
       const avatar = $('[data-avatar]');
       if (state.account.avatarUrl) avatar.src = state.account.avatarUrl;
       else avatar.remove();
-      if (!location.hash) location.hash = '#/sites';
+      // replaceState rather than assigning the hash, which would fire
+      // hashchange and render the sites view a second time.
+      if (!location.hash) history.replaceState(null, '', '#/sites');
     }
     copyButtons();
     await route();
