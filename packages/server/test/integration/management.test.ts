@@ -529,14 +529,41 @@ describe('management routes', () => {
   });
 
   describe('GET /v1/buttons/:id/items', () => {
-    async function seedItems(buttonId: string, count: number): Promise<void> {
-      for (let i = 0; i < count; i += 1) {
+    async function seedItemKeys(buttonId: string, keys: readonly string[]): Promise<void> {
+      for (const [i, key] of keys.entries()) {
         await execute(
           context.pool,
           'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)',
-          [buttonId, `https://example.com/post-${String(i).padStart(3, '0')}`, i],
+          [buttonId, key, i],
         );
       }
+    }
+
+    async function seedItems(buttonId: string, count: number): Promise<void> {
+      await seedItemKeys(
+        buttonId,
+        Array.from(
+          { length: count },
+          (_, i) => `https://example.com/post-${String(i).padStart(3, '0')}`,
+        ),
+      );
+    }
+
+    async function listItemKeys(
+      buttonId: string,
+      query: string,
+    ): Promise<{ itemKeys: string[]; nextCursor: string | null }> {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${buttonId}/items?${query}`,
+        headers: { authorization: tenant.authHeader },
+      });
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      return {
+        itemKeys: body.items.map((item: { itemKey: string }) => item.itemKey),
+        nextCursor: body.nextCursor,
+      };
     }
 
     it('returns an empty page for a button with no clicks', async () => {
@@ -659,6 +686,97 @@ describe('management routes', () => {
       // The cursor is compared as a literal value, so it simply sorts before
       // every seeded key and returns them all.
       expect(response.json().items).toHaveLength(3);
+    });
+
+    describe('?origin=', () => {
+      const MIXED_KEYS = [
+        'https://a.com',
+        'https://a.com/x',
+        'https://a.com/x/y',
+        'https://a.com.evil/x',
+        'https://b.com/y',
+        'post-1',
+      ];
+      const A_COM_KEYS = ['https://a.com', 'https://a.com/x', 'https://a.com/x/y'];
+
+      it("returns only that origin's root and pages, in key order", async () => {
+        const created = await createButton();
+        await seedItemKeys(created.buttonId, MIXED_KEYS);
+
+        const page = await listItemKeys(
+          created.buttonId,
+          `origin=${encodeURIComponent('https://a.com')}`,
+        );
+
+        expect(page.itemKeys).toEqual(A_COM_KEYS);
+        expect(page.nextCursor).toBeNull();
+      });
+
+      it('canonicalises the filter the way item keys are', async () => {
+        const created = await createButton();
+        await seedItemKeys(created.buttonId, MIXED_KEYS);
+
+        const page = await listItemKeys(
+          created.buttonId,
+          `origin=${encodeURIComponent('https://A.com:443')}`,
+        );
+
+        expect(page.itemKeys).toEqual(A_COM_KEYS);
+      });
+
+      it('pages through the filtered keys with the cursor', async () => {
+        const created = await createButton();
+        await seedItemKeys(created.buttonId, MIXED_KEYS);
+        const filter = `origin=${encodeURIComponent('https://a.com')}`;
+
+        const first = await listItemKeys(created.buttonId, `${filter}&limit=2`);
+        expect(first.itemKeys).toEqual(A_COM_KEYS.slice(0, 2));
+        expect(first.nextCursor).not.toBeNull();
+
+        const second = await listItemKeys(
+          created.buttonId,
+          `${filter}&limit=2&cursor=${encodeURIComponent(first.nextCursor ?? '')}`,
+        );
+        expect(second.itemKeys).toEqual(A_COM_KEYS.slice(2));
+        expect(second.nextCursor).toBeNull();
+      });
+
+      it('matches nothing on a button that has no items under that origin', async () => {
+        const matching = await createButton();
+        const unrelated = await createButton();
+        await seedItemKeys(matching.buttonId, MIXED_KEYS);
+        await seedItemKeys(unrelated.buttonId, ['https://b.com/y', 'post-1']);
+
+        const page = await listItemKeys(
+          unrelated.buttonId,
+          `origin=${encodeURIComponent('https://a.com')}`,
+        );
+
+        expect(page).toEqual({ itemKeys: [], nextCursor: null });
+      });
+
+      it('rejects a value that is not a single concrete origin', async () => {
+        const created = await createButton();
+
+        for (const origin of [
+          'a.com',
+          'https://a.com/x',
+          'https://a.com/',
+          'ftp://a.com',
+          'https://*.a.com',
+          'https://a%.com',
+          'https://a_b.com',
+          'https://a.com:99999',
+        ]) {
+          const response = await context.app.inject({
+            method: 'GET',
+            url: `/v1/buttons/${created.buttonId}/items?origin=${encodeURIComponent(origin)}`,
+            headers: { authorization: tenant.authHeader },
+          });
+
+          expect(response.statusCode, `origin ${origin} should be rejected`).toBe(400);
+        }
+      });
     });
   });
 

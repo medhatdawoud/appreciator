@@ -43,6 +43,9 @@ const DEFAULT_PAGE_SIZE = 50;
  */
 const ORIGIN_PATTERN = '^(\\*|null|https?://(\\*\\.)?[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
 
+/** An `?origin=` filter on the items listing: one concrete http(s) origin, no wildcard. */
+const ORIGIN_FILTER_PATTERN = '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$';
+
 const UUID_PATTERN =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
@@ -116,6 +119,7 @@ interface ButtonIdParams {
 interface ItemsQuery {
   limit?: number;
   cursor?: string;
+  origin?: string;
 }
 
 /**
@@ -187,6 +191,27 @@ function decodeCursor(cursor: string | undefined): string | undefined {
     throw badRequest('cursor is not a valid pagination cursor', 'invalid_cursor');
   }
   return decoded;
+}
+
+/**
+ * Canonicalises an `?origin=` filter the way item keys are built (see
+ * `normalizeItemKey`), so `https://A.com:443` finds keys stored under
+ * `https://a.com`. The schema pattern admits ports `URL` refuses, such as
+ * 99999, hence the 400 here.
+ */
+function decodeOriginFilter(origin: string | undefined): string | undefined {
+  if (origin === undefined) return undefined;
+
+  try {
+    return new URL(origin).origin;
+  } catch {
+    throw badRequest('origin is not a valid origin', 'invalid_origin');
+  }
+}
+
+/** Escapes LIKE's wildcards, and the escape character itself, so a value only matches itself. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 export async function managementRoutes(app: FastifyInstance): Promise<void> {
@@ -329,6 +354,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             limit: { type: 'integer', minimum: 1, maximum: MAX_PAGE_SIZE },
             cursor: { type: 'string', minLength: 1, maxLength: 1024 },
+            origin: { type: 'string', maxLength: 255, pattern: ORIGIN_FILTER_PATTERN },
           },
         },
         response: {
@@ -362,6 +388,23 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
 
       const limit = request.query.limit ?? DEFAULT_PAGE_SIZE;
       const after = decodeCursor(request.query.cursor);
+      const origin = decodeOriginFilter(request.query.origin);
+
+      const conditions = ['button_id = ?'];
+      const params: SqlParam[] = [request.params.id];
+      if (origin !== undefined) {
+        // A URL key is origin + path with no trailing slash, so a site's keys
+        // are its root, which is exactly the origin, and everything under
+        // `origin/`. Requiring the slash keeps `https://a.com` from also
+        // matching `https://a.com.evil`. Both forms are prefixes of the
+        // primary key, so this stays a range scan.
+        conditions.push("(item_key = ? OR item_key LIKE ? ESCAPE '\\\\')");
+        params.push(origin, `${escapeLike(origin)}/%`);
+      }
+      if (after !== undefined) {
+        conditions.push('item_key > ?');
+        params.push(after);
+      }
 
       // Keyset pagination on the primary key: stable under concurrent writes,
       // and it never makes the database skip rows to reach a page.
@@ -370,12 +413,10 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
         app.pool,
         `SELECT item_key, total_count, updated_at
            FROM items
-          WHERE button_id = ?${after === undefined ? '' : ' AND item_key > ?'}
+          WHERE ${conditions.join(' AND ')}
           ORDER BY item_key ASC
           LIMIT ?`,
-        after === undefined
-          ? [request.params.id, limit + 1]
-          : [request.params.id, after, limit + 1],
+        [...params, limit + 1],
       );
 
       const hasMore = rows.length > limit;

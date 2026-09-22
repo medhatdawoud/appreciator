@@ -85,7 +85,7 @@ Management — `Authorization: Bearer <secret>`:
 | `POST`   | `/v1/buttons`           | `ButtonConfigInput` → `CreateButtonResponse`                          |
 | `GET`    | `/v1/buttons`           | → `ButtonListResponse` (the tenant's buttons, with their public keys) |
 | `PATCH`  | `/v1/buttons/:id`       | partial `ButtonConfigInput` → `ButtonConfig`                          |
-| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=` → `ItemsPage`                                       |
+| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `ItemsPage`                               |
 | `DELETE` | `/v1/buttons/:id`       | `204`                                                                 |
 
 Public — identified by the button's public key in the path, subject to the
@@ -128,6 +128,20 @@ other than a leading `*.` label (`https://*example.com`,
 A button whose `allowedOrigins` contains `*` accepts any origin. That is a real
 loosening — any site can then render the button and spend its counters — so it
 exists only for tenants who ask for it.
+
+### `GET /v1/buttons/:id/items`
+
+Per-item totals, ordered by item key, `limit` (1–200, default 50) per page. Pass
+the previous page's `nextCursor` as `cursor` to continue; it is `null` on the
+last page.
+
+`origin` narrows the listing to one site: `?origin=https://example.com` returns
+the key for the site root (`https://example.com`) and every page under it
+(`https://example.com/…`), and nothing else — not `https://example.com.evil/…`,
+not other origins, not opaque item ids. The value is one concrete `http(s)`
+origin with an optional port and no path or wildcard; it is canonicalised like
+an item key, so host casing and a default port make no difference. Anything
+else answers `400`. `cursor` works the same with or without the filter.
 
 ### `GET /v1/buttons/:publicKey/config`
 
