@@ -10,7 +10,10 @@ The server generates this snippet when a button is created:
 
 ```html
 <script src="https://appreciator.example.com/widget.js" async></script>
-<appreciator-button data-api="https://appreciator.example.com" data-key="pk_..."></appreciator-button>
+<appreciator-button
+  data-api="https://appreciator.example.com"
+  data-key="pk_..."
+></appreciator-button>
 ```
 
 Or from a bundler:
@@ -18,7 +21,10 @@ Or from a bundler:
 ```ts
 import { mount } from '@appreciator/widget';
 
-mount(document.querySelector('#appreciate'), { api: 'https://appreciator.example.com', key: 'pk_...' });
+mount(document.querySelector('#appreciate'), {
+  api: 'https://appreciator.example.com',
+  key: 'pk_...',
+});
 ```
 
 Importing the module registers the element; `mount()` is a convenience for
@@ -26,12 +32,12 @@ creating one programmatically.
 
 ### Attributes
 
-| Attribute    | Required | Description                                                         |
-| ------------ | -------- | ------------------------------------------------------------------- |
-| `data-api`   | yes      | Base URL of the appreciator server.                                 |
-| `data-key`   | yes      | The button's public key.                                            |
+| Attribute    | Required | Description                                                             |
+| ------------ | -------- | ----------------------------------------------------------------------- |
+| `data-api`   | yes      | Base URL of the appreciator server.                                     |
+| `data-key`   | yes      | The button's public key.                                                |
 | `data-item`  | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
-| `data-label` | no       | Accessible name prefix. Defaults to `Appreciate`.                   |
+| `data-label` | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
 
 ### States
 

@@ -8,18 +8,21 @@ deployment can back buttons on any number of sites.
 
 ```html
 <script src="https://appreciator.example.com/widget.js" async></script>
-<appreciator-button data-api="https://appreciator.example.com" data-key="pk_..."></appreciator-button>
+<appreciator-button
+  data-api="https://appreciator.example.com"
+  data-key="pk_..."
+></appreciator-button>
 ```
 
 ## Packages
 
-| Package                                    | What it is                                                         |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| [`packages/server`](packages/server)       | Fastify API, MySQL persistence, serves the widget bundle.          |
-| [`packages/widget`](packages/widget)       | The `<appreciator-button>` web component (IIFE + ESM).             |
-| [`packages/svg-gen`](packages/svg-gen)     | CLI that turns one SVG icon into the four-state button config.     |
-| [`packages/shared`](packages/shared)       | TypeScript types shared by the packages above.                     |
-| [`examples/plain-html`](examples/plain-html) | A static page embedding the widget; also the e2e fixture.        |
+| Package                                      | What it is                                                     |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| [`packages/server`](packages/server)         | Fastify API, MySQL persistence, serves the widget bundle.      |
+| [`packages/widget`](packages/widget)         | The `<appreciator-button>` web component (IIFE + ESM).         |
+| [`packages/svg-gen`](packages/svg-gen)       | CLI that turns one SVG icon into the four-state button config. |
+| [`packages/shared`](packages/shared)         | TypeScript types shared by the packages above.                 |
+| [`examples/plain-html`](examples/plain-html) | A static page embedding the widget; also the e2e fixture.      |
 
 ## Quick start
 

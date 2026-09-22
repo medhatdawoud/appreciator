@@ -92,7 +92,9 @@ async function createTenant(): Promise<string> {
 
 async function registerButton(secret: string): Promise<ButtonFixture> {
   const svgSource = await readFile(resolve(ICON_DIR, 'icon.svg'), 'utf8');
-  const colors = JSON.parse(await readFile(resolve(ICON_DIR, 'colors.json'), 'utf8')) as ButtonColors;
+  const colors = JSON.parse(
+    await readFile(resolve(ICON_DIR, 'colors.json'), 'utf8'),
+  ) as ButtonColors;
   const maxClicks = 10;
 
   const response = await fetch(`${API_ORIGIN}/v1/buttons`, {
@@ -116,7 +118,9 @@ function serveStatic(request: IncomingMessage, response: ServerResponse): void {
   }
   readFile(file).then(
     (body) => {
-      response.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+      response.writeHead(200, {
+        'content-type': MIME[extname(file)] ?? 'application/octet-stream',
+      });
       response.end(body);
     },
     () => response.writeHead(404).end(),

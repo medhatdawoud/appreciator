@@ -274,7 +274,15 @@ export class AppreciatorButton extends HTMLElement {
     try {
       return await api.getState(this.item);
     } catch {
-      return fallback ?? { totalCount: 0, maxClicks: 0, visitorCount: 0, visitorRemaining: 0, maxed: true };
+      return (
+        fallback ?? {
+          totalCount: 0,
+          maxClicks: 0,
+          visitorCount: 0,
+          visitorRemaining: 0,
+          maxed: true,
+        }
+      );
     }
   }
 
