@@ -171,6 +171,14 @@ describe('management routes', () => {
       const first = await createButton();
       const second = await createButton(validInput({ maxClicks: 3 }));
       await createButton(validInput(), otherTenant);
+      // `created_at` has one-second resolution and ties fall back to the random
+      // id, so two buttons created within the same second have no defined
+      // order. Backdating the first makes "oldest" unambiguous.
+      await execute(
+        context.pool,
+        'UPDATE buttons SET created_at = created_at - INTERVAL 10 SECOND WHERE id = ?',
+        [first.buttonId],
+      );
 
       const response = await context.app.inject({
         method: 'GET',
