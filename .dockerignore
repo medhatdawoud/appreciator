@@ -1,0 +1,11 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+.github
+examples
+docker-compose.yml
+*.md

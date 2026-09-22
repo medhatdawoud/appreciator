@@ -3,6 +3,17 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-22 — Production Dockerfile for Coolify
+
+- Multi-stage `Dockerfile`: builds shared, widget and server, then a slim
+  `node:22-alpine` runtime with only the server's production dependencies and
+  the three `dist` folders. Runs migrations, then the server, as `node`.
+- `HEALTHCHECK` on `/healthz`; `.dockerignore` keeps the build context small.
+- README gains a Deploying section with the Coolify steps (Dockerfile build
+  pack, MySQL resource, `TRUST_PROXY=true` behind the Coolify proxy).
+- Verified locally: image built, ran against the compose MySQL, served
+  `/healthz` and `/widget.js`, and `create-tenant` worked inside the container.
+
 ## 2026-09-22 — Initial build: server, widget, svg-gen, example, CI
 
 Greenfield. Everything below landed in one branch of small commits.

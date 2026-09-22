@@ -103,6 +103,37 @@ most:
 
 This repository does not commit an example env file.
 
+## Deploying
+
+The `Dockerfile` builds a single image containing the API server and the
+widget bundle; migrations run when the container starts. Verify it locally:
+
+```bash
+docker build -t appreciator .
+docker run -p 3000:3000 \
+  -e DATABASE_URL='mysql://appreciator:appreciator@host.docker.internal:3306/appreciator' \
+  -e VISITOR_HASH_SECRET="$(openssl rand -hex 32)" appreciator
+```
+
+### Coolify
+
+1. Add a **MySQL 8** resource and create a database for the app; its internal
+   connection URL becomes `DATABASE_URL`.
+2. Add an **Application** from this repository with the **Dockerfile** build
+   pack, port `3000`.
+3. Set `DATABASE_URL`, `VISITOR_HASH_SECRET`, `PUBLIC_BASE_URL` (the public
+   `https://` URL you assign in the next step) and `TRUST_PROXY=true` — the
+   Coolify proxy sits in front, so the client IP arrives in `X-Forwarded-For`.
+4. Assign the domain; Coolify provisions TLS. Deploy.
+5. Create your tenant from the container's terminal in Coolify:
+
+   ```bash
+   node packages/server/dist/create-tenant.js --name "My site"
+   ```
+
+Then create buttons with the management API as in the quick start, using
+`PUBLIC_BASE_URL` in place of `http://localhost:3000`.
+
 ## Tests
 
 ```bash
