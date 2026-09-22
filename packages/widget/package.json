@@ -1,0 +1,38 @@
+{
+  "name": "@appreciator/widget",
+  "version": "0.0.0",
+  "description": "Embeddable <appreciator-button> web component for the appreciator API",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/widget.mjs",
+  "module": "./dist/widget.mjs",
+  "types": "./dist/widget.d.ts",
+  "unpkg": "./dist/widget.js",
+  "jsdelivr": "./dist/widget.js",
+  "exports": {
+    ".": {
+      "types": "./dist/widget.d.ts",
+      "import": "./dist/widget.mjs",
+      "default": "./dist/widget.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@appreciator/shared": "*",
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^24.9.2",
+    "jsdom": "^26.1.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.1"
+  }
+}
