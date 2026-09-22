@@ -27,21 +27,30 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 
 ## Configuration
 
-| Variable                | Required | Default                    | Description                                                                                                    |
-| ----------------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`          | yes      | —                          | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                    |
-| `VISITOR_HASH_SECRET`   | yes      | —                          | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                  |
-| `MANAGEMENT_SECRET`     | no       | —                          | Management API key, at least 32 characters. A tenant for it is provisioned on startup. `openssl rand -hex 32`. |
-| `PORT`                  | no       | `3000`                     | HTTP port.                                                                                                     |
-| `HOST`                  | no       | `0.0.0.0`                  | Bind address.                                                                                                  |
-| `DEFAULT_MAX_CLICKS`    | no       | `10`                       | Per-visitor cap for buttons created without an explicit `maxClicks`.                                           |
-| `PUBLIC_BASE_URL`       | no       | `http://localhost:$PORT`   | Base URL written into the generated embed snippet.                                                             |
-| `RATE_LIMIT_MAX`        | no       | `60`                       | Public-route requests allowed per IP per window.                                                               |
-| `RATE_LIMIT_WINDOW`     | no       | `1 minute`                 | Rate limit window.                                                                                             |
-| `WIDGET_RATE_LIMIT_MAX` | no       | `300`                      | `GET /widget.js` requests allowed per IP per `RATE_LIMIT_WINDOW`, counted separately from the public routes.   |
-| `TRUST_PROXY`           | no       | `false`                    | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                           |
-| `LOG_LEVEL`             | no       | `info`                     | Pino level.                                                                                                    |
-| `WIDGET_BUNDLE_PATH`    | no       | `../widget/dist/widget.js` | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory.  |
+| Variable                | Required    | Default                                       | Description                                                                                                               |
+| ----------------------- | ----------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | yes         | —                                             | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                               |
+| `VISITOR_HASH_SECRET`   | yes         | —                                             | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                             |
+| `MANAGEMENT_SECRET`     | no          | —                                             | Management API key, at least 32 characters. A tenant for it is provisioned on startup. `openssl rand -hex 32`.            |
+| `PORT`                  | no          | `3000`                                        | HTTP port.                                                                                                                |
+| `HOST`                  | no          | `0.0.0.0`                                     | Bind address.                                                                                                             |
+| `DEFAULT_MAX_CLICKS`    | no          | `10`                                          | Per-visitor cap for buttons created without an explicit `maxClicks`.                                                      |
+| `PUBLIC_BASE_URL`       | no          | `http://localhost:$PORT`                      | Absolute http(s) base URL of this server, written into the generated embed snippet.                                       |
+| `RATE_LIMIT_MAX`        | no          | `60`                                          | Public-route requests allowed per IP per window.                                                                          |
+| `RATE_LIMIT_WINDOW`     | no          | `1 minute`                                    | Rate limit window.                                                                                                        |
+| `WIDGET_RATE_LIMIT_MAX` | no          | `300`                                         | `GET /widget.js` requests allowed per IP per `RATE_LIMIT_WINDOW`, counted separately from the public routes.              |
+| `TRUST_PROXY`           | no          | `false`                                       | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                                      |
+| `LOG_LEVEL`             | no          | `info`                                        | Pino level.                                                                                                               |
+| `WIDGET_BUNDLE_PATH`    | no          | `../widget/dist/widget.js`                    | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory.             |
+| `GITHUB_CLIENT_ID`      | no          | —                                             | OAuth app client id for "Sign in with GitHub". Set with `GITHUB_CLIENT_SECRET` and `SESSION_SECRET`, or not at all.       |
+| `GITHUB_CLIENT_SECRET`  | no          | —                                             | OAuth app client secret.                                                                                                  |
+| `GITHUB_ALLOWED_LOGINS` | no          | —                                             | Comma-separated GitHub logins allowed to sign in, case-insensitive. Empty means nobody.                                   |
+| `SESSION_SECRET`        | with GitHub | —                                             | HMAC key for session cookies, at least 32 characters. Required when the GitHub variables are set. `openssl rand -hex 32`. |
+| `GITHUB_OAUTH_URL`      | no          | `https://github.com`                          | Base of GitHub's OAuth endpoints (GitHub Enterprise).                                                                     |
+| `GITHUB_API_URL`        | no          | `https://api.github.com`                      | Base of GitHub's REST API.                                                                                                |
+| `DEMO_BUTTON`           | no          | `true`                                        | Provision the landing page's demo button at startup.                                                                      |
+| `DEMO_ALLOWED_ORIGINS`  | no          | origin of `PUBLIC_BASE_URL`                   | Comma-separated `allowedOrigins` for the demo button.                                                                     |
+| `REPO_URL`              | no          | `https://github.com/medhatdawoud/appreciator` | Source repository linked from the web UI.                                                                                 |
 
 Changing `VISITOR_HASH_SECRET` invalidates every stored visitor hash: existing
 visitors get a fresh allowance, and their old rows become unreachable.

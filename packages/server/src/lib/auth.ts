@@ -77,6 +77,16 @@ export async function findTenantBySecretKey(
   ]);
 }
 
+/**
+ * An entry in `allowedOrigins`: a scheme-and-authority origin, the literal
+ * `null` a sandboxed iframe sends, or `*` to opt out of origin checking. A
+ * host may start with `*.` to allow every subdomain of the rest of it (see
+ * `isOriginAllowed`). Paths, other schemes, and a `*` anywhere else in the
+ * host are refused. A JSON Schema `pattern` string, so the request schema and
+ * the demo button's environment variable accept exactly the same entries.
+ */
+export const ALLOWED_ORIGIN_PATTERN = '^(\\*|null|https?://(\\*\\.)?[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
+
 /** Canonicalises an origin so `https://a.com/` and `https://A.com` compare equal. */
 function canonicalOrigin(value: string): string {
   try {

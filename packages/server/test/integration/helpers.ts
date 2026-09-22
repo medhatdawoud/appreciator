@@ -23,7 +23,7 @@ export const TEST_DATABASE_URL =
 export const TEST_VISITOR_SECRET = 'integration-test-secret-0123456789ab';
 
 /** Tables in dependency order; used to reset state between tests. */
-const TABLES = ['visitor_clicks', 'items', 'buttons', 'tenants'];
+const TABLES = ['visitor_clicks', 'items', 'buttons', 'tenants', 'accounts'];
 
 export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
@@ -43,6 +43,18 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     // 404 unless a test supplies a fixture. The widget package is not a
     // dependency of these tests.
     widgetBundlePath: '/nonexistent/appreciator-widget-bundle.js',
+    // Sign-in is off unless a test turns it on, as in a deployment that has
+    // not registered an OAuth app.
+    githubClientId: undefined,
+    githubClientSecret: undefined,
+    githubAllowedLogins: [],
+    sessionSecret: undefined,
+    githubOAuthUrl: 'https://github.test',
+    githubApiUrl: 'https://api.github.test',
+    signInEnabled: false,
+    demoButton: false,
+    demoAllowedOrigins: ['https://appreciator.test'],
+    repoUrl: 'https://github.com/medhatdawoud/appreciator',
     ...overrides,
   };
 }

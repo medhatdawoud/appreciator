@@ -19,6 +19,7 @@ import {
 import type { SqlParam } from '../db/pool.js';
 import { execute, queryRows, withTransaction } from '../db/pool.js';
 import {
+  ALLOWED_ORIGIN_PATTERN,
   type TenantRow,
   extractBearerToken,
   findTenantBySecretKey,
@@ -39,15 +40,6 @@ declare module 'fastify' {
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_PAGE_SIZE = 50;
 
-/**
- * An entry in `allowedOrigins`: a scheme-and-authority origin, the literal
- * `null` a sandboxed iframe sends, or `*` to opt out of origin checking. A
- * host may start with `*.` to allow every subdomain of the rest of it (see
- * `isOriginAllowed`). Paths, other schemes, and a `*` anywhere else in the
- * host are refused.
- */
-const ORIGIN_PATTERN = '^(\\*|null|https?://(\\*\\.)?[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
-
 /** An `?origin=` filter on the items listing: one concrete http(s) origin, no wildcard. */
 const ORIGIN_FILTER_PATTERN = '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$';
 
@@ -63,7 +55,7 @@ const inputProperties = {
     type: 'array',
     minItems: 1,
     maxItems: 50,
-    items: { type: 'string', minLength: 1, maxLength: 255, pattern: ORIGIN_PATTERN },
+    items: { type: 'string', minLength: 1, maxLength: 255, pattern: ALLOWED_ORIGIN_PATTERN },
   },
   svgSource: svgSourceSchema,
   colors: colorsSchema,

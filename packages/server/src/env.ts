@@ -10,6 +10,8 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ALLOWED_ORIGIN_PATTERN } from './lib/auth.js';
+
 /** Minimum entropy we accept for the visitor HMAC key, in hex characters. */
 const MIN_VISITOR_SECRET_LENGTH = 32;
 
@@ -18,6 +20,14 @@ const MIN_VISITOR_SECRET_LENGTH = 32;
  * the secret (see `hashSecretKey`), so a short human-chosen value is refused.
  */
 const MIN_MANAGEMENT_SECRET_LENGTH = 32;
+
+/**
+ * Minimum length of `SESSION_SECRET`. Anyone who knows it can mint a session
+ * for any account, so it gets the same floor as the other secrets.
+ */
+const MIN_SESSION_SECRET_LENGTH = 32;
+
+const DEFAULT_REPO_URL = 'https://github.com/medhatdawoud/appreciator';
 
 /**
  * Where the built widget bundle lives by default: the sibling widget package's
@@ -66,6 +76,28 @@ export interface AppConfig {
    * built answers 404 rather than refusing to boot.
    */
   widgetBundlePath: string;
+  /** OAuth app credentials for "Sign in with GitHub". Both or neither. */
+  githubClientId: string | undefined;
+  githubClientSecret: string | undefined;
+  /**
+   * GitHub logins allowed to sign in, lower-cased: logins are
+   * case-insensitive on GitHub. Empty means nobody, so there is no open signup.
+   */
+  githubAllowedLogins: string[];
+  /** HMAC key for session and OAuth-state cookies. Required when sign-in is configured. */
+  sessionSecret: string | undefined;
+  /** Where the OAuth authorize and token endpoints live. Overridable for GitHub Enterprise. */
+  githubOAuthUrl: string;
+  /** GitHub REST API base, for reading the signed-in user. */
+  githubApiUrl: string;
+  /** Whether sign-in is fully configured. Derived; the auth routes 404 without it. */
+  signInEnabled: boolean;
+  /** Whether to provision the landing page's demo button at startup. */
+  demoButton: boolean;
+  /** Origins the demo button accepts clicks from. */
+  demoAllowedOrigins: string[];
+  /** Source repository linked from the web UI. */
+  repoUrl: string;
 }
 
 export interface ServerConfig extends AppConfig {
@@ -113,6 +145,89 @@ function bool(source: Source, key: string, fallback: boolean): boolean {
   throw new EnvError(`Environment variable ${key} must be true or false, got "${raw}"`);
 }
 
+/** Splits a comma-separated variable, trimming entries and dropping empty ones. */
+function list(source: Source, key: string): string[] | undefined {
+  const raw = source[key];
+  if (raw === undefined || raw.trim() === '') return undefined;
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function url(source: Source, key: string, fallback: string): string {
+  const value = optional(source, key, fallback);
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new EnvError(`Environment variable ${key} must be an absolute URL, got "${value}"`);
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new EnvError(`Environment variable ${key} must be an http(s) URL, got "${value}"`);
+  }
+  return value.replace(/\/+$/, '');
+}
+
+/**
+ * Sign-in settings are validated as a group: a half-configured OAuth app, or
+ * one without a session key, fails the start rather than quietly leaving the
+ * dashboard unreachable or signing sessions with a weak key.
+ */
+function loadSignIn(source: Source): {
+  githubClientId: string | undefined;
+  githubClientSecret: string | undefined;
+  sessionSecret: string | undefined;
+  signInEnabled: boolean;
+} {
+  const githubClientId = source.GITHUB_CLIENT_ID?.trim() || undefined;
+  const githubClientSecret = source.GITHUB_CLIENT_SECRET?.trim() || undefined;
+  const sessionSecret = source.SESSION_SECRET?.trim() || undefined;
+
+  if (sessionSecret !== undefined && sessionSecret.length < MIN_SESSION_SECRET_LENGTH) {
+    throw new EnvError(
+      `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters ` +
+        `(generate one with: openssl rand -hex 32)`,
+    );
+  }
+
+  const githubConfigured = githubClientId !== undefined || githubClientSecret !== undefined;
+  if (githubConfigured) {
+    if (githubClientId === undefined || githubClientSecret === undefined) {
+      throw new EnvError('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set together');
+    }
+    if (sessionSecret === undefined) {
+      throw new EnvError(
+        'SESSION_SECRET is required when GITHUB_CLIENT_ID is set ' +
+          '(generate one with: openssl rand -hex 32)',
+      );
+    }
+  }
+
+  return {
+    githubClientId,
+    githubClientSecret,
+    sessionSecret,
+    signInEnabled: githubConfigured && sessionSecret !== undefined,
+  };
+}
+
+/** Each demo origin must be something the management API would accept as an allowlist entry. */
+function demoAllowedOrigins(source: Source, publicBaseUrl: string): string[] {
+  const configured = list(source, 'DEMO_ALLOWED_ORIGINS');
+  if (configured === undefined) {
+    return [new URL(publicBaseUrl).origin];
+  }
+
+  const pattern = new RegExp(ALLOWED_ORIGIN_PATTERN);
+  for (const origin of configured) {
+    if (origin.length > 255 || !pattern.test(origin)) {
+      throw new EnvError(`DEMO_ALLOWED_ORIGINS entry "${origin}" is not an origin`);
+    }
+  }
+  return configured;
+}
+
 export function loadAppConfig(source: Source = process.env): AppConfig {
   const visitorHashSecret = required(source, 'VISITOR_HASH_SECRET');
   if (visitorHashSecret.length < MIN_VISITOR_SECRET_LENGTH) {
@@ -131,22 +246,29 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
   }
 
   const port = positiveInt(source, 'PORT', 3000);
+  const publicBaseUrl = url(source, 'PUBLIC_BASE_URL', `http://localhost:${port}`);
 
   return {
     databaseUrl: required(source, 'DATABASE_URL'),
     visitorHashSecret,
     managementSecret,
     defaultMaxClicks: positiveInt(source, 'DEFAULT_MAX_CLICKS', 10),
-    publicBaseUrl: optional(source, 'PUBLIC_BASE_URL', `http://localhost:${port}`).replace(
-      /\/+$/,
-      '',
-    ),
+    publicBaseUrl,
     rateLimitMax: positiveInt(source, 'RATE_LIMIT_MAX', 60),
     rateLimitWindow: optional(source, 'RATE_LIMIT_WINDOW', '1 minute'),
     widgetRateLimitMax: positiveInt(source, 'WIDGET_RATE_LIMIT_MAX', 300),
     trustProxy: bool(source, 'TRUST_PROXY', false),
     logLevel: optional(source, 'LOG_LEVEL', 'info'),
     widgetBundlePath: resolve(optional(source, 'WIDGET_BUNDLE_PATH', defaultWidgetBundlePath())),
+    ...loadSignIn(source),
+    githubAllowedLogins: (list(source, 'GITHUB_ALLOWED_LOGINS') ?? []).map((login) =>
+      login.toLowerCase(),
+    ),
+    githubOAuthUrl: url(source, 'GITHUB_OAUTH_URL', 'https://github.com'),
+    githubApiUrl: url(source, 'GITHUB_API_URL', 'https://api.github.com'),
+    demoButton: bool(source, 'DEMO_BUTTON', true),
+    demoAllowedOrigins: demoAllowedOrigins(source, publicBaseUrl),
+    repoUrl: url(source, 'REPO_URL', DEFAULT_REPO_URL),
   };
 }
 
