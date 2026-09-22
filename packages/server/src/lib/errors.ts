@@ -32,6 +32,15 @@ export function unauthorized(): HttpError {
   return new HttpError(401, 'unauthorized', 'Missing or invalid credentials');
 }
 
+/**
+ * The 401 for cookie-authenticated routes: no session, a bad or expired one,
+ * or one for an account that no longer exists. Kept apart from `unauthorized`
+ * so the dashboard can tell "sign in again" from "wrong management key".
+ */
+export function unauthenticated(): HttpError {
+  return new HttpError(401, 'unauthenticated', 'Not signed in');
+}
+
 export function forbidden(message: string, code = 'forbidden'): HttpError {
   return new HttpError(403, code, message);
 }

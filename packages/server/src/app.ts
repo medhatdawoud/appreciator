@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import fastifyCookie from '@fastify/cookie';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 
 import type { Pool } from './db/pool.js';
@@ -61,6 +62,10 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
 
   app.decorate('pool', pool);
   app.decorate('appConfig', config);
+  // Cookies are parsed for every route, but only the session routes read
+  // them; the bearer and public-key routes ignore them entirely.
+  await app.register(fastifyCookie);
+  app.decorateRequest('account', null);
 
   app.setNotFoundHandler((request, reply) => {
     void reply.status(404).send({
