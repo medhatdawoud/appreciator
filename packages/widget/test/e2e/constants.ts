@@ -21,6 +21,8 @@ export interface E2eFixture {
   api: string;
   /** A button on the `e2e` tenant, allowed on the example page's origin. */
   publicKey: string;
+  /** A second button on the same tenant, drawn with four per-state SVGs; same `maxClicks`. */
+  explicitKey: string;
   maxClicks: number;
   colors: Record<'default' | 'hover' | 'clicked' | 'full', string>;
   /** Name of the tenant that owns `publicKey`, as the leaderboard lists it. */

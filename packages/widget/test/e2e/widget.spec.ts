@@ -52,6 +52,7 @@ test('renders the default state from the server config', async ({ page }) => {
   const ui = await open(page);
 
   await expect(ui.count).toHaveText('0');
+  await expect(ui.host).toHaveAttribute('data-icons', 'single');
   await expect(ui.svg).toHaveCSS('stroke', rgb(fixture.colors.default));
   await expect(ui.svg).toHaveCSS('fill', 'none');
   await expect(ui.host).not.toHaveAttribute('data-error', /./);

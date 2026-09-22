@@ -17,7 +17,12 @@ import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import type { ButtonColors, CreateButtonResponse } from '@appreciator/shared';
+import type {
+  ButtonColors,
+  ButtonConfigInput,
+  ButtonSvgSources,
+  CreateButtonResponse,
+} from '@appreciator/shared';
 
 import { buildApp } from '../../../server/src/app.js';
 import { runMigrations } from '../../../server/src/db/migrate.js';
@@ -39,6 +44,7 @@ const WIDGET_DIR = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const ROOT = resolve(WIDGET_DIR, '../..');
 const EXAMPLE_DIR = resolve(ROOT, 'examples/plain-html');
 const ICON_DIR = resolve(EXAMPLE_DIR, 'appreciator-out');
+const EXPLICIT_ICON_DIR = resolve(EXAMPLE_DIR, 'appreciator-out-explicit');
 
 const TENANT_NAME = 'e2e';
 const ACCOUNT_LOGIN = 'e2e';
@@ -108,25 +114,44 @@ async function createTenant(): Promise<string> {
   return secret;
 }
 
-async function registerButton(
+async function createButton(secret: string, input: ButtonConfigInput): Promise<string> {
+  const response = await fetch(`${API_ORIGIN}/v1/buttons`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(`POST /v1/buttons failed: ${response.status} ${await response.text()}`);
+  }
+  return ((await response.json()) as CreateButtonResponse).publicKey;
+}
+
+/** One button with the example's recolourable icon, one with its four explicit star drawings. */
+async function registerButtons(
   secret: string,
 ): Promise<Omit<E2eFixture, 'siteName' | 'demoKey' | 'session'>> {
   const svgSource = await readFile(resolve(ICON_DIR, 'icon.svg'), 'utf8');
   const colors = JSON.parse(
     await readFile(resolve(ICON_DIR, 'colors.json'), 'utf8'),
   ) as ButtonColors;
+  const { svgSources } = JSON.parse(
+    await readFile(resolve(EXPLICIT_ICON_DIR, 'svgSources.json'), 'utf8'),
+  ) as { svgSources: ButtonSvgSources };
   const maxClicks = 10;
+  const allowedOrigins = [PAGE_ORIGIN];
 
-  const response = await fetch(`${API_ORIGIN}/v1/buttons`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ maxClicks, allowedOrigins: [PAGE_ORIGIN], svgSource, colors }),
-  });
-  if (!response.ok) {
-    throw new Error(`POST /v1/buttons failed: ${response.status} ${await response.text()}`);
-  }
-  const created = (await response.json()) as CreateButtonResponse;
-  return { api: API_ORIGIN, publicKey: created.publicKey, maxClicks, colors };
+  return {
+    api: API_ORIGIN,
+    publicKey: await createButton(secret, { maxClicks, allowedOrigins, svgSource, colors }),
+    explicitKey: await createButton(secret, {
+      name: 'Explicit stars',
+      maxClicks,
+      allowedOrigins,
+      svgSources,
+    }),
+    maxClicks,
+    colors,
+  };
 }
 
 /**
@@ -184,7 +209,7 @@ async function main(): Promise<void> {
   await app.listen({ port: API_PORT, host: '127.0.0.1' });
 
   const fixture: E2eFixture = {
-    ...(await registerButton(await createTenant())),
+    ...(await registerButtons(await createTenant())),
     siteName: TENANT_NAME,
     demoKey: demo.publicKey,
     session: await seedSession(pool, config),
