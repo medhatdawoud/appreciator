@@ -427,6 +427,46 @@ page and dashboard read to boot:
 
 `demoKey` is the demo button's public key, or `null` with `DEMO_BUTTON=false`.
 
+`GET /config.json` answers the same body: the landing page fetches
+`./config.json` so that one file works both here and on GitHub Pages.
+
+## Web pages
+
+The server serves the landing page, the leaderboard page and the dashboard
+itself, so a deployment is one process. None of these need credentials; the
+dashboard page is public and only its API calls carry the session cookie.
+
+| Path               | File                                                             |
+| ------------------ | ---------------------------------------------------------------- |
+| `GET /`            | `site/index.html` (repository root)                              |
+| `GET /leaderboard` | `site/leaderboard.html`                                          |
+| `GET /dashboard`   | `src/web/dashboard.html`                                         |
+| `GET /site/<file>` | anything under `site/`, for the dashboard's shared styles/images |
+| `GET /web/<file>`  | anything under `src/web/`                                        |
+| `GET /<file>`      | anything under `site/`                                           |
+
+The last one exists because the landing page links its assets relatively (it
+is also deployed to GitHub Pages under a path prefix), so served at `/` they
+resolve to `/site.css` and `/img/heart.svg`.
+
+Only `.html`, `.css`, `.js` and `.svg` files are served, paths are resolved
+and checked to stay inside their folder, and anything else answers the usual
+`404 not_found`. Pages are `Cache-Control: no-store`; assets are
+`public, max-age=300`, like the widget bundle. Every response carries
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and
+
+```
+Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self';
+  connect-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com;
+  form-action 'self'; base-uri 'none'
+```
+
+so the pages contain no inline script or style at all.
+
+The folders are resolved relative to the module, so this works under `tsx`
+(`src/web`, and `site/` four levels up) and after `npm run build`, which
+copies `src/web` to `dist/web` and the repository's `site/` to `dist/site`.
+
 ## Leaderboard
 
 `GET /v1/leaderboard` (public, no credentials) ranks tenants by the clicks on

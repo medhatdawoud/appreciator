@@ -1,0 +1,533 @@
+/**
+ * Dashboard for signed-in GitHub accounts: sites (management keys) and their
+ * buttons. Talks to the same origin with the session cookie; every non-GET
+ * request carries the header the server's CSRF check requires. No inline
+ * scripts, no innerHTML with server data.
+ */
+(() => {
+  const STATES = ['default', 'hover', 'clicked', 'full'];
+
+  const views = new Map(
+    [...document.querySelectorAll('[data-view]')].map((el) => [el.dataset.view, el]),
+  );
+  const templates = new Map(
+    [...document.querySelectorAll('template[data-template]')].map((el) => [
+      el.dataset.template,
+      el,
+    ]),
+  );
+
+  const state = {
+    account: null,
+    config: null,
+    sites: [],
+    buttons: new Map(),
+    itemsCursor: null,
+    /** Secret to reveal once on the site view right after creating a site. */
+    pendingSecret: null,
+    /** Button to highlight on the site view right after creating it. */
+    justCreatedButtonId: null,
+  };
+
+  function $(selector, root = document) {
+    return root.querySelector(selector);
+  }
+
+  function show(name) {
+    for (const [key, el] of views) el.hidden = key !== name;
+    $('[data-global-error]').hidden = true;
+  }
+
+  function clone(name) {
+    return templates.get(name).content.firstElementChild.cloneNode(true);
+  }
+
+  function fail(message) {
+    const el = $('[data-global-error]');
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  class ApiError extends Error {
+    constructor(status, code, message) {
+      super(message);
+      this.status = status;
+      this.code = code;
+    }
+  }
+
+  async function api(path, { method = 'GET', body } = {}) {
+    const headers = { 'x-requested-with': 'appreciator' };
+    if (body !== undefined) headers['content-type'] = 'application/json';
+    const response = await fetch(path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    if (response.status === 204) return null;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) {
+        state.account = null;
+        renderSignedOut();
+      }
+      throw new ApiError(
+        response.status,
+        data.error,
+        data.message || `Request failed (${response.status})`,
+      );
+    }
+    return data;
+  }
+
+  function copyButtons(root = document) {
+    for (const button of root.querySelectorAll('[data-copy]')) {
+      if (button.dataset.wired) continue;
+      button.dataset.wired = '1';
+      button.addEventListener('click', async () => {
+        const target = $(button.dataset.copy);
+        await navigator.clipboard.writeText(target?.textContent ?? '');
+        button.textContent = 'Copied';
+        setTimeout(() => (button.textContent = 'Copy'), 1500);
+      });
+    }
+  }
+
+  // ---- signed out -------------------------------------------------------
+
+  function renderSignedOut() {
+    show('signed-out');
+    const enabled = Boolean(state.config?.signInEnabled);
+    $('[data-signin-available]').hidden = !enabled;
+    $('[data-signin-disabled]').hidden = enabled;
+    $('[data-signin-button]').hidden = !enabled;
+    $('[data-not-allowed]').hidden =
+      new URLSearchParams(location.search).get('error') !== 'not_allowed';
+    $('[data-account]').hidden = true;
+  }
+
+  // ---- sites --------------------------------------------------------------
+
+  async function renderSites() {
+    show('sites');
+    const { sites } = await api('/v1/sites');
+    state.sites = sites;
+    const list = $('[data-sites-list]');
+    list.replaceChildren(
+      ...sites.map((site) => {
+        const row = clone('site-row');
+        $('[data-site-link]', row).href = `#/sites/${site.id}`;
+        $('[data-site-row-name]', row).textContent = site.name;
+        $('[data-site-row-count]', row).textContent =
+          `${site.buttonCount} button${site.buttonCount === 1 ? '' : 's'}`;
+        return row;
+      }),
+    );
+    $('[data-sites-empty]').hidden = sites.length > 0;
+    // First visit: skip the empty list and go straight to naming a site.
+    const firstSite = sites.length === 0;
+    $('[data-onboarding-sites]').hidden = !firstSite;
+    $('[data-form="new-site"]').hidden = !firstSite;
+    if (firstSite) $('[data-form="new-site"] input').focus();
+  }
+
+  function showSecret(view, siteName, secret, { rotated = false } = {}) {
+    const panel = $(`[data-view="${view}"] [data-secret-panel]`);
+    const label = $('[data-secret-site]', panel);
+    if (label) label.textContent = siteName;
+    const intro = $('[data-secret-intro]', panel);
+    if (intro && rotated) {
+      intro.replaceChildren();
+      const strong = document.createElement('strong');
+      strong.textContent = 'New API key';
+      intro.append(strong, ' — shown once, not stored. The previous key no longer works.');
+    }
+    $('[data-secret-value]', panel).textContent = secret;
+    panel.hidden = false;
+    copyButtons(panel);
+  }
+
+  $('[data-action="new-site"]').addEventListener('click', () => {
+    $('[data-form="new-site"]').hidden = false;
+    $('[data-form="new-site"] input').focus();
+  });
+
+  $('[data-form="new-site"]').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    try {
+      const { site, secret } = await api('/v1/sites', {
+        method: 'POST',
+        body: { name: form.elements.name.value.trim() },
+      });
+      form.reset();
+      form.hidden = true;
+      state.sites = [];
+      state.pendingSecret = { siteId: site.id, secret };
+      location.hash = `#/sites/${site.id}`;
+    } catch (error) {
+      fail(error.message);
+    }
+  });
+
+  for (const button of document.querySelectorAll('[data-action="cancel"]')) {
+    button.addEventListener('click', () => {
+      const form = button.closest('form');
+      if (form.dataset.form === 'new-site') form.hidden = true;
+      else history.back();
+    });
+  }
+
+  for (const button of document.querySelectorAll('[data-action="dismiss-secret"]')) {
+    button.addEventListener('click', () => {
+      button.closest('[data-secret-panel]').hidden = true;
+    });
+  }
+
+  // ---- one site -----------------------------------------------------------
+
+  function siteById(id) {
+    return state.sites.find((site) => site.id === id);
+  }
+
+  async function ensureSites() {
+    if (state.sites.length === 0) state.sites = (await api('/v1/sites')).sites;
+  }
+
+  async function renderSite(siteId) {
+    await ensureSites();
+    const site = siteById(siteId);
+    if (!site) {
+      location.hash = '#/sites';
+      return;
+    }
+    show('site');
+    $('[data-site-name]').textContent = site.name;
+    const { buttons } = await api(`/v1/sites/${siteId}/buttons`);
+    state.buttons.set(siteId, buttons);
+    const list = $('[data-buttons-list]');
+    list.replaceChildren(
+      ...buttons.map((button) => {
+        const row = clone('button-row');
+        $('[data-button-row-name]', row).textContent = button.name || 'Untitled button';
+        $('[data-button-row-key]', row).textContent = button.publicKey;
+        $('[data-button-row-cap]', row).textContent = String(button.maxClicks);
+        $('[data-button-row-origins]', row).textContent = button.allowedOrigins.join(', ');
+        $('[data-button-row-snippet]', row).textContent = button.embedSnippet;
+        $('[data-button-row-items]', row).href = `#/sites/${siteId}/buttons/${button.id}/items`;
+        $('[data-button-row-edit]', row).href = `#/sites/${siteId}/buttons/${button.id}/edit`;
+        $('[data-copy-snippet]', row).addEventListener('click', async (event) => {
+          await navigator.clipboard.writeText(button.embedSnippet);
+          event.currentTarget.textContent = 'Copied';
+          setTimeout(() => (event.target.textContent = 'Copy'), 1500);
+        });
+        $('[data-button-row-delete]', row).addEventListener('click', async () => {
+          if (!confirm(`Delete "${button.name || button.publicKey}"? Its counts are lost.`)) return;
+          try {
+            await api(`/v1/sites/${siteId}/buttons/${button.id}`, { method: 'DELETE' });
+            await renderSite(siteId);
+          } catch (error) {
+            fail(error.message);
+          }
+        });
+        return row;
+      }),
+    );
+    $('[data-buttons-empty]').hidden = buttons.length > 0;
+
+    const created = state.justCreatedButtonId;
+    state.justCreatedButtonId = null;
+    const onboarding = $('[data-site-onboarding]');
+    onboarding.hidden = !(buttons.length === 0 || created !== null);
+    $('[data-onboarding-create]').hidden = buttons.length > 0;
+    $('[data-onboarding-ready]').hidden = created === null;
+    if (created !== null) {
+      const index = buttons.findIndex((b) => b.id === created);
+      list.children[index]?.classList.add('highlight');
+      list.children[index]?.scrollIntoView({ block: 'nearest' });
+    }
+
+    if (state.pendingSecret?.siteId === siteId) {
+      showSecret('site', site.name, state.pendingSecret.secret);
+      state.pendingSecret = null;
+    }
+
+    $('[data-action="new-button"]').onclick = () => {
+      location.hash = `#/sites/${siteId}/buttons/new`;
+    };
+    $('[data-action="rotate-key"]').onclick = async () => {
+      if (!confirm('Rotate the API key? The current key stops working immediately.')) return;
+      try {
+        const { secret } = await api(`/v1/sites/${siteId}/rotate-key`, { method: 'POST' });
+        showSecret('site', site.name, secret, { rotated: true });
+      } catch (error) {
+        fail(error.message);
+      }
+    };
+    $('[data-action="delete-site"]').onclick = async () => {
+      if (!confirm(`Delete site "${site.name}" and all of its buttons and counts?`)) return;
+      try {
+        await api(`/v1/sites/${siteId}`, { method: 'DELETE' });
+        state.sites = [];
+        location.hash = '#/sites';
+      } catch (error) {
+        fail(error.message);
+      }
+    };
+  }
+
+  // ---- button form --------------------------------------------------------
+
+  const form = $('[data-form="button"]');
+
+  function iconMode() {
+    return form.elements.iconMode.value;
+  }
+
+  function updateIconMode() {
+    for (const block of form.querySelectorAll('[data-icon-mode]')) {
+      block.hidden = block.dataset.iconMode !== iconMode();
+    }
+    renderPreview();
+  }
+
+  function svgDataUrl(svg) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  function renderPreview() {
+    const preview = $('[data-preview]');
+    const sources =
+      iconMode() === 'single'
+        ? [form.elements.svgSource.value]
+        : iconMode() === 'states'
+          ? STATES.map((s) => form.elements[`svg-${s}`].value)
+          : [];
+    preview.replaceChildren(
+      ...sources
+        .filter((svg) => svg.trim().startsWith('<'))
+        .map((svg) => {
+          const img = document.createElement('img');
+          img.alt = '';
+          img.src = svgDataUrl(svg);
+          return img;
+        }),
+    );
+  }
+
+  form.addEventListener('change', updateIconMode);
+  form.addEventListener('input', (event) => {
+    if (event.target.tagName === 'TEXTAREA') renderPreview();
+  });
+
+  for (const input of form.querySelectorAll('[data-file-for]')) {
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      form.elements[input.dataset.fileFor].value = await file.text();
+      renderPreview();
+    });
+  }
+
+  function fillForm(button) {
+    form.reset();
+    if (!button) {
+      updateIconMode();
+      return;
+    }
+    form.elements.name.value = button.name ?? '';
+    form.elements.allowedOrigins.value = button.allowedOrigins.join('\n');
+    form.elements.maxClicks.value = String(button.maxClicks);
+    form.elements.urlNormalization.value = button.urlNormalization;
+    if (button.svgSources) {
+      form.elements.iconMode.value = 'states';
+      for (const s of STATES) form.elements[`svg-${s}`].value = button.svgSources[s];
+    } else {
+      form.elements.iconMode.value = 'single';
+      form.elements.svgSource.value = button.svgSource;
+      for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
+    }
+    updateIconMode();
+  }
+
+  function toHex(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color : '#6b7280';
+  }
+
+  function readForm() {
+    const input = {
+      name: form.elements.name.value.trim(),
+      allowedOrigins: form.elements.allowedOrigins.value
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+      maxClicks: Number(form.elements.maxClicks.value),
+      urlNormalization: form.elements.urlNormalization.value,
+    };
+    if (iconMode() === 'single') {
+      input.svgSource = form.elements.svgSource.value;
+      input.colors = Object.fromEntries(STATES.map((s) => [s, form.elements[`color-${s}`].value]));
+    } else if (iconMode() === 'states') {
+      input.svgSources = Object.fromEntries(
+        STATES.map((s) => [s, form.elements[`svg-${s}`].value]),
+      );
+    }
+    return input;
+  }
+
+  async function renderButtonForm(siteId, buttonId) {
+    await ensureSites();
+    show('button-form');
+    $('[data-view="button-form"] [data-back-link]').href = `#/sites/${siteId}`;
+    let editing = null;
+    if (buttonId) {
+      const buttons =
+        state.buttons.get(siteId) ?? (await api(`/v1/sites/${siteId}/buttons`)).buttons;
+      editing = buttons.find((b) => b.id === buttonId) ?? null;
+    }
+    $('[data-form-title]').textContent = editing ? 'Edit button' : 'New button';
+    $('[data-submit]').textContent = editing ? 'Save changes' : 'Create button';
+    $('[data-form-error]').hidden = true;
+    fillForm(editing);
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      const errorEl = $('[data-form-error]');
+      errorEl.hidden = true;
+      try {
+        const body = readForm();
+        if (editing) {
+          await api(`/v1/sites/${siteId}/buttons/${editing.id}`, { method: 'PATCH', body });
+        } else {
+          const created = await api(`/v1/sites/${siteId}/buttons`, { method: 'POST', body });
+          state.justCreatedButtonId = created.buttonId;
+        }
+        state.buttons.delete(siteId);
+        state.sites = [];
+        location.hash = `#/sites/${siteId}`;
+      } catch (error) {
+        errorEl.textContent = error.message;
+        errorEl.hidden = false;
+      }
+    };
+  }
+
+  // ---- items --------------------------------------------------------------
+
+  let itemsContext = null;
+
+  async function loadItems(reset) {
+    const { siteId, buttonId } = itemsContext;
+    const params = new URLSearchParams({ limit: '50' });
+    const origin = $('[data-form="items-filter"] input').value.trim();
+    if (origin) params.set('origin', origin);
+    if (!reset && state.itemsCursor) params.set('cursor', state.itemsCursor);
+    const page = await api(`/v1/sites/${siteId}/buttons/${buttonId}/items?${params}`);
+    const body = $('[data-items-body]');
+    if (reset) body.replaceChildren();
+    for (const item of page.items) {
+      const tr = document.createElement('tr');
+      for (const [text, className] of [
+        [item.itemKey, ''],
+        [String(item.totalCount), 'num'],
+        [new Date(item.updatedAt).toLocaleString(), ''],
+      ]) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        if (className) td.className = className;
+        tr.append(td);
+      }
+      body.append(tr);
+    }
+    state.itemsCursor = page.nextCursor;
+    $('[data-action="load-more"]').hidden = page.nextCursor === null;
+    $('[data-items-empty]').hidden = body.children.length > 0;
+  }
+
+  async function renderItems(siteId, buttonId) {
+    show('items');
+    $('[data-view="items"] [data-back-link]').href = `#/sites/${siteId}`;
+    const buttons = state.buttons.get(siteId) ?? (await api(`/v1/sites/${siteId}/buttons`)).buttons;
+    const button = buttons.find((b) => b.id === buttonId);
+    $('[data-items-button]').textContent = button?.name || button?.publicKey || 'button';
+    itemsContext = { siteId, buttonId };
+    $('[data-form="items-filter"] input').value = '';
+    try {
+      await loadItems(true);
+    } catch (error) {
+      fail(error.message);
+    }
+  }
+
+  $('[data-form="items-filter"]').addEventListener('submit', (event) => {
+    event.preventDefault();
+    loadItems(true).catch((error) => fail(error.message));
+  });
+  $('[data-action="clear-filter"]').addEventListener('click', () => {
+    $('[data-form="items-filter"] input').value = '';
+    loadItems(true).catch((error) => fail(error.message));
+  });
+  $('[data-action="load-more"]').addEventListener('click', () => {
+    loadItems(false).catch((error) => fail(error.message));
+  });
+
+  // ---- routing ------------------------------------------------------------
+
+  async function route() {
+    if (!state.account) {
+      renderSignedOut();
+      return;
+    }
+    const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+    try {
+      if (parts[0] !== 'sites' || parts.length === 1) return await renderSites();
+      const siteId = parts[1];
+      if (parts.length === 2) return await renderSite(siteId);
+      if (parts[2] === 'buttons' && parts[3] === 'new') return await renderButtonForm(siteId);
+      if (parts[2] === 'buttons' && parts[4] === 'edit')
+        return await renderButtonForm(siteId, parts[3]);
+      if (parts[2] === 'buttons' && parts[4] === 'items')
+        return await renderItems(siteId, parts[3]);
+      location.hash = '#/sites';
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) fail(error.message);
+    }
+  }
+
+  window.addEventListener('hashchange', route);
+
+  $('[data-logout]').addEventListener('click', async () => {
+    await api('/auth/logout', { method: 'POST' }).catch(() => {});
+    state.account = null;
+    location.hash = '';
+    renderSignedOut();
+  });
+
+  async function main() {
+    state.config = await fetch('/web/config.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+    if (state.config.repoUrl) {
+      for (const link of document.querySelectorAll('[data-repo-link]'))
+        link.href = `${state.config.repoUrl}#readme`;
+    }
+    try {
+      state.account = await api('/auth/me');
+    } catch {
+      state.account = null;
+    }
+    if (state.account) {
+      $('[data-account]').hidden = false;
+      $('[data-login]').textContent = state.account.login;
+      const avatar = $('[data-avatar]');
+      if (state.account.avatarUrl) avatar.src = state.account.avatarUrl;
+      else avatar.remove();
+      if (!location.hash) location.hash = '#/sites';
+    }
+    copyButtons();
+    await route();
+  }
+
+  main();
+})();

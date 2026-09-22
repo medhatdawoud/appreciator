@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Appreciator dashboard</title>
+    <link rel="icon" href="/site/img/heart.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/site/site.css" />
+    <link rel="stylesheet" href="/web/dashboard.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/site/img/heart.svg" alt="" width="24" height="24" />
+        <span>Appreciator</span>
+      </a>
+      <nav class="nav">
+        <a href="#/sites">Sites</a>
+        <a href="/leaderboard">Most appreciated</a>
+        <a data-repo-link href="https://github.com/medhatdawoud/appreciator">Docs</a>
+        <span class="account" data-account hidden>
+          <img data-avatar alt="" width="24" height="24" />
+          <span data-login></span>
+          <button type="button" class="link" data-logout>Sign out</button>
+        </span>
+      </nav>
+    </header>
+
+    <main class="dash">
+      <section data-view="signed-out" hidden>
+        <h1>Dashboard</h1>
+        <p data-signin-available>
+          Sign in with your GitHub account to create sites and buttons on this instance. Only
+          accounts on the instance's allowlist can sign in.
+        </p>
+        <p data-signin-disabled hidden>
+          Sign-in is not configured on this instance. Set <code>GITHUB_CLIENT_ID</code>,
+          <code>GITHUB_CLIENT_SECRET</code>, <code>GITHUB_ALLOWED_LOGINS</code> and
+          <code>SESSION_SECRET</code>, or use the management API with a bearer key.
+        </p>
+        <p class="notice" data-not-allowed hidden>That GitHub account is not on the allowlist.</p>
+        <a class="btn btn-primary" data-signin-button href="/auth/github">
+          <img src="/site/img/github.svg" alt="" width="18" height="18" />
+          Sign in with GitHub
+        </a>
+      </section>
+
+      <section data-view="sites" hidden>
+        <div class="view-head">
+          <h1>Sites</h1>
+          <button type="button" class="btn btn-primary" data-action="new-site">New site</button>
+        </div>
+        <p class="muted">
+          A site is a management key that owns buttons. Its buttons can be embedded on any origin
+          they allow.
+        </p>
+        <p class="onboarding-step" data-onboarding-sites hidden>
+          <strong>Step 1 of 3.</strong> Name your site — your blog, docs, or product. You will get
+          an API key and can add buttons right after.
+        </p>
+        <form class="card inline-form" data-form="new-site" hidden>
+          <label>Name <input name="name" required maxlength="255" placeholder="My blog" /></label>
+          <button type="submit" class="btn btn-primary">Create</button>
+          <button type="button" class="btn btn-secondary" data-action="cancel">Cancel</button>
+        </form>
+        <div class="card secret" data-secret-panel hidden>
+          <p>
+            <strong>API key for <span data-secret-site></span></strong> — shown once, not stored.
+            Use it as <code>Authorization: Bearer …</code>.
+          </p>
+          <div class="code-block">
+            <pre><code data-secret-value></code></pre>
+            <button class="copy" type="button" data-copy="[data-secret-value]">Copy</button>
+          </div>
+          <button type="button" class="btn btn-secondary" data-action="dismiss-secret">Done</button>
+        </div>
+        <ul class="list" data-sites-list></ul>
+        <p class="muted" data-sites-empty hidden>No sites yet.</p>
+      </section>
+
+      <section data-view="site" hidden>
+        <p><a href="#/sites">← Sites</a></p>
+        <div class="view-head">
+          <h1 data-site-name></h1>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" data-action="new-button">
+              New button
+            </button>
+            <button type="button" class="btn btn-secondary" data-action="rotate-key">
+              Rotate API key
+            </button>
+            <button type="button" class="btn btn-danger" data-action="delete-site">
+              Delete site
+            </button>
+          </div>
+        </div>
+        <div class="card onboarding" data-site-onboarding hidden>
+          <p data-onboarding-create>
+            <strong>Step 2 of 3.</strong> Create your first button. The built-in heart works out of
+            the box; you only need to say which sites may embed it.
+          </p>
+          <p data-onboarding-ready hidden>
+            <strong>Step 3 of 3.</strong> Your button is ready. Copy its snippet below and paste it
+            into your page where the button should appear.
+          </p>
+        </div>
+        <div class="card secret" data-secret-panel hidden>
+          <p data-secret-intro>
+            <strong>API key</strong> — shown once, not stored. Use it as
+            <code>Authorization: Bearer …</code> for the management API; the dashboard does not need
+            it.
+          </p>
+          <div class="code-block">
+            <pre><code data-secret-value></code></pre>
+            <button class="copy" type="button" data-copy="[data-view='site'] [data-secret-value]">
+              Copy
+            </button>
+          </div>
+          <button type="button" class="btn btn-secondary" data-action="dismiss-secret">Done</button>
+        </div>
+        <ul class="list" data-buttons-list></ul>
+        <p class="muted" data-buttons-empty hidden>No buttons yet.</p>
+      </section>
+
+      <section data-view="button-form" hidden>
+        <p><a data-back-link href="#/sites">← Back</a></p>
+        <h1 data-form-title>New button</h1>
+        <form class="card form" data-form="button">
+          <label>Name <input name="name" maxlength="255" placeholder="Blog posts" /></label>
+          <label>
+            Allowed origins, one per line
+            <textarea
+              name="allowedOrigins"
+              rows="3"
+              required
+              placeholder="https://myblog.com&#10;https://*.myblog.com"
+            ></textarea>
+            <small
+              >Exact origins, or <code>https://*.example.com</code> for every subdomain.
+              <code>*</code> allows any site.</small
+            >
+          </label>
+          <div class="row">
+            <label
+              >Clicks per visitor
+              <input name="maxClicks" type="number" min="1" max="1000" value="10"
+            /></label>
+            <label>
+              Count by
+              <select name="urlNormalization">
+                <option value="pathname">page path (ignore query and #)</option>
+                <option value="full">full URL</option>
+              </select>
+            </label>
+          </div>
+          <fieldset>
+            <legend>Icon</legend>
+            <label
+              ><input type="radio" name="iconMode" value="default" checked /> Built-in heart</label
+            >
+            <label
+              ><input type="radio" name="iconMode" value="single" /> One SVG, recoloured per
+              state</label
+            >
+            <label
+              ><input type="radio" name="iconMode" value="states" /> Four SVGs, one per state</label
+            >
+            <div data-icon-mode="single" hidden>
+              <label>SVG <textarea name="svgSource" rows="4"></textarea></label>
+              <input type="file" accept=".svg,image/svg+xml" data-file-for="svgSource" />
+              <div class="row colors">
+                <label>default <input type="color" name="color-default" value="#6b7280" /></label>
+                <label>hover <input type="color" name="color-hover" value="#374151" /></label>
+                <label>clicked <input type="color" name="color-clicked" value="#f43f5e" /></label>
+                <label>full <input type="color" name="color-full" value="#e11d48" /></label>
+              </div>
+            </div>
+            <div data-icon-mode="states" hidden>
+              <label>default <textarea name="svg-default" rows="3"></textarea></label>
+              <input type="file" accept=".svg,image/svg+xml" data-file-for="svg-default" />
+              <label>hover <textarea name="svg-hover" rows="3"></textarea></label>
+              <input type="file" accept=".svg,image/svg+xml" data-file-for="svg-hover" />
+              <label>clicked <textarea name="svg-clicked" rows="3"></textarea></label>
+              <input type="file" accept=".svg,image/svg+xml" data-file-for="svg-clicked" />
+              <label>full <textarea name="svg-full" rows="3"></textarea></label>
+              <input type="file" accept=".svg,image/svg+xml" data-file-for="svg-full" />
+            </div>
+            <div class="preview" data-preview></div>
+          </fieldset>
+          <p class="notice" data-form-error hidden></p>
+          <div class="actions">
+            <button type="submit" class="btn btn-primary" data-submit>Create button</button>
+            <button type="button" class="btn btn-secondary" data-action="cancel">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <section data-view="items" hidden>
+        <p><a data-back-link href="#/sites">← Back</a></p>
+        <h1>Counts for <span data-items-button></span></h1>
+        <form class="inline-form" data-form="items-filter">
+          <label>Origin <input name="origin" placeholder="https://myblog.com" /></label>
+          <button type="submit" class="btn btn-secondary">Filter</button>
+          <button type="button" class="btn btn-secondary" data-action="clear-filter">Clear</button>
+        </form>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Page or item</th>
+              <th class="num">Total</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody data-items-body></tbody>
+        </table>
+        <p class="muted" data-items-empty hidden>No clicks yet.</p>
+        <button type="button" class="btn btn-secondary" data-action="load-more" hidden>
+          Load more
+        </button>
+      </section>
+
+      <p class="notice" data-global-error hidden></p>
+    </main>
+
+    <template data-template="site-row">
+      <li class="list-row">
+        <a class="row-main" data-site-link href="#">
+          <strong data-site-row-name></strong>
+          <span class="muted" data-site-row-count></span>
+        </a>
+      </li>
+    </template>
+
+    <template data-template="button-row">
+      <li class="list-row">
+        <div class="row-main">
+          <strong data-button-row-name></strong>
+          <span class="muted"
+            ><code data-button-row-key></code> · <span data-button-row-cap></span> clicks ·
+            <span data-button-row-origins></span
+          ></span>
+          <div class="code-block small">
+            <pre><code data-button-row-snippet></code></pre>
+            <button class="copy" type="button" data-copy-snippet>Copy</button>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn btn-secondary" data-button-row-items href="#">Counts</a>
+          <a class="btn btn-secondary" data-button-row-edit href="#">Edit</a>
+          <button type="button" class="btn btn-danger" data-button-row-delete>Delete</button>
+        </div>
+      </li>
+    </template>
+
+    <script src="/web/dashboard.js"></script>
+  </body>
+</html>

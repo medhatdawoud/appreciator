@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp -R src/db/migrations dist/db/migrations",
+    "build": "tsc -p tsconfig.json && cp -R src/db/migrations dist/db/migrations && mkdir -p dist/web dist/site && cp -R src/web/. dist/web && cp -R ../../site/. dist/site",
     "typecheck": "tsc -p tsconfig.test.json",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",

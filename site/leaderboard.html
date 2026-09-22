@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Most appreciated — Appreciator</title>
+    <meta
+      name="description"
+      content="Sites ranked by the appreciation their visitors have shown, across every button they run."
+    />
+    <link rel="icon" href="img/heart.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="./">
+        <img src="img/heart.svg" alt="" width="24" height="24" />
+        <span>Appreciator</span>
+      </a>
+      <nav class="nav">
+        <a href="./#install">Install</a>
+        <a href="./#how">How it works</a>
+        <a href="./leaderboard" aria-current="page">Most appreciated</a>
+        <a class="nav-github" data-repo-link href="https://github.com/medhatdawoud/appreciator">
+          <img src="img/github.svg" alt="" width="18" height="18" />
+          GitHub
+        </a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section board">
+        <p class="eyebrow">Leaderboard</p>
+        <h1>Most appreciated</h1>
+        <p class="lead">
+          Every site on this instance, ranked by the appreciation its visitors have shown across all
+          of its buttons and pages.
+        </p>
+
+        <table class="table board-table" data-board hidden>
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th>Site</th>
+              <th class="num">Buttons</th>
+              <th class="num">Appreciation</th>
+            </tr>
+          </thead>
+          <tbody data-board-body></tbody>
+        </table>
+        <p class="muted" data-board-empty hidden>No appreciation has been recorded yet.</p>
+        <p class="muted" data-board-missing hidden>
+          This copy of the page is not connected to an Appreciator instance.
+        </p>
+        <p class="notice" data-board-error hidden>The leaderboard could not be loaded.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>
+        Open source under the MIT licence —
+        <a data-repo-link href="https://github.com/medhatdawoud/appreciator">star it on GitHub</a>.
+      </p>
+    </footer>
+
+    <script src="leaderboard.js"></script>
+  </body>
+</html>
