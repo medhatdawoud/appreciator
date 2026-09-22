@@ -162,6 +162,135 @@ describe('public routes', () => {
     });
   });
 
+  describe('GET /config', () => {
+    function config(publicKey: string, origin: string | undefined = ORIGIN) {
+      return context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${publicKey}/config`,
+        headers: origin === undefined ? {} : { origin },
+      });
+    }
+
+    it('returns exactly the fields the widget needs to render', async () => {
+      const response = await config(button.publicKey);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        maxClicks: 10,
+        svgSource: SVG,
+        colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
+        urlNormalization: 'pathname',
+      });
+    });
+
+    it('exposes no private field', async () => {
+      const created = await createButton(
+        buttonInput({ allowedOrigins: [ORIGIN, 'https://secret-staging.internal'] }),
+      );
+
+      const response = await config(created.publicKey);
+      const body = response.json();
+
+      expect(Object.keys(body).sort()).toEqual([
+        'colors',
+        'maxClicks',
+        'svgSource',
+        'urlNormalization',
+      ]);
+      for (const leak of [
+        created.buttonId,
+        created.publicKey,
+        tenant.id,
+        'allowedOrigins',
+        'secret-staging.internal',
+        'tenantId',
+        'createdAt',
+      ]) {
+        expect(response.body, `must not contain ${leak}`).not.toContain(leak);
+      }
+    });
+
+    it('reflects a button-specific maxClicks and normalization mode', async () => {
+      const created = await createButton(buttonInput({ maxClicks: 3, urlNormalization: 'full' }));
+
+      const body = (await config(created.publicKey)).json();
+      expect(body.maxClicks).toBe(3);
+      expect(body.urlNormalization).toBe('full');
+    });
+
+    it('is cacheable, but briefly, and varies by origin', async () => {
+      const response = await config(button.publicKey);
+
+      expect(response.headers['cache-control']).toBe('public, max-age=60');
+      // `public` is only safe because the per-origin CORS header is part of
+      // the cache key. Without this, a shared cache could hand one site's
+      // Access-Control-Allow-Origin to another.
+      expect(String(response.headers.vary)).toMatch(/origin/i);
+    });
+
+    it('shows a PATCH quickly rather than serving a stale cap', async () => {
+      await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${button.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { maxClicks: 4 },
+      });
+
+      const maxAge = Number(
+        /max-age=(\d+)/.exec(
+          String((await config(button.publicKey)).headers['cache-control']),
+        )?.[1],
+      );
+      expect((await config(button.publicKey)).json().maxClicks).toBe(4);
+      expect(maxAge).toBeLessThanOrEqual(60);
+    });
+
+    it('404s on an unknown public key', async () => {
+      const response = await config(`pk_${'0'.repeat(32)}`);
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('answers a malformed public key exactly like an unknown one', async () => {
+      const malformed = await config('not-a-key');
+      const unknown = await config(`pk_${'0'.repeat(32)}`);
+
+      expect(malformed.statusCode).toBe(404);
+      expect(unknown.statusCode).toBe(404);
+      expect(malformed.json().message).toBe(unknown.json().message);
+    });
+
+    it('refuses a disallowed origin and sends it no allow-origin header', async () => {
+      const response = await config(button.publicKey, 'https://evil.test');
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json().error).toBe('origin_not_allowed');
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      expect(response.body).not.toContain(SVG);
+    });
+
+    it('applies the allowlist of the button named in the path', async () => {
+      const other = await createButton(buttonInput({ allowedOrigins: ['https://other.test'] }));
+
+      expect((await config(other.publicKey, ORIGIN)).statusCode).toBe(403);
+      expect((await config(other.publicKey, 'https://other.test')).statusCode).toBe(200);
+    });
+
+    it('needs no credentials', async () => {
+      const response = await config(button.publicKey);
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('is counted against the same public rate limit', async () => {
+      // Shares the plugin scope with /state and /click, so it cannot be used
+      // as an unmetered way to hammer the server.
+      const response = await config(button.publicKey);
+
+      expect(response.headers['x-ratelimit-limit']).toBeDefined();
+    });
+  });
+
   describe('POST /click', () => {
     it('records a click and returns the updated counts', async () => {
       const response = await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });

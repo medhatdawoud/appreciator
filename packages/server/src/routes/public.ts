@@ -1,15 +1,21 @@
 import fastifyCors, { type FastifyCorsOptions } from '@fastify/cors';
 import fastifyRateLimit from '@fastify/rate-limit';
-import type { ClickCounts, ClickRequest, StateQuery } from '@appreciator/shared';
+import type {
+  ButtonPublicConfig,
+  ClickCounts,
+  ClickRequest,
+  StateQuery,
+} from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import type { ButtonRow } from '../db/buttons.js';
-import { findButtonByPublicKey } from '../db/buttons.js';
+import { findButtonByPublicKey, toButtonConfig } from '../db/buttons.js';
 import { isOriginAllowed } from '../lib/auth.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { incrementClick, readCounts } from '../lib/guarded-increment.js';
 import { ItemKeyError, normalizeItemKey } from '../lib/url-normalize.js';
 import { hashVisitor } from '../lib/visitor-hash.js';
+import { colorsSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -25,7 +31,16 @@ const PUBLIC_KEY_PATTERN = '^pk_[0-9a-f]{32}$';
  * from a wildcard `OPTIONS *` route. That route has no `:publicKey` param, so
  * the key is read from the path rather than from `request.params`.
  */
-const PUBLIC_ROUTE_PATTERN = /^\/v1\/buttons\/(pk_[0-9a-f]{32})\/(?:state|click)$/;
+const PUBLIC_ROUTE_PATTERN = /^\/v1\/buttons\/(pk_[0-9a-f]{32})\/(?:state|click|config)$/;
+
+/**
+ * Button config is static until the owner PATCHes it, so it is worth caching -
+ * but only briefly, because an edit has to become visible without waiting out
+ * a long TTL. `public` is safe here only because @fastify/cors sets
+ * `Vary: Origin` for a function origin, which keeps a shared cache from
+ * handing one site's Access-Control-Allow-Origin to another.
+ */
+const CONFIG_CACHE_CONTROL = 'public, max-age=60';
 
 /** Raw `item` bound. The real limit is applied after normalization. */
 const MAX_ITEM_INPUT_LENGTH = 2048;
@@ -180,6 +195,38 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
   // run first, and at onRequest rather than preHandler so an unknown button or
   // a disallowed origin is answered before we parse and validate a body.
   app.addHook('onRequest', requireAllowedButton);
+
+  app.get<{ Params: PublicKeyParams }>(
+    '/v1/buttons/:publicKey/config',
+    {
+      schema: {
+        params: publicKeyParamsSchema,
+        // The response schema is the enforcement, not a description: Fastify
+        // serializes only these properties, so a field added to `buttons`
+        // later cannot leak through this endpoint by accident.
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['maxClicks', 'svgSource', 'colors', 'urlNormalization'],
+            properties: {
+              maxClicks: { type: 'integer' },
+              svgSource: { type: 'string' },
+              colors: colorsSchema,
+              urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply): Promise<ButtonPublicConfig> => {
+      const button = buttonOf(request);
+      const { maxClicks, svgSource, colors, urlNormalization } = toButtonConfig(button);
+
+      void reply.header('cache-control', CONFIG_CACHE_CONTROL);
+      return { maxClicks, svgSource, colors, urlNormalization };
+    },
+  );
 
   app.get<{ Params: PublicKeyParams; Querystring: StateQuery }>(
     '/v1/buttons/:publicKey/state',

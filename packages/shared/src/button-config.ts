@@ -27,6 +27,20 @@ export interface ButtonConfigInput {
   urlNormalization?: UrlNormalization;
 }
 
+/**
+ * What GET /v1/buttons/:publicKey/config returns: the fields the widget needs
+ * to render itself, and nothing else.
+ *
+ * This is served to any allowed origin, so it deliberately omits `id`,
+ * `publicKey`, `allowedOrigins` and anything identifying the owning tenant.
+ */
+export interface ButtonPublicConfig {
+  maxClicks: number;
+  svgSource: string;
+  colors: ButtonColors;
+  urlNormalization: UrlNormalization;
+}
+
 export interface CreateButtonResponse {
   buttonId: string;
   publicKey: string;

@@ -21,6 +21,7 @@ import {
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
 import { MAX_ITEM_KEY_LENGTH } from '../lib/url-normalize.js';
+import { colorsSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -38,29 +39,8 @@ const DEFAULT_PAGE_SIZE = 50;
  */
 const ORIGIN_PATTERN = '^(\\*|null|https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
 
-/**
- * A CSS colour we are willing to interpolate into an icon: a hex literal, a
- * bare keyword, or an rgb()/rgba() call. Anything else could close out of an
- * attribute in whatever markup the widget builds.
- */
-const COLOR_PATTERN = '^(#[0-9A-Fa-f]{3,8}|[A-Za-z]{1,32}|rgba?\\([0-9.,%\\s]{1,40}\\))$';
-
 const UUID_PATTERN =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
-
-const colorSchema = { type: 'string', minLength: 1, maxLength: 64, pattern: COLOR_PATTERN };
-
-const colorsSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['default', 'hover', 'clicked', 'full'],
-  properties: {
-    default: colorSchema,
-    hover: colorSchema,
-    clicked: colorSchema,
-    full: colorSchema,
-  },
-};
 
 const inputProperties = {
   maxClicks: { type: 'integer', minimum: 1, maximum: 1000 },
