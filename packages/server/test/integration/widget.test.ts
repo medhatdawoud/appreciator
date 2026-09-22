@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadAppConfig } from '../../src/env.js';
-import { closeTestContext, createTestContext, type TestContext } from './helpers.js';
+import type { CreateButtonResponse } from '@appreciator/shared';
+
+import { type AppConfig, loadAppConfig } from '../../src/env.js';
+import { closeTestContext, createTestContext, seedTenant, type TestContext } from './helpers.js';
 
 const BUNDLE_SOURCE = 'globalThis.__appreciator_widget__ = "fixture bundle";\n';
 
@@ -19,8 +21,11 @@ describe('GET /widget.js', () => {
   let bundlePath: string;
   const contexts: TestContext[] = [];
 
-  async function contextWithBundle(path: string): Promise<TestContext> {
-    const context = await createTestContext({ widgetBundlePath: path });
+  async function contextWithBundle(
+    path: string,
+    overrides: Partial<AppConfig> = {},
+  ): Promise<TestContext> {
+    const context = await createTestContext({ ...overrides, widgetBundlePath: path });
     contexts.push(context);
     return context;
   }
@@ -100,6 +105,60 @@ describe('GET /widget.js', () => {
     await utimes(bundlePath, later, later);
 
     expect((await context.app.inject({ method: 'GET', url: '/widget.js' })).body).toBe(rebuilt);
+  });
+
+  describe('rate limiting', () => {
+    const IP = '203.0.113.7';
+
+    async function fetchBundle(context: TestContext) {
+      return context.app.inject({ method: 'GET', url: '/widget.js', remoteAddress: IP });
+    }
+
+    it('throttles a client that exceeds the per-IP budget', async () => {
+      const context = await contextWithBundle(bundlePath, { widgetRateLimitMax: 3 });
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 3; i += 1) statuses.push((await fetchBundle(context)).statusCode);
+      const throttled = await fetchBundle(context);
+
+      expect(statuses).toEqual([200, 200, 200]);
+      expect(throttled.statusCode).toBe(429);
+      expect(throttled.json()).toMatchObject({
+        statusCode: 429,
+        error: expect.any(String),
+        message: expect.any(String),
+        requestId: expect.any(String),
+      });
+      expect(throttled.body).not.toContain(BUNDLE_SOURCE);
+    });
+
+    it('keeps a budget separate from the public button routes', async () => {
+      const context = await contextWithBundle(bundlePath, { widgetRateLimitMax: 3 });
+      const tenant = await seedTenant(context.pool);
+      const created = (
+        await context.app.inject({
+          method: 'POST',
+          url: '/v1/buttons',
+          headers: { authorization: tenant.authHeader },
+          payload: { allowedOrigins: ['https://example.com'] },
+        })
+      ).json() as CreateButtonResponse;
+
+      for (let i = 0; i < 4; i += 1) await fetchBundle(context);
+      expect((await fetchBundle(context)).statusCode).toBe(429);
+
+      const config = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.publicKey}/config`,
+        headers: { origin: 'https://example.com' },
+        remoteAddress: IP,
+      });
+      expect(config.statusCode).toBe(200);
+      expect(
+        (await context.app.inject({ method: 'GET', url: '/healthz', remoteAddress: IP }))
+          .statusCode,
+      ).toBe(200);
+    });
   });
 
   describe('when the widget has not been built', () => {

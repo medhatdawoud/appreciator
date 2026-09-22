@@ -48,6 +48,12 @@ export interface AppConfig {
   /** Rate limit window, as accepted by @fastify/rate-limit (e.g. '1 minute'). */
   rateLimitWindow: string;
   /**
+   * Max GET /widget.js requests per IP per window. Separate from `rateLimitMax`
+   * and higher by default: every page view of every embedding site fetches the
+   * bundle, and browser caching only absorbs repeats within its max-age.
+   */
+  widgetRateLimitMax: number;
+  /**
    * Whether to derive the client IP from X-Forwarded-For. Only enable this when
    * the process really sits behind a proxy you control: otherwise a client can
    * forge the header and sidestep per-IP rate limiting.
@@ -137,6 +143,7 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
     ),
     rateLimitMax: positiveInt(source, 'RATE_LIMIT_MAX', 60),
     rateLimitWindow: optional(source, 'RATE_LIMIT_WINDOW', '1 minute'),
+    widgetRateLimitMax: positiveInt(source, 'WIDGET_RATE_LIMIT_MAX', 300),
     trustProxy: bool(source, 'TRUST_PROXY', false),
     logLevel: optional(source, 'LOG_LEVEL', 'info'),
     widgetBundlePath: resolve(optional(source, 'WIDGET_BUNDLE_PATH', defaultWidgetBundlePath())),

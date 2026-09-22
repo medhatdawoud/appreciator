@@ -36,6 +36,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     // The rate limit has its own test that sets a real value.
     rateLimitMax: 100_000,
     rateLimitWindow: '1 minute',
+    widgetRateLimitMax: 100_000,
     trustProxy: false,
     logLevel: 'silent',
     // Points at nothing by default, so /widget.js answers its missing-bundle

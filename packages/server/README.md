@@ -27,20 +27,21 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 
 ## Configuration
 
-| Variable              | Required | Default                    | Description                                                                                                    |
-| --------------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`        | yes      | —                          | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                    |
-| `VISITOR_HASH_SECRET` | yes      | —                          | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                  |
-| `MANAGEMENT_SECRET`   | no       | —                          | Management API key, at least 32 characters. A tenant for it is provisioned on startup. `openssl rand -hex 32`. |
-| `PORT`                | no       | `3000`                     | HTTP port.                                                                                                     |
-| `HOST`                | no       | `0.0.0.0`                  | Bind address.                                                                                                  |
-| `DEFAULT_MAX_CLICKS`  | no       | `10`                       | Per-visitor cap for buttons created without an explicit `maxClicks`.                                           |
-| `PUBLIC_BASE_URL`     | no       | `http://localhost:$PORT`   | Base URL written into the generated embed snippet.                                                             |
-| `RATE_LIMIT_MAX`      | no       | `60`                       | Public-route requests allowed per IP per window.                                                               |
-| `RATE_LIMIT_WINDOW`   | no       | `1 minute`                 | Rate limit window.                                                                                             |
-| `TRUST_PROXY`         | no       | `false`                    | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                           |
-| `LOG_LEVEL`           | no       | `info`                     | Pino level.                                                                                                    |
-| `WIDGET_BUNDLE_PATH`  | no       | `../widget/dist/widget.js` | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory.  |
+| Variable                | Required | Default                    | Description                                                                                                    |
+| ----------------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | yes      | —                          | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                    |
+| `VISITOR_HASH_SECRET`   | yes      | —                          | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                  |
+| `MANAGEMENT_SECRET`     | no       | —                          | Management API key, at least 32 characters. A tenant for it is provisioned on startup. `openssl rand -hex 32`. |
+| `PORT`                  | no       | `3000`                     | HTTP port.                                                                                                     |
+| `HOST`                  | no       | `0.0.0.0`                  | Bind address.                                                                                                  |
+| `DEFAULT_MAX_CLICKS`    | no       | `10`                       | Per-visitor cap for buttons created without an explicit `maxClicks`.                                           |
+| `PUBLIC_BASE_URL`       | no       | `http://localhost:$PORT`   | Base URL written into the generated embed snippet.                                                             |
+| `RATE_LIMIT_MAX`        | no       | `60`                       | Public-route requests allowed per IP per window.                                                               |
+| `RATE_LIMIT_WINDOW`     | no       | `1 minute`                 | Rate limit window.                                                                                             |
+| `WIDGET_RATE_LIMIT_MAX` | no       | `300`                      | `GET /widget.js` requests allowed per IP per `RATE_LIMIT_WINDOW`, counted separately from the public routes.   |
+| `TRUST_PROXY`           | no       | `false`                    | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                           |
+| `LOG_LEVEL`             | no       | `info`                     | Pino level.                                                                                                    |
+| `WIDGET_BUNDLE_PATH`    | no       | `../widget/dist/widget.js` | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory.  |
 
 Changing `VISITOR_HASH_SECRET` invalidates every stored visitor hash: existing
 visitors get a fresh allowance, and their old rows become unreachable.
@@ -99,10 +100,10 @@ button's origin allowlist and a per-IP rate limit:
 
 Unauthenticated, outside the per-button scope:
 
-| Method | Path         |                                                      |
-| ------ | ------------ | ---------------------------------------------------- |
-| `GET`  | `/healthz`   | `200`, or `503` if MySQL is unreachable              |
-| `GET`  | `/widget.js` | the built widget bundle, or `404` if it is not built |
+| Method | Path         |                                                                           |
+| ------ | ------------ | ------------------------------------------------------------------------- |
+| `GET`  | `/healthz`   | `200`, or `503` if MySQL is unreachable                                   |
+| `GET`  | `/widget.js` | the built widget bundle, or `404` if it is not built; per-IP rate limited |
 
 `POST /v1/buttons` needs only `allowedOrigins`; `svgSource` and `colors` fall
 back to a built-in heart icon (see `src/lib/default-icon.ts`) and `maxClicks`
@@ -237,6 +238,14 @@ failing to boot. The configured path is logged but never returned to the caller.
 An in-process cache keyed on mtime and size avoids re-reading the file on every
 page load and picks up a rebuild without a restart; in production this route
 should sit behind a CDN or reverse proxy regardless.
+
+The route has its own per-IP rate limit, `WIDGET_RATE_LIMIT_MAX` requests per
+`RATE_LIMIT_WINDOW` (default 300 per minute), answering `429` beyond it. It is
+counted separately from the public button routes, so loading the bundle does not
+spend a visitor's budget for `/config`, `/state` and `/click`. It is higher than
+`RATE_LIMIT_MAX` because every page view of every embedding site fetches the
+bundle, and many visitors can share one address. Like the public limit it is
+in-memory and per process.
 
 ## Tests
 

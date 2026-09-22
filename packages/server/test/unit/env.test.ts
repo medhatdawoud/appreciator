@@ -30,3 +30,24 @@ describe('MANAGEMENT_SECRET', () => {
     );
   });
 });
+
+describe('WIDGET_RATE_LIMIT_MAX', () => {
+  it('defaults to 300', () => {
+    expect(loadAppConfig(baseEnv).widgetRateLimitMax).toBe(300);
+  });
+
+  it('is read independently of RATE_LIMIT_MAX', () => {
+    const config = loadAppConfig({ ...baseEnv, RATE_LIMIT_MAX: '5', WIDGET_RATE_LIMIT_MAX: '42' });
+
+    expect(config.rateLimitMax).toBe(5);
+    expect(config.widgetRateLimitMax).toBe(42);
+  });
+
+  it('refuses a value that is not a positive integer', () => {
+    for (const value of ['0', '-1', '1.5', 'lots']) {
+      expect(() => loadAppConfig({ ...baseEnv, WIDGET_RATE_LIMIT_MAX: value })).toThrow(
+        /WIDGET_RATE_LIMIT_MAX must be a positive integer/,
+      );
+    }
+  });
+});
