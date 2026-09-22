@@ -6,6 +6,7 @@ import type { Pool } from './db/pool.js';
 import type { AppConfig } from './env.js';
 import { HttpError } from './lib/errors.js';
 import { healthRoutes } from './routes/health.js';
+import { managementRoutes } from './routes/management.js';
 
 /**
  * Request body ceiling. The only large field we accept is `svgSource` (capped
@@ -34,6 +35,17 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
     // control. Trusting it unconditionally would let any client spoof its
     // source address and walk around the per-IP rate limit.
     trustProxy: config.trustProxy,
+    ajv: {
+      customOptions: {
+        // Fastify defaults this to true, which silently *drops* properties that
+        // `additionalProperties: false` disallows. We want the request refused
+        // instead: a client sending a field we do not understand is a client
+        // whose intent we cannot honour, and quietly ignoring it is how a typo
+        // in a config key becomes a button that does not do what its owner
+        // believes it does.
+        removeAdditional: false,
+      },
+    },
     logger: {
       level: config.logLevel,
       redact: {
@@ -109,6 +121,11 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   });
 
   await app.register(healthRoutes);
+
+  // Each route group is its own plugin scope, so the management bearer-auth
+  // hook cannot leak onto the public routes and the public CORS and rate-limit
+  // hooks cannot leak onto the management ones.
+  await app.register(managementRoutes);
 
   return app;
 }

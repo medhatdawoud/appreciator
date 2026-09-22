@@ -1,0 +1,592 @@
+import type { ButtonConfigInput, CreateButtonResponse } from '@appreciator/shared';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { execute, queryOne } from '../../src/db/pool.js';
+import {
+  closeTestContext,
+  createTestContext,
+  seedTenant,
+  truncateAll,
+  type TestContext,
+  type TestTenant,
+} from './helpers.js';
+
+const SVG = '<svg viewBox="0 0 24 24"><path d="M12 2 L2 22 h20 z"/></svg>';
+
+function validInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigInput {
+  return {
+    allowedOrigins: ['https://example.com'],
+    svgSource: SVG,
+    colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
+    ...overrides,
+  };
+}
+
+describe('management routes', () => {
+  let context: TestContext;
+  let tenant: TestTenant;
+  let otherTenant: TestTenant;
+
+  beforeAll(async () => {
+    context = await createTestContext();
+  });
+
+  afterAll(async () => {
+    await closeTestContext(context);
+  });
+
+  beforeEach(async () => {
+    await truncateAll(context.pool);
+    tenant = await seedTenant(context.pool, 'Acme');
+    otherTenant = await seedTenant(context.pool, 'Rival');
+  });
+
+  async function createButton(
+    input: ButtonConfigInput = validInput(),
+    as: TestTenant = tenant,
+  ): Promise<CreateButtonResponse> {
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/v1/buttons',
+      headers: { authorization: as.authHeader },
+      payload: input,
+    });
+    expect(response.statusCode).toBe(201);
+    return response.json() as CreateButtonResponse;
+  }
+
+  describe('authentication', () => {
+    it('rejects a request with no Authorization header', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        payload: validInput(),
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('rejects an unknown secret', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: 'Bearer apr_sk_not-a-real-key' },
+        payload: validInput(),
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('rejects a non-bearer scheme', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: `Basic ${tenant.secret}` },
+        payload: validInput(),
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('answers the same body whether the key is malformed or merely wrong', async () => {
+      const malformed = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${crypto.randomUUID()}/items`,
+        headers: { authorization: 'Bearer ~~~' },
+      });
+      const wrong = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${crypto.randomUUID()}/items`,
+        headers: { authorization: 'Bearer apr_sk_wrongbutwellformedkey' },
+      });
+
+      expect(malformed.statusCode).toBe(401);
+      expect(wrong.statusCode).toBe(401);
+      expect(malformed.json().message).toBe(wrong.json().message);
+    });
+
+    it('does not echo the secret back in the response', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: 'Bearer apr_sk_super-secret-value' },
+        payload: validInput(),
+      });
+
+      expect(response.body).not.toContain('super-secret-value');
+    });
+
+    it('never stores the secret in plaintext', async () => {
+      const row = await queryOne<{ secret_key_hash: string }>(
+        context.pool,
+        'SELECT secret_key_hash FROM tenants WHERE id = ?',
+        [tenant.id],
+      );
+
+      expect(row?.secret_key_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(row?.secret_key_hash).not.toContain(tenant.secret);
+    });
+  });
+
+  describe('POST /v1/buttons', () => {
+    it('creates a button and returns an embed snippet carrying the public key', async () => {
+      const created = await createButton();
+
+      expect(created.buttonId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(created.publicKey).toMatch(/^pk_[0-9a-f]{32}$/);
+      expect(created.embedSnippet).toContain(created.publicKey);
+      expect(created.embedSnippet).toContain(context.config.publicBaseUrl);
+    });
+
+    it('never returns the same public key twice', async () => {
+      const first = await createButton();
+      const second = await createButton();
+
+      expect(first.publicKey).not.toBe(second.publicKey);
+    });
+
+    it('applies DEFAULT_MAX_CLICKS when maxClicks is omitted', async () => {
+      const created = await createButton();
+      const row = await queryOne<{ max_clicks: number; url_normalization: string }>(
+        context.pool,
+        'SELECT max_clicks, url_normalization FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+
+      expect(row?.max_clicks).toBe(context.config.defaultMaxClicks);
+      expect(row?.url_normalization).toBe('pathname');
+    });
+
+    it('stores the button against the authenticated tenant', async () => {
+      const created = await createButton();
+      const row = await queryOne<{ tenant_id: string }>(
+        context.pool,
+        'SELECT tenant_id FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+
+      expect(row?.tenant_id).toBe(tenant.id);
+    });
+
+    it('rejects a body with no allowedOrigins', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: { svgSource: SVG, colors: validInput().colors },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects an empty allowedOrigins array', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: validInput({ allowedOrigins: [] }),
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects an origin entry that is not an origin', async () => {
+      for (const origin of ['example.com', 'https://example.com/path', 'javascript:alert(1)']) {
+        const response = await context.app.inject({
+          method: 'POST',
+          url: '/v1/buttons',
+          headers: { authorization: tenant.authHeader },
+          payload: validInput({ allowedOrigins: [origin] }),
+        });
+
+        expect(response.statusCode, `origin ${origin} should be rejected`).toBe(400);
+      }
+    });
+
+    it('rejects svgSource carrying script', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: validInput({ svgSource: '<svg onload="fetch(`//evil`)"><path/></svg>' }),
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('invalid_svg');
+    });
+
+    it('rejects a colour that could break out of an attribute', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: validInput({
+          colors: { ...validInput().colors, default: '#fff" onload="alert(1)' },
+        }),
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects an unknown field rather than silently ignoring it', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: { ...validInput(), maxClick: 99 },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects a caller-supplied id or publicKey', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: { ...validInput(), publicKey: 'pk_attacker-chosen' },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects a maxClicks outside the allowed range', async () => {
+      for (const maxClicks of [0, -1, 100_000]) {
+        const response = await context.app.inject({
+          method: 'POST',
+          url: '/v1/buttons',
+          headers: { authorization: tenant.authHeader },
+          payload: validInput({ maxClicks }),
+        });
+
+        expect(response.statusCode, `maxClicks ${maxClicks} should be rejected`).toBe(400);
+      }
+    });
+  });
+
+  describe('PATCH /v1/buttons/:id', () => {
+    it('applies a partial update and returns the full config', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { maxClicks: 3 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const config = response.json();
+      expect(config.maxClicks).toBe(3);
+      expect(config.publicKey).toBe(created.publicKey);
+      expect(config.allowedOrigins).toEqual(['https://example.com']);
+    });
+
+    it('leaves untouched fields alone', async () => {
+      const created = await createButton(validInput({ urlNormalization: 'full' }));
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { allowedOrigins: ['https://new.example.com'] },
+      });
+
+      expect(response.json().urlNormalization).toBe('full');
+      expect(response.json().svgSource).toBe(SVG);
+    });
+
+    it('does not expose the owning tenant id', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { maxClicks: 5 },
+      });
+
+      expect(response.body).not.toContain(tenant.id);
+      expect(Object.keys(response.json())).not.toContain('tenantId');
+    });
+
+    it("404s on another tenant's button without confirming it exists", async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: otherTenant.authHeader },
+        payload: { maxClicks: 3 },
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const row = await queryOne<{ max_clicks: number }>(
+        context.pool,
+        'SELECT max_clicks FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+      expect(row?.max_clicks).toBe(context.config.defaultMaxClicks);
+    });
+
+    it('404s on an id that does not exist', async () => {
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${crypto.randomUUID()}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { maxClicks: 3 },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('rejects a malformed id before touching the database', async () => {
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: '/v1/buttons/not-a-uuid',
+        headers: { authorization: tenant.authHeader },
+        payload: { maxClicks: 3 },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects an empty patch', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects unsafe svg on update too', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+        payload: { svgSource: '<svg><script>alert(1)</script></svg>' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('invalid_svg');
+    });
+  });
+
+  describe('GET /v1/buttons/:id/items', () => {
+    async function seedItems(buttonId: string, count: number): Promise<void> {
+      for (let i = 0; i < count; i += 1) {
+        await execute(
+          context.pool,
+          'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)',
+          [buttonId, `https://example.com/post-${String(i).padStart(3, '0')}`, i],
+        );
+      }
+    }
+
+    it('returns an empty page for a button with no clicks', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.buttonId}/items`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ items: [], nextCursor: null });
+    });
+
+    it('returns item totals', async () => {
+      const created = await createButton();
+      await seedItems(created.buttonId, 3);
+
+      const body = (
+        await context.app.inject({
+          method: 'GET',
+          url: `/v1/buttons/${created.buttonId}/items`,
+          headers: { authorization: tenant.authHeader },
+        })
+      ).json();
+
+      expect(body.items).toHaveLength(3);
+      expect(body.items[0]).toEqual({
+        itemKey: 'https://example.com/post-000',
+        totalCount: 0,
+        updatedAt: expect.any(String),
+      });
+      expect(body.nextCursor).toBeNull();
+    });
+
+    it('pages through every item exactly once', async () => {
+      const created = await createButton();
+      await seedItems(created.buttonId, 25);
+
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      let pages = 0;
+
+      do {
+        const url: string =
+          cursor === null
+            ? `/v1/buttons/${created.buttonId}/items?limit=10`
+            : `/v1/buttons/${created.buttonId}/items?limit=10&cursor=${encodeURIComponent(cursor)}`;
+        const body = (
+          await context.app.inject({
+            method: 'GET',
+            url,
+            headers: { authorization: tenant.authHeader },
+          })
+        ).json();
+
+        seen.push(...body.items.map((item: { itemKey: string }) => item.itemKey));
+        cursor = body.nextCursor;
+        pages += 1;
+      } while (cursor !== null && pages < 10);
+
+      expect(pages).toBe(3);
+      expect(seen).toHaveLength(25);
+      expect(new Set(seen).size).toBe(25);
+    });
+
+    it("does not leak another tenant's items", async () => {
+      const mine = await createButton();
+      const theirs = await createButton(validInput(), otherTenant);
+      await seedItems(theirs.buttonId, 3);
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${theirs.buttonId}/items`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body).not.toContain(mine.buttonId);
+    });
+
+    it('rejects a limit above the maximum', async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.buttonId}/items?limit=5000`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('rejects an oversized cursor', async () => {
+      const created = await createButton();
+      const cursor = Buffer.from('a'.repeat(900)).toString('base64url');
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.buttonId}/items?cursor=${cursor}`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('does not let a crafted cursor change the query', async () => {
+      const created = await createButton();
+      await seedItems(created.buttonId, 3);
+      const cursor = Buffer.from("' OR '1'='1").toString('base64url');
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.buttonId}/items?cursor=${cursor}`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // The cursor is compared as a literal value, so it simply sorts before
+      // every seeded key and returns them all.
+      expect(response.json().items).toHaveLength(3);
+    });
+  });
+
+  describe('DELETE /v1/buttons/:id', () => {
+    it('deletes the button and its counters', async () => {
+      const created = await createButton();
+      await execute(
+        context.pool,
+        'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)',
+        [created.buttonId, 'https://example.com/p', 4],
+      );
+      await execute(
+        context.pool,
+        'INSERT INTO visitor_clicks (button_id, item_key, visitor_hash, click_count) VALUES (?, ?, ?, ?)',
+        [created.buttonId, 'https://example.com/p', 'a'.repeat(64), 4],
+      );
+
+      const response = await context.app.inject({
+        method: 'DELETE',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(204);
+      expect(
+        await queryOne(context.pool, 'SELECT id FROM buttons WHERE id = ?', [created.buttonId]),
+      ).toBeUndefined();
+      expect(
+        await queryOne(context.pool, 'SELECT item_key FROM items WHERE button_id = ?', [
+          created.buttonId,
+        ]),
+      ).toBeUndefined();
+      expect(
+        await queryOne(context.pool, 'SELECT item_key FROM visitor_clicks WHERE button_id = ?', [
+          created.buttonId,
+        ]),
+      ).toBeUndefined();
+    });
+
+    it("404s and changes nothing for another tenant's button", async () => {
+      const created = await createButton();
+
+      const response = await context.app.inject({
+        method: 'DELETE',
+        url: `/v1/buttons/${created.buttonId}`,
+        headers: { authorization: otherTenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(
+        await queryOne(context.pool, 'SELECT id FROM buttons WHERE id = ?', [created.buttonId]),
+      ).toBeDefined();
+    });
+
+    it('404s on a second delete', async () => {
+      const created = await createButton();
+      const headers = { authorization: tenant.authHeader };
+
+      expect(
+        (
+          await context.app.inject({
+            method: 'DELETE',
+            url: `/v1/buttons/${created.buttonId}`,
+            headers,
+          })
+        ).statusCode,
+      ).toBe(204);
+      expect(
+        (
+          await context.app.inject({
+            method: 'DELETE',
+            url: `/v1/buttons/${created.buttonId}`,
+            headers,
+          })
+        ).statusCode,
+      ).toBe(404);
+    });
+  });
+});
