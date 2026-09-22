@@ -8,6 +8,7 @@ import { HttpError } from './lib/errors.js';
 import { healthRoutes } from './routes/health.js';
 import { managementRoutes } from './routes/management.js';
 import { publicRoutes } from './routes/public.js';
+import { widgetRoutes } from './routes/widget.js';
 
 /**
  * Request body ceiling. The only large field we accept is `svgSource` (capped
@@ -128,6 +129,9 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   // hooks cannot leak onto the management ones.
   await app.register(managementRoutes);
   await app.register(publicRoutes);
+  // Outside the public button scope: it takes no public key, so it has no
+  // button allowlist to check, and a plain <script src> needs no CORS.
+  await app.register(widgetRoutes);
 
   return app;
 }

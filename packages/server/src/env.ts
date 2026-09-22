@@ -7,8 +7,20 @@
  * populated environment.
  */
 
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 /** Minimum entropy we accept for the visitor HMAC key, in hex characters. */
 const MIN_VISITOR_SECRET_LENGTH = 32;
+
+/**
+ * Where the built widget bundle lives by default: the sibling widget package's
+ * dist output. The relative depth is the same from `src/` and from `dist/`, so
+ * this resolves identically under tsx and after a build.
+ */
+function defaultWidgetBundlePath(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'widget', 'dist', 'widget.js');
+}
 
 export interface AppConfig {
   /** MySQL connection string, e.g. mysql://user:pass@host:3306/db. */
@@ -30,6 +42,12 @@ export interface AppConfig {
    */
   trustProxy: boolean;
   logLevel: string;
+  /**
+   * Absolute path to the built widget bundle served at GET /widget.js. It is
+   * read at request time, not at startup, so a deployment without the widget
+   * built answers 404 rather than refusing to boot.
+   */
+  widgetBundlePath: string;
 }
 
 export interface ServerConfig extends AppConfig {
@@ -100,6 +118,7 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
     rateLimitWindow: optional(source, 'RATE_LIMIT_WINDOW', '1 minute'),
     trustProxy: bool(source, 'TRUST_PROXY', false),
     logLevel: optional(source, 'LOG_LEVEL', 'info'),
+    widgetBundlePath: resolve(optional(source, 'WIDGET_BUNDLE_PATH', defaultWidgetBundlePath())),
   };
 }
 

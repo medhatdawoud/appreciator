@@ -37,6 +37,10 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     rateLimitWindow: '1 minute',
     trustProxy: false,
     logLevel: 'silent',
+    // Points at nothing by default, so /widget.js answers its missing-bundle
+    // 404 unless a test supplies a fixture. The widget package is not a
+    // dependency of these tests.
+    widgetBundlePath: '/nonexistent/appreciator-widget-bundle.js',
     ...overrides,
   };
 }
