@@ -353,6 +353,31 @@ omits that, its `Referer`) must be the origin of `PUBLIC_BASE_URL`. Anything
 else is refused with `403 csrf`. The dashboard is therefore served from the
 same origin as this API.
 
+### Sites
+
+In the dashboard an account owns **sites**, and a site owns buttons. A site is
+a tenant with an owning account: it has its own management secret, usable as
+`Authorization: Bearer <secret>` on the management API exactly like one from
+`MANAGEMENT_SECRET` or the CLI. Those tenants have no owning account and never
+appear as sites.
+
+Session cookie plus the CSRF rules above; the bearer secret is not accepted:
+
+| Method   | Path                       |                                                         |
+| -------- | -------------------------- | ------------------------------------------------------- |
+| `GET`    | `/v1/sites`                | → `SiteListResponse` (oldest first, with button counts) |
+| `POST`   | `/v1/sites`                | `{ "name": … }` → `201 CreateSiteResponse`              |
+| `POST`   | `/v1/sites/:id/rotate-key` | → `RotateKeyResponse`                                   |
+| `DELETE` | `/v1/sites/:id`            | `204`                                                   |
+
+`name` is 1–255 characters and trimmed; a blank one is refused. The `secret`
+in `CreateSiteResponse` and `RotateKeyResponse` is shown once: only its hash is
+stored. Rotating replaces the hash, so the previous secret stops working on
+the next request. Deleting a site deletes its buttons and their counters in
+one transaction. An account can own at most 20 sites; the next create answers
+`409 limit_reached`. A site that is not the caller's answers `404`, the same
+as one that does not exist.
+
 ## Tests
 
 Unit tests cover the pure helpers in `src/lib/` and need nothing running:

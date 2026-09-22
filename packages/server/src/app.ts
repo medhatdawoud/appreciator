@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 import { managementRoutes } from './routes/management.js';
 import { publicRoutes } from './routes/public.js';
+import { siteRoutes } from './routes/sites.js';
 import { widgetRoutes } from './routes/widget.js';
 
 /**
@@ -142,6 +143,8 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   await app.register(widgetRoutes);
   // Cookie-authenticated dashboard sign-in, with its own rate limit.
   await app.register(authRoutes);
+  // The dashboard's sites: session cookie plus CSRF, never the bearer secret.
+  await app.register(siteRoutes);
 
   return app;
 }

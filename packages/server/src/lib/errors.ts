@@ -45,6 +45,10 @@ export function forbidden(message: string, code = 'forbidden'): HttpError {
   return new HttpError(403, code, message);
 }
 
+export function conflict(message: string, code = 'conflict'): HttpError {
+  return new HttpError(409, code, message);
+}
+
 /**
  * Used both for genuinely absent buttons and for buttons owned by another
  * tenant. Answering 403 for the latter would confirm that an id exists.

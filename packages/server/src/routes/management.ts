@@ -29,7 +29,7 @@ import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
 import { MAX_ITEM_KEY_LENGTH } from '../lib/url-normalize.js';
-import { colorsSchema, svgSourceSchema, svgSourcesSchema } from './schemas.js';
+import { UUID_PATTERN, colorsSchema, svgSourceSchema, svgSourcesSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -42,9 +42,6 @@ const DEFAULT_PAGE_SIZE = 50;
 
 /** An `?origin=` filter on the items listing: one concrete http(s) origin, no wildcard. */
 const ORIGIN_FILTER_PATTERN = '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$';
-
-const UUID_PATTERN =
-  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
 const inputProperties = {
   // No minLength: an empty or blank name is how a caller clears it (see

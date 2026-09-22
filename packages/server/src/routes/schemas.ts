@@ -57,3 +57,7 @@ export const svgSourcesSchema = {
     full: svgSourceSchema,
   },
 };
+
+/** A button or site id as the database stores it. Checked before any query runs. */
+export const UUID_PATTERN =
+  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
