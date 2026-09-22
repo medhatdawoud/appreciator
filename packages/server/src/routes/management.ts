@@ -3,13 +3,14 @@ import { randomUUID } from 'node:crypto';
 import type {
   ButtonConfig,
   ButtonConfigInput,
+  ButtonListResponse,
   CreateButtonResponse,
   ItemsPage,
   UrlNormalization,
 } from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { findButtonForTenant, toButtonConfig } from '../db/buttons.js';
+import { findButtonForTenant, listButtonsForTenant, toButtonConfig } from '../db/buttons.js';
 import type { SqlParam } from '../db/pool.js';
 import { execute, queryRows, withTransaction } from '../db/pool.js';
 import {
@@ -18,6 +19,7 @@ import {
   findTenantBySecretKey,
   generatePublicKey,
 } from '../lib/auth.js';
+import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
 import { MAX_ITEM_KEY_LENGTH } from '../lib/url-normalize.js';
@@ -60,7 +62,9 @@ const createBodySchema = {
   // Unknown fields are rejected rather than ignored: a typo in a config key
   // should fail loudly, not silently leave a button misconfigured.
   additionalProperties: false,
-  required: ['allowedOrigins', 'svgSource', 'colors'],
+  // The icon and colours fall back to the built-in heart, so the allowlist is
+  // the one thing a caller has to decide.
+  required: ['allowedOrigins'],
   properties: inputProperties,
 };
 
@@ -140,11 +144,12 @@ function tenantOf(request: FastifyRequest): TenantRow {
   return request.tenant;
 }
 
+/**
+ * One tag: the bundle reads its own `src` to find the server and its `data-*`
+ * attributes to render the button where the tag sits.
+ */
 function buildEmbedSnippet(baseUrl: string, publicKey: string): string {
-  return [
-    `<script src="${baseUrl}/widget.js" async></script>`,
-    `<appreciator-button data-api="${baseUrl}" data-key="${publicKey}"></appreciator-button>`,
-  ].join('\n');
+  return `<script src="${baseUrl}/widget.js" data-key="${publicKey}" async></script>`;
 }
 
 /** Re-throws SVG rejections as 400s; anything else keeps its own handling. */
@@ -212,7 +217,9 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply): Promise<CreateButtonResponse> => {
       const tenant = tenantOf(request);
       const input = request.body;
-      validateSvg(input.svgSource);
+      const svgSource = input.svgSource ?? DEFAULT_SVG_SOURCE;
+      const colors = input.colors ?? DEFAULT_COLORS;
+      validateSvg(svgSource);
 
       const id = randomUUID();
       const publicKey = generatePublicKey();
@@ -229,8 +236,8 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
           publicKey,
           input.maxClicks ?? app.appConfig.defaultMaxClicks,
           JSON.stringify(input.allowedOrigins),
-          input.svgSource,
-          JSON.stringify(input.colors),
+          svgSource,
+          JSON.stringify(colors),
           urlNormalization,
         ],
       );
@@ -242,6 +249,27 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
         publicKey,
         embedSnippet: buildEmbedSnippet(app.appConfig.publicBaseUrl, publicKey),
       };
+    },
+  );
+
+  app.get(
+    '/v1/buttons',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['buttons'],
+            properties: { buttons: { type: 'array', items: buttonConfigSchema } },
+          },
+        },
+      },
+    },
+    async (request): Promise<ButtonListResponse> => {
+      const tenant = tenantOf(request);
+      const rows = await listButtonsForTenant(app.pool, tenant.id);
+      return { buttons: rows.map(toButtonConfig) };
     },
   );
 

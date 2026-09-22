@@ -9,11 +9,34 @@ in a shadow root.
 The server generates this snippet when a button is created:
 
 ```html
+<script src="https://appreciator.example.com/widget.js" data-key="pk_..." async></script>
+```
+
+That is the whole embed. The bundle reads its own `src` to learn which server
+to talk to, and because the tag carries `data-key` it renders a button right
+after itself. Options are `data-*` attributes on the tag:
+
+| Attribute     | Required | Description                                                             |
+| ------------- | -------- | ----------------------------------------------------------------------- |
+| `data-key`    | yes      | The button's public key.                                                |
+| `data-item`   | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
+| `data-label`  | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
+| `data-target` | no       | CSS selector of the element to render into, instead of after the tag.   |
+| `data-api`    | no       | Server base URL. Defaults to where the bundle was loaded from.          |
+
+A tag in `<head>` renders into `<body>`; a `data-target` that does not exist
+yet is looked up once the document has been parsed.
+
+### The element
+
+A tag without `data-key` only registers the element, for pages that want to
+place buttons themselves — several on one page, or inside a template:
+
+```html
 <script src="https://appreciator.example.com/widget.js" async></script>
-<appreciator-button
-  data-api="https://appreciator.example.com"
-  data-key="pk_..."
-></appreciator-button>
+...
+<appreciator-button data-key="pk_..." data-item="post-1"></appreciator-button>
+<appreciator-button data-key="pk_..." data-item="post-2"></appreciator-button>
 ```
 
 Or from a bundler:
@@ -30,14 +53,9 @@ mount(document.querySelector('#appreciate'), {
 Importing the module registers the element; `mount()` is a convenience for
 creating one programmatically.
 
-### Attributes
-
-| Attribute    | Required | Description                                                             |
-| ------------ | -------- | ----------------------------------------------------------------------- |
-| `data-api`   | yes      | Base URL of the appreciator server.                                     |
-| `data-key`   | yes      | The button's public key.                                                |
-| `data-item`  | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
-| `data-label` | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
+The element takes `data-key`, `data-item` and `data-label` as above, plus
+`data-api`, which is required when the bundle was **not** loaded from the
+appreciator server (a bundler build, or a copy hosted elsewhere).
 
 ### States
 

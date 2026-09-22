@@ -3,6 +3,32 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-22 — One-tag embed and env-configured management key
+
+Two steps that stood between a deployed server and a working button are gone:
+running a CLI inside the container to obtain a secret, and assembling an SVG
+payload to create a button.
+
+- **One-tag embed.** The widget bundle now reads `document.currentScript`: its
+  `src` becomes the default API base (origin plus any path prefix), and if the
+  tag carries `data-key` a button is rendered right after it, with `data-item`,
+  `data-label`, `data-target` and `data-api` as options. `data-api` on the
+  element is optional whenever the bundle came from the server. The server's
+  `embedSnippet` is now that single tag, and the example page uses it, so the
+  e2e run covers auto-mounting.
+- **`MANAGEMENT_SECRET`.** Optional env var; on startup the server provisions
+  a tenant named `default` whose secret is that value (idempotent, race-safe on
+  the unique hash index). The key then lives with the other secrets in Coolify
+  rather than in a one-time terminal print. Rotating it makes a new tenant; the
+  old one keeps its buttons. Values under 32 characters are refused.
+- **Buttons without an icon.** `POST /v1/buttons` requires only
+  `allowedOrigins`; `svgSource` and `colors` default to the Feather heart from
+  the example, kept as a string constant in the server so the image needs no
+  extra assets.
+- **`GET /v1/buttons`** lists the tenant's buttons with their public keys, so a
+  key never has to be written down after creation.
+- The `create-tenant` CLI stays for additional tenants.
+
 ## 2026-09-22 — Production Dockerfile for Coolify
 
 - Multi-stage `Dockerfile`: builds shared, widget and server, then a slim

@@ -27,19 +27,20 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 
 ## Configuration
 
-| Variable              | Required | Default                    | Description                                                                                                   |
-| --------------------- | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`        | yes      | —                          | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                   |
-| `VISITOR_HASH_SECRET` | yes      | —                          | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                 |
-| `PORT`                | no       | `3000`                     | HTTP port.                                                                                                    |
-| `HOST`                | no       | `0.0.0.0`                  | Bind address.                                                                                                 |
-| `DEFAULT_MAX_CLICKS`  | no       | `10`                       | Per-visitor cap for buttons created without an explicit `maxClicks`.                                          |
-| `PUBLIC_BASE_URL`     | no       | `http://localhost:$PORT`   | Base URL written into the generated embed snippet.                                                            |
-| `RATE_LIMIT_MAX`      | no       | `60`                       | Public-route requests allowed per IP per window.                                                              |
-| `RATE_LIMIT_WINDOW`   | no       | `1 minute`                 | Rate limit window.                                                                                            |
-| `TRUST_PROXY`         | no       | `false`                    | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                          |
-| `LOG_LEVEL`           | no       | `info`                     | Pino level.                                                                                                   |
-| `WIDGET_BUNDLE_PATH`  | no       | `../widget/dist/widget.js` | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory. |
+| Variable              | Required | Default                    | Description                                                                                                    |
+| --------------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | yes      | —                          | MySQL connection string, e.g. `mysql://appreciator:appreciator@127.0.0.1:3306/appreciator`.                    |
+| `VISITOR_HASH_SECRET` | yes      | —                          | HMAC key for visitor hashing, at least 32 characters. `openssl rand -hex 32`.                                  |
+| `MANAGEMENT_SECRET`   | no       | —                          | Management API key, at least 32 characters. A tenant for it is provisioned on startup. `openssl rand -hex 32`. |
+| `PORT`                | no       | `3000`                     | HTTP port.                                                                                                     |
+| `HOST`                | no       | `0.0.0.0`                  | Bind address.                                                                                                  |
+| `DEFAULT_MAX_CLICKS`  | no       | `10`                       | Per-visitor cap for buttons created without an explicit `maxClicks`.                                           |
+| `PUBLIC_BASE_URL`     | no       | `http://localhost:$PORT`   | Base URL written into the generated embed snippet.                                                             |
+| `RATE_LIMIT_MAX`      | no       | `60`                       | Public-route requests allowed per IP per window.                                                               |
+| `RATE_LIMIT_WINDOW`   | no       | `1 minute`                 | Rate limit window.                                                                                             |
+| `TRUST_PROXY`         | no       | `false`                    | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                           |
+| `LOG_LEVEL`           | no       | `info`                     | Pino level.                                                                                                    |
+| `WIDGET_BUNDLE_PATH`  | no       | `../widget/dist/widget.js` | Built widget bundle served at `GET /widget.js`. Relative paths resolve against the process working directory.  |
 
 Changing `VISITOR_HASH_SECRET` invalidates every stored visitor hash: existing
 visitors get a fresh allowance, and their old rows become unreachable.
@@ -52,29 +53,40 @@ visitors get a fresh allowance, and their old rows become unreachable.
 > is then client-controlled, and a client that forges it gets both an unlimited
 > supply of allowances and a way around the per-IP rate limit.
 
-## Creating a tenant
+## Getting a management key
 
 There is no self-serve signup, and only the hash of a management secret is ever
-stored, so the CLI is the only way to obtain a usable key:
+stored. There are two ways to obtain a usable key.
+
+**`MANAGEMENT_SECRET` (recommended).** Set it alongside the other environment
+variables. On every start the server makes sure a tenant named `default` exists
+whose secret is that value, so the key is kept wherever your other secrets are
+and never has to be copied out of a terminal. Use it as
+`Authorization: Bearer <secret>`. Changing the value provisions a new, empty
+tenant under the new key; the previous tenant and its buttons remain, reachable
+only through the previous value. Values shorter than 32 characters are refused,
+because the stored hash is only as strong as the secret.
+
+**The CLI**, for additional tenants:
 
 ```bash
 npm run create-tenant -w @appreciator/server -- --name "Some Name"
 ```
 
 It prints the plaintext secret **once**. It cannot be recovered afterwards; a
-lost key means creating a new tenant. Use it as `Authorization: Bearer <secret>`
-on the management routes.
+lost key means creating a new tenant.
 
 ## Endpoints
 
 Management — `Authorization: Bearer <secret>`:
 
-| Method   | Path                    |                                              |
-| -------- | ----------------------- | -------------------------------------------- |
-| `POST`   | `/v1/buttons`           | `ButtonConfigInput` → `CreateButtonResponse` |
-| `PATCH`  | `/v1/buttons/:id`       | partial `ButtonConfigInput` → `ButtonConfig` |
-| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=` → `ItemsPage`              |
-| `DELETE` | `/v1/buttons/:id`       | `204`                                        |
+| Method   | Path                    |                                                                       |
+| -------- | ----------------------- | --------------------------------------------------------------------- |
+| `POST`   | `/v1/buttons`           | `ButtonConfigInput` → `CreateButtonResponse`                          |
+| `GET`    | `/v1/buttons`           | → `ButtonListResponse` (the tenant's buttons, with their public keys) |
+| `PATCH`  | `/v1/buttons/:id`       | partial `ButtonConfigInput` → `ButtonConfig`                          |
+| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=` → `ItemsPage`                                       |
+| `DELETE` | `/v1/buttons/:id`       | `204`                                                                 |
 
 Public — identified by the button's public key in the path, subject to the
 button's origin allowlist and a per-IP rate limit:
@@ -91,6 +103,14 @@ Unauthenticated, outside the per-button scope:
 | ------ | ------------ | ---------------------------------------------------- |
 | `GET`  | `/healthz`   | `200`, or `503` if MySQL is unreachable              |
 | `GET`  | `/widget.js` | the built widget bundle, or `404` if it is not built |
+
+`POST /v1/buttons` needs only `allowedOrigins`; `svgSource` and `colors` fall
+back to a built-in heart icon (see `src/lib/default-icon.ts`) and `maxClicks`
+to `DEFAULT_MAX_CLICKS`. The response's `embedSnippet` is the one-tag embed:
+
+```html
+<script src="https://appreciator.example.com/widget.js" data-key="pk_…" async></script>
+```
 
 A button whose `allowedOrigins` contains `*` accepts any origin. That is a real
 loosening — any site can then render the button and spend its counters — so it

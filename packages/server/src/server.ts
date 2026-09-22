@@ -1,11 +1,17 @@
 import { buildApp } from './app.js';
 import { createPool } from './db/pool.js';
 import { loadServerConfig } from './env.js';
+import { ensureManagementTenant } from './lib/bootstrap.js';
 
 async function main(): Promise<void> {
   const config = loadServerConfig();
   const pool = createPool(config.databaseUrl);
   const app = await buildApp({ config, pool });
+
+  if (config.managementSecret !== undefined) {
+    const { tenantId, created } = await ensureManagementTenant(pool, config.managementSecret);
+    app.log.info({ tenantId, created }, 'management tenant ready');
+  }
 
   const shutdown = (signal: string): void => {
     app.log.info({ signal }, 'shutting down');

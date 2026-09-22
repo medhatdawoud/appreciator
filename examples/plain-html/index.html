@@ -38,24 +38,28 @@
     <p id="status" class="missing" hidden>
       Missing the <code>api</code> or <code>key</code> query parameter.
     </p>
-    <p>
-      Did this help?
-      <appreciator-button data-label="Appreciate this page"></appreciator-button>
-    </p>
+    <p id="prompt">Did this help?</p>
     <script>
+      // A real page would paste the one tag the server hands out:
+      //
+      //   <script src="https://appreciator.example.com/widget.js" data-key="pk_…" async><\/script>
+      //
+      // This page builds the same tag from its query string so one file can
+      // point at any server. The bundle finds the server from its own `src`
+      // and renders the button right after the tag.
       const params = new URLSearchParams(location.search);
       const api = params.get('api');
       const key = params.get('key');
       const item = params.get('item');
-      const button = document.querySelector('appreciator-button');
 
       if (api && key) {
-        button.dataset.api = api;
-        button.dataset.key = key;
-        if (item) button.dataset.item = item;
         const script = document.createElement('script');
         script.src = `${api.replace(/\/+$/, '')}/widget.js`;
-        document.head.append(script);
+        script.async = true;
+        script.dataset.key = key;
+        script.dataset.label = 'Appreciate this page';
+        if (item) script.dataset.item = item;
+        document.getElementById('prompt').append(' ', script);
       } else {
         document.getElementById('status').hidden = false;
       }

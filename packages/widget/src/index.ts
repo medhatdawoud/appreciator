@@ -1,7 +1,9 @@
-import { AppreciatorButton, type MountOptions } from './element.js';
+import { AppreciatorButton, setDefaultApi, type MountOptions } from './element.js';
+import { apiBaseFromScriptSrc, autoMount } from './embed.js';
 
 export { ApiClient, ApiError } from './api.js';
-export { AppreciatorButton, PULSE_MS } from './element.js';
+export { AppreciatorButton, PULSE_MS, getDefaultApi, setDefaultApi } from './element.js';
+export { apiBaseFromScriptSrc, autoMount } from './embed.js';
 export type { ErrorDetail, MountOptions } from './element.js';
 export type { VisualState } from './state.js';
 
@@ -18,7 +20,7 @@ export function define(tagName: string = TAG_NAME): void {
 export function mount(target: Element, options: MountOptions): AppreciatorButton {
   define();
   const element = new AppreciatorButton();
-  element.dataset.api = options.api;
+  if (options.api !== undefined) element.dataset.api = options.api;
   element.dataset.key = options.key;
   if (options.item !== undefined) element.dataset.item = options.item;
   target.append(element);
@@ -27,4 +29,15 @@ export function mount(target: Element, options: MountOptions): AppreciatorButton
 
 if (typeof customElements !== 'undefined') {
   define();
+
+  // `document.currentScript` is the classic <script> tag executing this
+  // bundle (null for ES modules, which use `mount()` instead). Its `src` tells
+  // us which server to talk to by default, and its `data-*` attributes may ask
+  // for a button to be rendered right here.
+  const script = typeof document === 'undefined' ? null : document.currentScript;
+  if (script instanceof HTMLScriptElement) {
+    const base = apiBaseFromScriptSrc(script.src);
+    if (base !== undefined) setDefaultApi(base);
+    autoMount(script);
+  }
 }

@@ -14,6 +14,12 @@ import { fileURLToPath } from 'node:url';
 const MIN_VISITOR_SECRET_LENGTH = 32;
 
 /**
+ * Minimum length of `MANAGEMENT_SECRET`. The stored hash is only as strong as
+ * the secret (see `hashSecretKey`), so a short human-chosen value is refused.
+ */
+const MIN_MANAGEMENT_SECRET_LENGTH = 32;
+
+/**
  * Where the built widget bundle lives by default: the sibling widget package's
  * dist output. The relative depth is the same from `src/` and from `dist/`, so
  * this resolves identically under tsx and after a build.
@@ -27,6 +33,12 @@ export interface AppConfig {
   databaseUrl: string;
   /** HMAC key used to derive visitor hashes. Never leaves the server. */
   visitorHashSecret: string;
+  /**
+   * Management secret of the tenant provisioned at startup, if any. Lets a
+   * deployment be configured entirely through environment variables; the
+   * value is the bearer token for the management API.
+   */
+  managementSecret: string | undefined;
   /** Per-visitor click cap applied to buttons created without an explicit one. */
   defaultMaxClicks: number;
   /** Origin the embed snippet points at, e.g. https://appreciator.example.com. */
@@ -104,11 +116,20 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
     );
   }
 
+  const managementSecret = source.MANAGEMENT_SECRET?.trim() || undefined;
+  if (managementSecret !== undefined && managementSecret.length < MIN_MANAGEMENT_SECRET_LENGTH) {
+    throw new EnvError(
+      `MANAGEMENT_SECRET must be at least ${MIN_MANAGEMENT_SECRET_LENGTH} characters ` +
+        `(generate one with: openssl rand -hex 32)`,
+    );
+  }
+
   const port = positiveInt(source, 'PORT', 3000);
 
   return {
     databaseUrl: required(source, 'DATABASE_URL'),
     visitorHashSecret,
+    managementSecret,
     defaultMaxClicks: positiveInt(source, 'DEFAULT_MAX_CLICKS', 10),
     publicBaseUrl: optional(source, 'PUBLIC_BASE_URL', `http://localhost:${port}`).replace(
       /\/+$/,

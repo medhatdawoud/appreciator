@@ -29,6 +29,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
     databaseUrl: TEST_DATABASE_URL,
     visitorHashSecret: TEST_VISITOR_SECRET,
+    managementSecret: undefined,
     defaultMaxClicks: 10,
     publicBaseUrl: 'https://appreciator.test',
     // Effectively disabled by default so unrelated tests are not throttled.
