@@ -632,6 +632,31 @@ describe('public routes', () => {
       expect(response.statusCode).toBe(200);
     });
 
+    it('lets a subdomain through a subdomain wildcard entry', async () => {
+      const wildcard = await createButton(
+        buttonInput({ allowedOrigins: ['https://*.example.com'] }),
+      );
+
+      const response = await click(wildcard.publicKey, PAGE, {
+        origin: 'https://blog.example.com',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['access-control-allow-origin']).toBe('https://blog.example.com');
+    });
+
+    it('keeps the apex out of a subdomain wildcard entry', async () => {
+      const wildcard = await createButton(
+        buttonInput({ allowedOrigins: ['https://*.example.com'] }),
+      );
+
+      const response = await click(wildcard.publicKey, PAGE, { origin: 'https://example.com' });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json().error).toBe('origin_not_allowed');
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
     it('applies the allowlist of the button named in the path, not another one', async () => {
       const other = await createButton(buttonInput({ allowedOrigins: ['https://other.test'] }));
 

@@ -89,11 +89,47 @@ function canonicalOrigin(value: string): string {
 }
 
 /**
+ * An allowlist entry of the form `https://*.example.com[:port]`, captured as
+ * the scheme and the rest of the origin with the `*.` taken out.
+ *
+ * `new URL()` happily parses `*` as a hostname character, so these entries
+ * have to be recognised before the exact-match path ever sees them.
+ */
+const SUBDOMAIN_ENTRY_PATTERN = /^(https?:\/\/)\*\.(.+)$/i;
+
+/**
+ * Whether `origin` is a strict subdomain of a wildcard entry's host, over the
+ * same scheme and port.
+ *
+ * The entry's host goes through `URL` as well, so both sides are lower-cased
+ * and drop a default port the same way before they are compared. The leading
+ * dot in the suffix is what keeps `evilexample.com` from matching
+ * `*.example.com`, and it also keeps the apex out, as a wildcard certificate
+ * would: a tenant who wants `example.com` lists it separately.
+ */
+function matchesSubdomainEntry(origin: string, scheme: string, rest: string): boolean {
+  let candidate: URL;
+  let entry: URL;
+  try {
+    candidate = new URL(origin);
+    entry = new URL(`${scheme}${rest}`);
+  } catch {
+    return false;
+  }
+  return (
+    candidate.protocol === entry.protocol &&
+    candidate.port === entry.port &&
+    candidate.hostname.endsWith(`.${entry.hostname}`)
+  );
+}
+
+/**
  * Checks a request's `Origin` against a button's allowlist.
  *
  * `*` in the allowlist opts a button out of the check entirely. That is a real
  * loosening — it lets any site render the button and spend its counters — so it
- * is only ever there because a tenant asked for it.
+ * is only ever there because a tenant asked for it. `https://*.example.com`
+ * is the narrower version of the same trade: every subdomain, at any depth.
  *
  * Note this is a defence against *casual* embedding, not an authorization
  * boundary: `Origin` is set by the browser, and a non-browser client can send
@@ -103,5 +139,11 @@ export function isOriginAllowed(origin: string, allowedOrigins: readonly string[
   if (allowedOrigins.includes('*')) return true;
 
   const candidate = canonicalOrigin(origin);
-  return allowedOrigins.some((allowed) => canonicalOrigin(allowed) === candidate);
+  return allowedOrigins.some((allowed) => {
+    const subdomainEntry = SUBDOMAIN_ENTRY_PATTERN.exec(allowed.trim());
+    if (subdomainEntry !== null) {
+      return matchesSubdomainEntry(origin, subdomainEntry[1] ?? '', subdomainEntry[2] ?? '');
+    }
+    return canonicalOrigin(allowed) === candidate;
+  });
 }

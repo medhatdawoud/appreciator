@@ -333,6 +333,24 @@ describe('management routes', () => {
       }
     });
 
+    it('accepts a subdomain wildcard origin entry', async () => {
+      await createButton(validInput({ allowedOrigins: ['https://*.example.com'] }));
+      await createButton(validInput({ allowedOrigins: ['https://*.example.com:8443'] }));
+    });
+
+    it('rejects a wildcard anywhere but a leading *. label', async () => {
+      for (const origin of ['https://*example.com', 'https://a.*.example.com']) {
+        const response = await context.app.inject({
+          method: 'POST',
+          url: '/v1/buttons',
+          headers: { authorization: tenant.authHeader },
+          payload: validInput({ allowedOrigins: [origin] }),
+        });
+
+        expect(response.statusCode, `origin ${origin} should be rejected`).toBe(400);
+      }
+    });
+
     it('rejects svgSource carrying script', async () => {
       const response = await context.app.inject({
         method: 'POST',

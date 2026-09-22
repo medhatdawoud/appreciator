@@ -36,10 +36,12 @@ const DEFAULT_PAGE_SIZE = 50;
 
 /**
  * An entry in `allowedOrigins`: a scheme-and-authority origin, the literal
- * `null` a sandboxed iframe sends, or `*` to opt out of origin checking.
- * Paths, wildcards inside hostnames and other schemes are refused.
+ * `null` a sandboxed iframe sends, or `*` to opt out of origin checking. A
+ * host may start with `*.` to allow every subdomain of the rest of it (see
+ * `isOriginAllowed`). Paths, other schemes, and a `*` anywhere else in the
+ * host are refused.
  */
-const ORIGIN_PATTERN = '^(\\*|null|https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
+const ORIGIN_PATTERN = '^(\\*|null|https?://(\\*\\.)?[A-Za-z0-9.-]+(:[0-9]{1,5})?)$';
 
 const UUID_PATTERN =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';

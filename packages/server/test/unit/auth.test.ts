@@ -137,4 +137,57 @@ describe('isOriginAllowed', () => {
   it('accepts any origin when the allowlist opts out with *', () => {
     expect(isOriginAllowed('https://anything.test', ['*'])).toBe(true);
   });
+
+  describe('with a subdomain wildcard', () => {
+    const wildcard = ['https://*.example.com'];
+
+    it('accepts a subdomain at any depth', () => {
+      expect(isOriginAllowed('https://blog.example.com', wildcard)).toBe(true);
+      expect(isOriginAllowed('https://a.b.example.com', wildcard)).toBe(true);
+    });
+
+    it('does not accept the apex, which has to be listed separately', () => {
+      expect(isOriginAllowed('https://example.com', wildcard)).toBe(false);
+      expect(isOriginAllowed('https://example.com', [...wildcard, 'https://example.com'])).toBe(
+        true,
+      );
+    });
+
+    it('rejects a host that merely ends with the same characters', () => {
+      expect(isOriginAllowed('https://evilexample.com', wildcard)).toBe(false);
+    });
+
+    it('rejects a lookalike that puts the listed domain in front', () => {
+      expect(isOriginAllowed('https://blog.example.com.evil.test', wildcard)).toBe(false);
+    });
+
+    it('rejects a subdomain over a different scheme', () => {
+      expect(isOriginAllowed('http://blog.example.com', wildcard)).toBe(false);
+    });
+
+    it('rejects a subdomain on a different port', () => {
+      expect(isOriginAllowed('https://blog.example.com:8443', wildcard)).toBe(false);
+    });
+
+    it('matches only the port it names', () => {
+      const withPort = ['https://*.example.com:8443'];
+      expect(isOriginAllowed('https://x.example.com:8443', withPort)).toBe(true);
+      expect(isOriginAllowed('https://x.example.com', withPort)).toBe(false);
+      expect(isOriginAllowed('https://x.example.com:9443', withPort)).toBe(false);
+    });
+
+    it('treats a default port on either side as no port', () => {
+      expect(isOriginAllowed('https://x.example.com:443', wildcard)).toBe(true);
+      expect(isOriginAllowed('https://x.example.com', ['https://*.example.com:443'])).toBe(true);
+    });
+
+    it('ignores host casing on either side', () => {
+      expect(isOriginAllowed('https://Blog.EXAMPLE.com', wildcard)).toBe(true);
+      expect(isOriginAllowed('https://blog.example.com', ['https://*.Example.COM'])).toBe(true);
+    });
+
+    it('rejects the sandboxed "null" origin', () => {
+      expect(isOriginAllowed('null', wildcard)).toBe(false);
+    });
+  });
 });

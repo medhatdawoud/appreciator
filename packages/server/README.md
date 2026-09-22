@@ -112,6 +112,19 @@ to `DEFAULT_MAX_CLICKS`. The response's `embedSnippet` is the one-tag embed:
 <script src="https://appreciator.example.com/widget.js" data-key="pk_…" async></script>
 ```
 
+Each `allowedOrigins` entry is an origin (`https://example.com`,
+`http://localhost:8080`), the literal `null` a sandboxed iframe sends, `*`, or a
+subdomain wildcard. Entries are compared on their canonical form: host casing,
+a trailing slash and a default port make no difference.
+
+A subdomain wildcard such as `https://*.example.com` accepts any origin whose
+host ends in `.example.com`, at any depth (`blog.example.com`,
+`a.b.example.com`), over the same scheme and the same port. Like a wildcard
+certificate, it does **not** cover the apex `https://example.com`; list that
+separately. `https://*.example.com:8443` accepts only port 8443. A `*` anywhere
+other than a leading `*.` label (`https://*example.com`,
+`https://a.*.example.com`) is refused with `400`.
+
 A button whose `allowedOrigins` contains `*` accepts any origin. That is a real
 loosening — any site can then render the button and spend its counters — so it
 exists only for tenants who ask for it.
