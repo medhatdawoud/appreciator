@@ -11,10 +11,36 @@ const FORBIDDEN_ELEMENTS = new Set(['script', 'foreignobject', 'iframe', 'embed'
 
 const UNSAFE_URL = /^\s*(javascript:|data:\s*text\/html)/i;
 
+/**
+ * Where an icon's `style` attributes travel while the markup is parsed.
+ *
+ * A parser applies a `style` attribute as inline style, and a host page whose
+ * Content-Security-Policy has a `style-src` without `'unsafe-inline'` refuses
+ * that, logging a violation and leaving the icon unpainted. Setting the same
+ * declarations through the CSSOM is outside that policy, so the attributes
+ * are renamed before parsing and moved back onto `element.style` after.
+ */
+const HELD_STYLE_ATTRIBUTE = 'data-appreciator-style';
+
+function holdStyleAttributes(source: string): string {
+  return source.replace(/<[^>]+>/g, (tag) =>
+    tag.replace(/(\s)style(\s*=)/gi, `$1${HELD_STYLE_ATTRIBUTE}$2`),
+  );
+}
+
+function releaseStyleAttributes(root: Element): void {
+  for (const element of [root, ...Array.from(root.querySelectorAll(`[${HELD_STYLE_ATTRIBUTE}]`))]) {
+    const held = element.getAttribute(HELD_STYLE_ATTRIBUTE);
+    if (held === null) continue;
+    element.removeAttribute(HELD_STYLE_ATTRIBUTE);
+    (element as Element & ElementCSSInlineStyle).style.cssText = held;
+  }
+}
+
 export function parseSafeSvg(source: string, target: Document = document): Element | null {
   let parsed: Document;
   try {
-    parsed = new DOMParser().parseFromString(source, 'image/svg+xml');
+    parsed = new DOMParser().parseFromString(holdStyleAttributes(source), 'image/svg+xml');
   } catch {
     return null;
   }
@@ -42,6 +68,7 @@ export function parseSafeSvg(source: string, target: Document = document): Eleme
   }
 
   const svg = target.importNode(root, true);
+  releaseStyleAttributes(svg);
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
   return svg;

@@ -35,6 +35,24 @@ describe('parseSafeSvg', () => {
     expect(svg?.querySelector('path')).not.toBeNull();
   });
 
+  it('applies style attributes through the CSSOM rather than letting the parser see them', () => {
+    const svg = parseSafeSvg(
+      `<svg xmlns="${NS}" style="fill: var(--appr-fill, none); stroke: var(--appr-stroke, currentColor)">` +
+        `<path d="M1 1h2" STYLE='stroke-width: 3'/>` +
+        `<title>not a style= attribute</title>` +
+        `</svg>`,
+    );
+    const path = svg?.querySelector('path');
+
+    expect((svg as SVGElement).style.getPropertyValue('fill')).toBe('var(--appr-fill, none)');
+    expect((svg as SVGElement).style.getPropertyValue('stroke')).toBe(
+      'var(--appr-stroke, currentColor)',
+    );
+    expect((path as SVGElement).style.getPropertyValue('stroke-width')).toBe('3');
+    expect(svg?.outerHTML).not.toContain('data-appreciator-style');
+    expect(svg?.querySelector('title')?.textContent).toBe('not a style= attribute');
+  });
+
   it('rejects anything whose root is not <svg>', () => {
     expect(parseSafeSvg('<div>hello</div>')).toBeNull();
     expect(parseSafeSvg('')).toBeNull();

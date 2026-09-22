@@ -25,6 +25,8 @@ export interface E2eFixture {
   colors: Record<'default' | 'hover' | 'clicked' | 'full', string>;
   /** Name of the tenant that owns `publicKey`, as the leaderboard lists it. */
   siteName: string;
+  /** Public key of the landing page's demo button. */
+  demoKey: string;
   /**
    * A signed-in dashboard account. Minted by the harness with the server's
    * own session code, so the specs never take the GitHub OAuth hop.

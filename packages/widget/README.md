@@ -2,7 +2,9 @@
 
 The embeddable `<appreciator-button>` web component. Framework-agnostic: it
 works from a plain `<script>` tag or as an ES module, and isolates its styling
-in a shadow root.
+in a shadow root. It needs no `'unsafe-inline'` from the host page's
+Content-Security-Policy: its own styles are a constructed stylesheet, and an
+icon's `style` attributes are applied through the CSSOM.
 
 ## Embedding
 

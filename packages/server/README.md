@@ -461,7 +461,8 @@ Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'
   form-action 'self'; base-uri 'none'
 ```
 
-so the pages contain no inline script or style at all.
+so the pages contain no inline script or style at all, and the widget applies
+its shadow styles as a constructed stylesheet rather than a `<style>` element.
 
 The folders are resolved relative to the module, so this works under `tsx`
 (`src/web`, and `site/` four levels up) and after `npm run build`, which

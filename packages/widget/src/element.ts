@@ -63,6 +63,34 @@ button:not(:disabled):hover svg {
 `;
 
 /**
+ * `STYLES` as a constructed stylesheet, built once and shared by every
+ * instance. A `<style>` element would do the same job, except on host pages
+ * whose Content-Security-Policy has a `style-src` without `'unsafe-inline'`:
+ * those refuse inline style elements, shadow roots included, while sheets
+ * built through the CSSOM are outside the policy. Undefined where
+ * constructable stylesheets do not exist (jsdom, older WebKit).
+ */
+let sharedSheet: CSSStyleSheet | undefined;
+
+function applyStyles(root: ShadowRoot): void {
+  if (
+    'adoptedStyleSheets' in root &&
+    typeof CSSStyleSheet !== 'undefined' &&
+    'replaceSync' in CSSStyleSheet.prototype
+  ) {
+    if (sharedSheet === undefined) {
+      sharedSheet = new CSSStyleSheet();
+      sharedSheet.replaceSync(STYLES);
+    }
+    root.adoptedStyleSheets = [sharedSheet];
+    return;
+  }
+  const style = document.createElement('style');
+  style.textContent = STYLES;
+  root.append(style);
+}
+
+/**
  * Server base URL used by elements that carry no `data-api`. Set once when the
  * bundle is loaded from the server's own `/widget.js`, so an element only has
  * to name its key.
@@ -133,8 +161,7 @@ export class AppreciatorButton extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
-    const style = document.createElement('style');
-    style.textContent = STYLES;
+    applyStyles(root);
 
     this.button = document.createElement('button');
     this.button.type = 'button';
@@ -146,7 +173,7 @@ export class AppreciatorButton extends HTMLElement {
     this.countLabel.setAttribute('part', 'count');
 
     this.button.append(this.icon, this.countLabel);
-    root.append(style, this.button);
+    root.append(this.button);
     this.button.addEventListener('click', () => this.handleClick());
   }
 

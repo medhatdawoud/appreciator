@@ -108,7 +108,9 @@ async function createTenant(): Promise<string> {
   return secret;
 }
 
-async function registerButton(secret: string): Promise<Omit<E2eFixture, 'siteName' | 'session'>> {
+async function registerButton(
+  secret: string,
+): Promise<Omit<E2eFixture, 'siteName' | 'demoKey' | 'session'>> {
   const svgSource = await readFile(resolve(ICON_DIR, 'icon.svg'), 'utf8');
   const colors = JSON.parse(
     await readFile(resolve(ICON_DIR, 'colors.json'), 'utf8'),
@@ -184,6 +186,7 @@ async function main(): Promise<void> {
   const fixture: E2eFixture = {
     ...(await registerButton(await createTenant())),
     siteName: TENANT_NAME,
+    demoKey: demo.publicKey,
     session: await seedSession(pool, config),
   };
   await writeFile(FIXTURE_PATH, JSON.stringify(fixture), 'utf8');
