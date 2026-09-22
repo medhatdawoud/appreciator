@@ -3,6 +3,19 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-22 — Full README with architecture diagrams
+
+- README rewritten as the complete system reference: who it is for (self-host
+  model, no signup), features, architecture, click sequence, button states,
+  data model, HTTP API, widget embedding and theming, icons, a hosting guide
+  (Coolify, Docker, bare Node), configuration reference, security model,
+  operations and limits, development, known gaps.
+- Four Mermaid diagrams (components, click sequence, button state machine,
+  entity relationships), rendered natively by GitHub so there are no image
+  files to keep in sync. Each was rendered in headless Chromium before commit;
+  two Mermaid pitfalls found on the way: `;` inside message text ends a
+  statement (so no HTML entities there) and `default` is a reserved state name.
+
 ## 2026-09-22 — One-tag embed and env-configured management key
 
 Two steps that stood between a deployed server and a working button are gone:
