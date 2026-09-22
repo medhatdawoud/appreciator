@@ -204,7 +204,11 @@ function decodeCursor(cursor: string | undefined): string | undefined {
 
 export async function managementRoutes(app: FastifyInstance): Promise<void> {
   app.decorateRequest('tenant', null);
-  app.addHook('preHandler', authenticateTenant);
+  // onRequest, not preHandler: schema validation runs in between, so a caller
+  // with no credentials would otherwise get a 400 describing the body schema
+  // instead of a 401. Authenticating first also means we never parse or
+  // validate a body on behalf of someone we have not identified.
+  app.addHook('onRequest', authenticateTenant);
 
   app.post<{ Body: ButtonConfigInput }>(
     '/v1/buttons',

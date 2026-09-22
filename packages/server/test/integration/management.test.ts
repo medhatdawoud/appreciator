@@ -105,6 +105,31 @@ describe('management routes', () => {
       expect(malformed.json().message).toBe(wrong.json().message);
     });
 
+    it('answers 401 before validating the body, not 400', async () => {
+      // Schema validation runs between onRequest and preHandler. If auth were
+      // a preHandler hook, this would answer 400 and hand an unauthenticated
+      // caller a description of the request schema.
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).not.toMatch(/allowedOrigins|svgSource|required property/i);
+    });
+
+    it('answers 401 before parsing a malformed body', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { 'content-type': 'application/json' },
+        payload: '{not valid json',
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
     it('does not echo the secret back in the response', async () => {
       const response = await context.app.inject({
         method: 'POST',

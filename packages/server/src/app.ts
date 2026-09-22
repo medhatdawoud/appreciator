@@ -7,6 +7,7 @@ import type { AppConfig } from './env.js';
 import { HttpError } from './lib/errors.js';
 import { healthRoutes } from './routes/health.js';
 import { managementRoutes } from './routes/management.js';
+import { publicRoutes } from './routes/public.js';
 
 /**
  * Request body ceiling. The only large field we accept is `svgSource` (capped
@@ -126,6 +127,7 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   // hook cannot leak onto the public routes and the public CORS and rate-limit
   // hooks cannot leak onto the management ones.
   await app.register(managementRoutes);
+  await app.register(publicRoutes);
 
   return app;
 }
