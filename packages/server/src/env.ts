@@ -98,6 +98,8 @@ export interface AppConfig {
   demoAllowedOrigins: string[];
   /** Source repository linked from the web UI. */
   repoUrl: string;
+  /** Whether GET /v1/leaderboard is served. It publishes every tenant's name and click total. */
+  leaderboardEnabled: boolean;
 }
 
 export interface ServerConfig extends AppConfig {
@@ -269,6 +271,7 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
     demoButton: bool(source, 'DEMO_BUTTON', true),
     demoAllowedOrigins: demoAllowedOrigins(source, publicBaseUrl),
     repoUrl: url(source, 'REPO_URL', DEFAULT_REPO_URL),
+    leaderboardEnabled: bool(source, 'LEADERBOARD', true),
   };
 }
 

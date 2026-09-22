@@ -51,6 +51,7 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 | `DEMO_BUTTON`           | no          | `true`                                        | Provision the landing page's demo button at startup.                                                                                                                  |
 | `DEMO_ALLOWED_ORIGINS`  | no          | origin of `PUBLIC_BASE_URL`                   | Comma-separated `allowedOrigins` for the demo button.                                                                                                                 |
 | `REPO_URL`              | no          | `https://github.com/medhatdawoud/appreciator` | Source repository linked from the web UI.                                                                                                                             |
+| `LEADERBOARD`           | no          | `true`                                        | Serve `GET /v1/leaderboard`, which publishes every tenant's name and click total.                                                                                     |
 
 Changing `VISITOR_HASH_SECRET` invalidates every stored visitor hash: existing
 visitors get a fresh allowance, and their old rows become unreachable.
@@ -121,6 +122,7 @@ Unauthenticated, outside the per-button scope:
 | `GET`  | `/healthz`         | `200`, or `503` if MySQL is unreachable                                   |
 | `GET`  | `/widget.js`       | the built widget bundle, or `404` if it is not built; per-IP rate limited |
 | `GET`  | `/web/config.json` | `WebConfig` for the landing page and dashboard                            |
+| `GET`  | `/v1/leaderboard`  | → `LeaderboardResponse`, or `404 leaderboard_disabled`                    |
 
 `POST /v1/buttons` needs only `allowedOrigins`; `svgSource` and `colors` fall
 back to a built-in heart icon (see `src/lib/default-icon.ts`) and `maxClicks`
@@ -418,11 +420,40 @@ page and dashboard read to boot:
   "apiUrl": "https://appreciator.example.com",
   "demoKey": "pk_…",
   "signInEnabled": true,
-  "repoUrl": "https://github.com/medhatdawoud/appreciator"
+  "repoUrl": "https://github.com/medhatdawoud/appreciator",
+  "leaderboardEnabled": true
 }
 ```
 
 `demoKey` is the demo button's public key, or `null` with `DEMO_BUTTON=false`.
+
+## Leaderboard
+
+`GET /v1/leaderboard` (public, no credentials) ranks tenants by the clicks on
+all their buttons:
+
+```json
+{
+  "sites": [
+    { "siteName": "My blog", "buttonCount": 3, "totalCount": 1204 },
+    { "siteName": "Docs", "buttonCount": 1, "totalCount": 87 }
+  ]
+}
+```
+
+`totalCount` is the sum of every item's total over every one of the tenant's
+buttons, and `buttonCount` is how many buttons it has. Sites are ordered by
+`totalCount`, highest first, then by name, and capped at 100. Tenants with no
+clicks are left out, as is the landing page's `demo` tenant (a dashboard site
+that happens to be named `demo` is not).
+
+The page that reads it may be hosted anywhere, so the response carries
+`Access-Control-Allow-Origin: *`, with `Cache-Control: public, max-age=60`. It
+has a per-IP rate limit of `RATE_LIMIT_MAX` per window, counted separately from
+the public button routes. It makes every tenant's name public, including the
+`MANAGEMENT_SECRET` tenant (`default`) and CLI tenants once they have clicks;
+set `LEADERBOARD=false` to switch it off, and it answers
+`404 leaderboard_disabled`.
 
 ## Tests
 

@@ -171,6 +171,11 @@ describe('demo button and web settings', () => {
     );
   });
 
+  it('serves the leaderboard unless LEADERBOARD is false', () => {
+    expect(loadAppConfig(baseEnv).leaderboardEnabled).toBe(true);
+    expect(loadAppConfig({ ...baseEnv, LEADERBOARD: 'false' }).leaderboardEnabled).toBe(false);
+  });
+
   it('defaults REPO_URL to the project repository', () => {
     expect(loadAppConfig(baseEnv).repoUrl).toBe('https://github.com/medhatdawoud/appreciator');
     expect(loadAppConfig({ ...baseEnv, REPO_URL: 'https://example.com/fork' }).repoUrl).toBe(

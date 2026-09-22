@@ -42,4 +42,19 @@ export interface WebConfig {
   demoKey: string | null;
   signInEnabled: boolean;
   repoUrl: string;
+  /** Whether GET /v1/leaderboard is served. */
+  leaderboardEnabled: boolean;
+}
+
+/** One site on the public leaderboard. */
+export interface LeaderboardEntry {
+  siteName: string;
+  buttonCount: number;
+  /** Every click on every one of the site's buttons. */
+  totalCount: number;
+}
+
+/** GET /v1/leaderboard: the top sites by total clicks. */
+export interface LeaderboardResponse {
+  sites: LeaderboardEntry[];
 }

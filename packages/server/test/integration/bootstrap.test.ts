@@ -245,15 +245,20 @@ describe('GET /web/config.json', () => {
       demoKey: demo?.public_key,
       signInEnabled: true,
       repoUrl: 'https://github.com/medhatdawoud/appreciator',
+      leaderboardEnabled: true,
     });
   });
 
   it('reports no demo key and sign-in off when both are disabled', async () => {
-    const { app, pool } = await context({ demoButton: false });
+    const { app, pool } = await context({ demoButton: false, leaderboardEnabled: false });
 
     const response = await app.inject({ method: 'GET', url: '/web/config.json' });
 
-    expect(response.json()).toMatchObject({ demoKey: null, signInEnabled: false });
+    expect(response.json()).toMatchObject({
+      demoKey: null,
+      signInEnabled: false,
+      leaderboardEnabled: false,
+    });
     expect(await queryRows(pool, 'SELECT id FROM tenants')).toEqual([]);
   });
 });

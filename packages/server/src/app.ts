@@ -8,6 +8,7 @@ import type { AppConfig } from './env.js';
 import { HttpError } from './lib/errors.js';
 import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
+import { leaderboardRoutes } from './routes/leaderboard.js';
 import { managementRoutes } from './routes/management.js';
 import { publicRoutes } from './routes/public.js';
 import { siteRoutes } from './routes/sites.js';
@@ -156,6 +157,7 @@ export async function buildApp({
   // The dashboard's sites: session cookie plus CSRF, never the bearer secret.
   await app.register(siteRoutes);
   await app.register(webRoutes);
+  await app.register(leaderboardRoutes);
 
   return app;
 }

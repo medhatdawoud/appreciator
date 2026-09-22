@@ -62,6 +62,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     demoButton: false,
     demoAllowedOrigins: ['https://appreciator.test'],
     repoUrl: 'https://github.com/medhatdawoud/appreciator',
+    leaderboardEnabled: true,
     ...overrides,
   };
 }

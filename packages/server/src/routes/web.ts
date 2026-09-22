@@ -17,12 +17,13 @@ export async function webRoutes(app: FastifyInstance): Promise<void> {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['apiUrl', 'demoKey', 'signInEnabled', 'repoUrl'],
+            required: ['apiUrl', 'demoKey', 'signInEnabled', 'repoUrl', 'leaderboardEnabled'],
             properties: {
               apiUrl: { type: 'string' },
               demoKey: { type: ['string', 'null'] },
               signInEnabled: { type: 'boolean' },
               repoUrl: { type: 'string' },
+              leaderboardEnabled: { type: 'boolean' },
             },
           },
         },
@@ -35,6 +36,7 @@ export async function webRoutes(app: FastifyInstance): Promise<void> {
         demoKey: app.demoPublicKey,
         signInEnabled: app.appConfig.signInEnabled,
         repoUrl: app.appConfig.repoUrl,
+        leaderboardEnabled: app.appConfig.leaderboardEnabled,
       };
     },
   );
