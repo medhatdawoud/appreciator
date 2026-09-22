@@ -7,6 +7,12 @@ import type { Pool } from '../../src/db/pool.js';
 import { createPool, execute } from '../../src/db/pool.js';
 import type { AppConfig } from '../../src/env.js';
 import { generateSecretKey, hashSecretKey } from '../../src/lib/auth.js';
+import {
+  CSRF_HEADER,
+  CSRF_HEADER_VALUE,
+  SESSION_COOKIE,
+  createSessionCookie,
+} from '../../src/lib/session.js';
 
 /**
  * These tests run against the MySQL in the repo's docker-compose, with no
@@ -148,4 +154,49 @@ export async function seedTenant(pool: Pool, name = 'Test Tenant'): Promise<Test
     hashSecretKey(secret),
   ]);
   return { id, name, secret, authHeader: `Bearer ${secret}` };
+}
+
+/** Sign-in turned on, as a deployment with a registered OAuth app would have it. */
+export const SIGN_IN_CONFIG: Partial<AppConfig> = {
+  githubClientId: 'Iv1.test-client',
+  githubClientSecret: 'test-client-secret',
+  sessionSecret: 'integration-session-secret-0123456789ab',
+  signInEnabled: true,
+  githubAllowedLogins: ['octocat'],
+};
+
+export interface TestAccount {
+  id: string;
+  githubId: number;
+  login: string;
+}
+
+let nextGithubId = 1000;
+
+/** Inserts an account directly, as a first GitHub sign-in would. */
+export async function seedAccount(pool: Pool, login = 'octocat'): Promise<TestAccount> {
+  const id = crypto.randomUUID();
+  nextGithubId += 1;
+  await execute(
+    pool,
+    'INSERT INTO accounts (id, github_id, login, avatar_url) VALUES (?, ?, ?, ?)',
+    [id, nextGithubId, login, `https://avatars.githubusercontent.test/u/${nextGithubId}`],
+  );
+  return { id, githubId: nextGithubId, login };
+}
+
+/**
+ * Headers for a cookie-authenticated request from the dashboard: the session
+ * cookie, plus the CSRF header and same-origin `Origin` a write needs.
+ */
+export function sessionHeaders(config: AppConfig, accountId: string): Record<string, string> {
+  const [cookie = ''] = createSessionCookie(config, accountId).split(';');
+  if (!cookie.startsWith(`${SESSION_COOKIE}=`)) {
+    throw new Error('unexpected session cookie shape');
+  }
+  return {
+    cookie,
+    [CSRF_HEADER]: CSRF_HEADER_VALUE,
+    origin: new URL(config.publicBaseUrl).origin,
+  };
 }

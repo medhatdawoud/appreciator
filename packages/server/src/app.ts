@@ -6,6 +6,7 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { Pool } from './db/pool.js';
 import type { AppConfig } from './env.js';
 import { HttpError } from './lib/errors.js';
+import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 import { managementRoutes } from './routes/management.js';
 import { publicRoutes } from './routes/public.js';
@@ -139,6 +140,8 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   // Outside the public button scope: it takes no public key, so it has no
   // button allowlist to check, and a plain <script src> needs no CORS.
   await app.register(widgetRoutes);
+  // Cookie-authenticated dashboard sign-in, with its own rate limit.
+  await app.register(authRoutes);
 
   return app;
 }
