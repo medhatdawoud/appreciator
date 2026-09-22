@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: appreciator
+          MYSQL_DATABASE: appreciator
+          MYSQL_USER: appreciator
+          MYSQL_PASSWORD: appreciator
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -pappreciator"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: mysql://root:appreciator@127.0.0.1:3306/appreciator_test
+      E2E_DATABASE_URL: mysql://root:appreciator@127.0.0.1:3306/appreciator_e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build -w @appreciator/shared
+
+      - run: npm run lint
+      - run: npm run format
+      - run: npm run typecheck
+
+      - run: npm run test:unit
+      - run: npm run test:integration
+
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: packages/widget/playwright-report
+          retention-days: 7
