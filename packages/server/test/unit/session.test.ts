@@ -77,7 +77,9 @@ describe('session cookies', () => {
 
   it('rejects a tampered signature', () => {
     const [body, signature = ''] = valueOf(createSessionCookie(config, ACCOUNT_ID)).split('.');
-    const flipped = `${signature.slice(0, -1)}${signature.endsWith('A') ? 'B' : 'A'}`;
+    // The first character, not the last: the last of 43 base64url characters
+    // carries two padding bits, so some edits there decode to the same bytes.
+    const flipped = `${signature.startsWith('A') ? 'B' : 'A'}${signature.slice(1)}`;
 
     expect(readSession(config, `${body}.${flipped}`)).toBeNull();
   });
