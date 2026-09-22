@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: appreciator
+      MYSQL_DATABASE: appreciator
+      MYSQL_USER: appreciator
+      MYSQL_PASSWORD: appreciator
+    ports:
+      - '3306:3306'
+    volumes:
+      - appreciator-mysql:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-pappreciator']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  appreciator-mysql:
