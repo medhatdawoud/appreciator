@@ -378,6 +378,25 @@ one transaction. An account can own at most 20 sites; the next create answers
 `409 limit_reached`. A site that is not the caller's answers `404`, the same
 as one that does not exist.
 
+### Managing a site's buttons from the dashboard
+
+Every management route is also mounted under a site, with the same handlers,
+schemas and responses, authenticated by the session instead of the bearer
+secret:
+
+| Bearer secret               | Dashboard session                         |
+| --------------------------- | ----------------------------------------- |
+| `POST /v1/buttons`          | `POST /v1/sites/:siteId/buttons`          |
+| `GET /v1/buttons`           | `GET /v1/sites/:siteId/buttons`           |
+| `PATCH /v1/buttons/:id`     | `PATCH /v1/sites/:siteId/buttons/:id`     |
+| `GET /v1/buttons/:id/items` | `GET /v1/sites/:siteId/buttons/:id/items` |
+| `DELETE /v1/buttons/:id`    | `DELETE /v1/sites/:siteId/buttons/:id`    |
+
+Both act on the same buttons: a button created through one is listed by the
+other. The site routes apply the CSRF rules to writes, and answer `404` for a
+site the signed-in account does not own, before anything else is read. Neither
+form of credential works on the other form of route.
+
 ## Tests
 
 Unit tests cover the pure helpers in `src/lib/` and need nothing running:

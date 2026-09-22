@@ -8,7 +8,7 @@ import type {
   ItemsPage,
   UrlNormalization,
 } from '@appreciator/shared';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest, onRequestHookHandler } from 'fastify';
 
 import {
   buildEmbedSnippet,
@@ -18,22 +18,24 @@ import {
 } from '../db/buttons.js';
 import type { SqlParam } from '../db/pool.js';
 import { execute, queryRows, withTransaction } from '../db/pool.js';
+import { findSiteForAccount } from '../db/sites.js';
 import {
   ALLOWED_ORIGIN_PATTERN,
-  type TenantRow,
   extractBearerToken,
   findTenantBySecretKey,
   generatePublicKey,
 } from '../lib/auth.js';
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
+import { accountOf, requireCsrf, requireSession } from '../lib/session.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
 import { MAX_ITEM_KEY_LENGTH } from '../lib/url-normalize.js';
 import { UUID_PATTERN, colorsSchema, svgSourceSchema, svgSourcesSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    tenant: TenantRow | null;
+    /** The tenant a management request acts for, set by whichever auth hook the route sits behind. */
+    tenantId: string | null;
   }
 }
 
@@ -109,12 +111,7 @@ const buttonConfigSchema = {
   },
 };
 
-const buttonIdParamsSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['id'],
-  properties: { id: { type: 'string', pattern: UUID_PATTERN } },
-};
+const uuidSchema = { type: 'string', pattern: UUID_PATTERN };
 
 interface ButtonIdParams {
   id: string;
@@ -143,15 +140,36 @@ async function authenticateTenant(request: FastifyRequest): Promise<void> {
     throw unauthorized();
   }
 
-  request.tenant = tenant;
+  request.tenantId = tenant.id;
 }
 
-/** Narrows `request.tenant` for handlers, which only run behind the auth hook. */
-function tenantOf(request: FastifyRequest): TenantRow {
-  if (request.tenant === null) {
+const UUID_REGEX = new RegExp(UUID_PATTERN);
+
+/**
+ * Resolves the tenant from the site in the path, for the dashboard's copy of
+ * these routes. Runs after `requireSession`, and a site the signed-in account
+ * does not own - or a malformed id, since this runs before params validation -
+ * answers 404, as for a button.
+ */
+async function authenticateSite(request: FastifyRequest): Promise<void> {
+  const { siteId } = request.params as { siteId?: string };
+  const site =
+    siteId !== undefined && UUID_REGEX.test(siteId)
+      ? await findSiteForAccount(request.server.pool, accountOf(request).id, siteId)
+      : undefined;
+  if (site === undefined) {
+    throw notFound('Site not found');
+  }
+
+  request.tenantId = site.id;
+}
+
+/** Narrows `request.tenantId` for handlers, which only run behind an auth hook. */
+function tenantIdOf(request: FastifyRequest): string {
+  if (request.tenantId === null) {
     throw unauthorized();
   }
-  return request.tenant;
+  return request.tenantId;
 }
 
 /** Re-throws SVG rejections as 400s; anything else keeps its own handling. */
@@ -235,18 +253,44 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
-export async function managementRoutes(app: FastifyInstance): Promise<void> {
-  app.decorateRequest('tenant', null);
+interface ButtonRoutesOptions {
+  /** onRequest hooks that authenticate the caller and set `request.tenantId`, in order. */
+  authenticate: onRequestHookHandler[];
+  /** Whether the prefix carries a `:siteId` param, which the params schemas must then allow. */
+  siteScoped: boolean;
+}
+
+/**
+ * The button routes, written once and mounted twice by `managementRoutes`:
+ * behind the bearer secret, and behind a dashboard session for one site.
+ */
+async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions): Promise<void> {
   // onRequest, not preHandler: schema validation runs in between, so a caller
   // with no credentials would otherwise get a 400 describing the body schema
   // instead of a 401. Authenticating first also means we never parse or
   // validate a body on behalf of someone we have not identified.
-  app.addHook('onRequest', authenticateTenant);
+  for (const hook of options.authenticate) {
+    app.addHook('onRequest', hook);
+  }
+
+  const siteParam = options.siteScoped ? { siteId: uuidSchema } : {};
+  function paramsSchema(properties: Record<string, object>) {
+    const all = { ...siteParam, ...properties };
+    return {
+      type: 'object',
+      additionalProperties: false,
+      required: Object.keys(all),
+      properties: all,
+    };
+  }
+  const collectionParamsSchema = paramsSchema({});
+  const buttonIdParamsSchema = paramsSchema({ id: uuidSchema });
 
   app.post<{ Body: ButtonConfigInput }>(
-    '/v1/buttons',
+    '/buttons',
     {
       schema: {
+        params: collectionParamsSchema,
         body: createBodySchema,
         response: {
           201: {
@@ -263,7 +307,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply): Promise<CreateButtonResponse> => {
-      const tenant = tenantOf(request);
+      const tenantId = tenantIdOf(request);
       const input = request.body;
       validateIcons(input);
       // A button with per-state icons still gets the default single icon, so
@@ -284,7 +328,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
-          tenant.id,
+          tenantId,
           publicKey,
           input.name === undefined ? null : normalizeName(input.name),
           input.maxClicks ?? app.appConfig.defaultMaxClicks,
@@ -296,7 +340,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
         ],
       );
 
-      request.log.info({ buttonId: id, tenantId: tenant.id }, 'button created');
+      request.log.info({ buttonId: id, tenantId }, 'button created');
       reply.status(201);
       return {
         buttonId: id,
@@ -307,9 +351,10 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.get(
-    '/v1/buttons',
+    '/buttons',
     {
       schema: {
+        params: collectionParamsSchema,
         response: {
           200: {
             type: 'object',
@@ -321,14 +366,14 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request): Promise<ButtonListResponse> => {
-      const tenant = tenantOf(request);
-      const rows = await listButtonsForTenant(app.pool, tenant.id);
+      const tenantId = tenantIdOf(request);
+      const rows = await listButtonsForTenant(app.pool, tenantId);
       return { buttons: rows.map((row) => toButtonConfig(row, app.appConfig.publicBaseUrl)) };
     },
   );
 
   app.patch<{ Params: ButtonIdParams; Body: Partial<ButtonConfigInput> }>(
-    '/v1/buttons/:id',
+    '/buttons/:id',
     {
       schema: {
         params: buttonIdParamsSchema,
@@ -337,8 +382,8 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request): Promise<ButtonConfig> => {
-      const tenant = tenantOf(request);
-      await loadOwnedButton(app, tenant.id, request.params.id);
+      const tenantId = tenantIdOf(request);
+      await loadOwnedButton(app, tenantId, request.params.id);
 
       const patch = request.body;
       validateIcons(patch);
@@ -368,16 +413,16 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       await execute(app.pool, `UPDATE buttons SET ${setClause} WHERE id = ? AND tenant_id = ?`, [
         ...assignments.map(([, value]) => value),
         request.params.id,
-        tenant.id,
+        tenantId,
       ]);
 
-      request.log.info({ buttonId: request.params.id, tenantId: tenant.id }, 'button updated');
-      return loadOwnedButton(app, tenant.id, request.params.id);
+      request.log.info({ buttonId: request.params.id, tenantId }, 'button updated');
+      return loadOwnedButton(app, tenantId, request.params.id);
     },
   );
 
   app.get<{ Params: ButtonIdParams; Querystring: ItemsQuery }>(
-    '/v1/buttons/:id/items',
+    '/buttons/:id/items',
     {
       schema: {
         params: buttonIdParamsSchema,
@@ -416,8 +461,8 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request): Promise<ItemsPage> => {
-      const tenant = tenantOf(request);
-      await loadOwnedButton(app, tenant.id, request.params.id);
+      const tenantId = tenantIdOf(request);
+      await loadOwnedButton(app, tenantId, request.params.id);
 
       const limit = request.query.limit ?? DEFAULT_PAGE_SIZE;
       const after = decodeCursor(request.query.cursor);
@@ -471,10 +516,10 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.delete<{ Params: ButtonIdParams }>(
-    '/v1/buttons/:id',
+    '/buttons/:id',
     { schema: { params: buttonIdParamsSchema, response: { 204: { type: 'null' } } } },
     async (request, reply) => {
-      const tenant = tenantOf(request);
+      const tenantId = tenantIdOf(request);
       const buttonId = request.params.id;
 
       // One transaction so a button is never left half-deleted, with its
@@ -483,7 +528,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
         const result = await execute(
           connection,
           'DELETE FROM buttons WHERE id = ? AND tenant_id = ?',
-          [buttonId, tenant.id],
+          [buttonId, tenantId],
         );
         if (result.affectedRows === 0) {
           return false;
@@ -497,8 +542,32 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
         throw notFound('Button not found');
       }
 
-      request.log.info({ buttonId, tenantId: tenant.id }, 'button deleted');
+      request.log.info({ buttonId, tenantId }, 'button deleted');
       return reply.status(204).send();
     },
   );
+}
+
+/**
+ * The management API, mounted twice with the same handlers and schemas:
+ *
+ * - `/v1/buttons…` behind the tenant's bearer secret, for scripts and the CLI;
+ * - `/v1/sites/:siteId/buttons…` behind a dashboard session, CSRF-checked, for
+ *   a site the signed-in account owns.
+ *
+ * Handlers only ever see `request.tenantId`, so the two cannot drift apart.
+ */
+export async function managementRoutes(app: FastifyInstance): Promise<void> {
+  app.decorateRequest('tenantId', null);
+
+  await app.register(buttonRoutes, {
+    prefix: '/v1',
+    authenticate: [authenticateTenant],
+    siteScoped: false,
+  });
+  await app.register(buttonRoutes, {
+    prefix: '/v1/sites/:siteId',
+    authenticate: [requireSession, requireCsrf, authenticateSite],
+    siteScoped: true,
+  });
 }
