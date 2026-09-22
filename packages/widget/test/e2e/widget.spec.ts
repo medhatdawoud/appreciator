@@ -3,12 +3,12 @@ import { readFile } from 'node:fs/promises';
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { FIXTURE_PATH, PAGE_PORT, type ButtonFixture } from './constants.js';
+import { FIXTURE_PATH, PAGE_PORT, type E2eFixture } from './constants.js';
 
-let fixture: ButtonFixture;
+let fixture: E2eFixture;
 
 test.beforeAll(async () => {
-  fixture = JSON.parse(await readFile(FIXTURE_PATH, 'utf8')) as ButtonFixture;
+  fixture = JSON.parse(await readFile(FIXTURE_PATH, 'utf8')) as E2eFixture;
 });
 
 /** `#rrggbb` → the `rgb(r, g, b)` form computed styles report. */

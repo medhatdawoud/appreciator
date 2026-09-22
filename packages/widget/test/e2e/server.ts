@@ -10,6 +10,7 @@
  * Playwright starts this as its `webServer` and waits for /healthz.
  */
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
@@ -20,21 +21,27 @@ import type { ButtonColors, CreateButtonResponse } from '@appreciator/shared';
 
 import { buildApp } from '../../../server/src/app.js';
 import { runMigrations } from '../../../server/src/db/migrate.js';
-import { createPool } from '../../../server/src/db/pool.js';
-import { loadAppConfig } from '../../../server/src/env.js';
+import { createPool, execute, type Pool } from '../../../server/src/db/pool.js';
+import { loadAppConfig, type AppConfig } from '../../../server/src/env.js';
+import { ensureDemoButton } from '../../../server/src/lib/bootstrap.js';
+import { createSessionCookie } from '../../../server/src/lib/session.js';
 import {
   API_ORIGIN,
   API_PORT,
   FIXTURE_PATH,
   PAGE_ORIGIN,
   PAGE_PORT,
-  type ButtonFixture,
+  type E2eFixture,
+  type SessionFixture,
 } from './constants.js';
 
 const WIDGET_DIR = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const ROOT = resolve(WIDGET_DIR, '../..');
 const EXAMPLE_DIR = resolve(ROOT, 'examples/plain-html');
 const ICON_DIR = resolve(EXAMPLE_DIR, 'appreciator-out');
+
+const TENANT_NAME = 'e2e';
+const ACCOUNT_LOGIN = 'e2e';
 
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? 'mysql://root:appreciator@127.0.0.1:3306/appreciator_e2e';
@@ -48,6 +55,17 @@ const ENV = {
   // The allowlist spec deliberately triggers origin rejections, which log at warn.
   LOG_LEVEL: 'error',
   WIDGET_BUNDLE_PATH: resolve(WIDGET_DIR, 'dist/widget.js'),
+  // The landing page's demo button, clickable from the page itself and from
+  // the example page's origin.
+  DEMO_BUTTON: 'true',
+  DEMO_ALLOWED_ORIGINS: `${API_ORIGIN},${PAGE_ORIGIN}`,
+  LEADERBOARD: 'true',
+  // Sign-in is configured so the pages offer it, but the GitHub hop is never
+  // taken: the dashboard spec signs in with a cookie minted below.
+  GITHUB_CLIENT_ID: 'e2e-client-id',
+  GITHUB_CLIENT_SECRET: 'e2e-client-secret',
+  GITHUB_ALLOWED_LOGINS: ACCOUNT_LOGIN,
+  SESSION_SECRET: 'e2e-session-secret-0123456789abcdef',
 };
 
 const MIME: Record<string, string> = {
@@ -80,7 +98,7 @@ async function ensureDatabase(): Promise<void> {
 async function createTenant(): Promise<string> {
   const { stdout } = await execFileAsync(
     'npm',
-    ['run', '--silent', 'create-tenant', '-w', '@appreciator/server', '--', '--name', 'e2e'],
+    ['run', '--silent', 'create-tenant', '-w', '@appreciator/server', '--', '--name', TENANT_NAME],
     { cwd: ROOT, env: { ...process.env, ...ENV } },
   );
   const secret = /secret:\s+(\S+)/.exec(stdout)?.[1];
@@ -90,7 +108,7 @@ async function createTenant(): Promise<string> {
   return secret;
 }
 
-async function registerButton(secret: string): Promise<ButtonFixture> {
+async function registerButton(secret: string): Promise<Omit<E2eFixture, 'siteName' | 'session'>> {
   const svgSource = await readFile(resolve(ICON_DIR, 'icon.svg'), 'utf8');
   const colors = JSON.parse(
     await readFile(resolve(ICON_DIR, 'colors.json'), 'utf8'),
@@ -107,6 +125,27 @@ async function registerButton(secret: string): Promise<ButtonFixture> {
   }
   const created = (await response.json()) as CreateButtonResponse;
   return { api: API_ORIGIN, publicKey: created.publicKey, maxClicks, colors };
+}
+
+/**
+ * Inserts an account as a first GitHub sign-in would and signs a session for
+ * it, the same way the OAuth callback does. No avatar: the dashboard's CSP
+ * only allows GitHub's real avatar host, which the run must not depend on.
+ */
+async function seedSession(pool: Pool, config: AppConfig): Promise<SessionFixture> {
+  const id = randomUUID();
+  await execute(
+    pool,
+    'INSERT INTO accounts (id, github_id, login, avatar_url) VALUES (?, ?, ?, NULL)',
+    [id, 1, ACCOUNT_LOGIN],
+  );
+  const [pair = ''] = createSessionCookie(config, id).split(';');
+  const separator = pair.indexOf('=');
+  return {
+    cookieName: pair.slice(0, separator),
+    cookieValue: pair.slice(separator + 1),
+    login: ACCOUNT_LOGIN,
+  };
 }
 
 function serveStatic(request: IncomingMessage, response: ServerResponse): void {
@@ -133,14 +172,20 @@ async function main(): Promise<void> {
   const config = loadAppConfig({ ...process.env, ...ENV });
   const pool = createPool(config.databaseUrl);
   await runMigrations(pool);
-  for (const table of ['visitor_clicks', 'items', 'buttons', 'tenants']) {
+  for (const table of ['visitor_clicks', 'items', 'buttons', 'tenants', 'accounts']) {
     await pool.query(`DELETE FROM \`${table}\``);
   }
 
-  const app = await buildApp({ config, pool });
+  // Before the app is built, as server.ts does, because the app serves the demo key.
+  const demo = await ensureDemoButton(pool, config);
+  const app = await buildApp({ config, pool, demoPublicKey: demo.publicKey });
   await app.listen({ port: API_PORT, host: '127.0.0.1' });
 
-  const fixture = await registerButton(await createTenant());
+  const fixture: E2eFixture = {
+    ...(await registerButton(await createTenant())),
+    siteName: TENANT_NAME,
+    session: await seedSession(pool, config),
+  };
   await writeFile(FIXTURE_PATH, JSON.stringify(fixture), 'utf8');
 
   const pages = createServer(serveStatic);
