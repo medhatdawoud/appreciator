@@ -1,7 +1,7 @@
 import type { ClickCounts } from '@appreciator/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppreciatorButton, PULSE_MS, mount } from '../../src/index.js';
+import { AppreciatorButton, PULSE_MS, mount, setDefaultApi } from '../../src/index.js';
 import { writeCachedCounts } from '../../src/storage.js';
 import { installFakeServer, sampleConfig, type FakeServer } from './fake-server.js';
 
@@ -51,6 +51,7 @@ describe('AppreciatorButton', () => {
   });
 
   afterEach(() => {
+    setDefaultApi(undefined);
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -213,6 +214,22 @@ describe('AppreciatorButton', () => {
     expect(innerButton(element).disabled).toBe(true);
     expect(errors).toHaveLength(1);
     expect(server.requests).toHaveLength(0);
+  });
+
+  it('falls back to the default api when data-api is absent', async () => {
+    setDefaultApi('https://loaded-from.test/');
+    const element = mount(document.body, { key: KEY, item: 'x' });
+    await element.whenReady();
+
+    expect(element.hasAttribute('data-error')).toBe(false);
+    expect(server.requests[0]?.url).toBe(`https://loaded-from.test/v1/buttons/${KEY}/config`);
+  });
+
+  it('prefers data-api over the default api', async () => {
+    setDefaultApi('https://loaded-from.test');
+    await mountReady();
+
+    expect(server.requests[0]?.url).toBe(`${API}/v1/buttons/${KEY}/config`);
   });
 
   it('reports a server that cannot be reached', async () => {

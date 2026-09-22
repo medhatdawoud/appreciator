@@ -1,7 +1,14 @@
-import type { ButtonConfigInput, CreateButtonResponse } from '@appreciator/shared';
+import type {
+  ButtonColors,
+  ButtonConfig,
+  ButtonConfigInput,
+  ButtonListResponse,
+  CreateButtonResponse,
+} from '@appreciator/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { execute, queryOne } from '../../src/db/pool.js';
+import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
 import {
   closeTestContext,
   createTestContext,
@@ -12,12 +19,18 @@ import {
 } from './helpers.js';
 
 const SVG = '<svg viewBox="0 0 24 24"><path d="M12 2 L2 22 h20 z"/></svg>';
+const COLORS: ButtonColors = {
+  default: '#cccccc',
+  hover: '#dddddd',
+  clicked: '#ff0000',
+  full: '#990000',
+};
 
 function validInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigInput {
   return {
     allowedOrigins: ['https://example.com'],
     svgSource: SVG,
-    colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
+    colors: COLORS,
     ...overrides,
   };
 }
@@ -153,14 +166,98 @@ describe('management routes', () => {
     });
   });
 
+  describe('GET /v1/buttons', () => {
+    it("lists the tenant's buttons oldest first, with their public keys", async () => {
+      const first = await createButton();
+      const second = await createButton(validInput({ maxClicks: 3 }));
+      await createButton(validInput(), otherTenant);
+
+      const response = await context.app.inject({
+        method: 'GET',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const { buttons } = response.json() as ButtonListResponse;
+      expect(buttons.map((button: ButtonConfig) => button.id)).toEqual([
+        first.buttonId,
+        second.buttonId,
+      ]);
+      expect(buttons.map((button: ButtonConfig) => button.publicKey)).toEqual([
+        first.publicKey,
+        second.publicKey,
+      ]);
+      expect(buttons[1]).toMatchObject({
+        maxClicks: 3,
+        allowedOrigins: ['https://example.com'],
+        colors: COLORS,
+        urlNormalization: 'pathname',
+      });
+      for (const button of buttons) expect(button).not.toHaveProperty('tenantId');
+    });
+
+    it('is empty for a tenant with no buttons', async () => {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ buttons: [] });
+    });
+
+    it('requires the bearer secret', async () => {
+      const response = await context.app.inject({ method: 'GET', url: '/v1/buttons' });
+
+      expect(response.statusCode).toBe(401);
+    });
+  });
+
   describe('POST /v1/buttons', () => {
-    it('creates a button and returns an embed snippet carrying the public key', async () => {
+    it('creates a button and returns a one-tag embed snippet carrying the public key', async () => {
       const created = await createButton();
 
       expect(created.buttonId).toMatch(/^[0-9a-f-]{36}$/);
       expect(created.publicKey).toMatch(/^pk_[0-9a-f]{32}$/);
-      expect(created.embedSnippet).toContain(created.publicKey);
-      expect(created.embedSnippet).toContain(context.config.publicBaseUrl);
+      expect(created.embedSnippet).toBe(
+        `<script src="${context.config.publicBaseUrl}/widget.js" data-key="${created.publicKey}" async></script>`,
+      );
+    });
+
+    it('needs only allowedOrigins: the icon and colours default to the built-in heart', async () => {
+      const created = await createButton({ allowedOrigins: ['https://example.com'] });
+      const row = await queryOne<{ svg_source: string; colors: unknown }>(
+        context.pool,
+        'SELECT svg_source, colors FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+
+      expect(row?.svg_source).toBe(DEFAULT_SVG_SOURCE);
+      const colors = typeof row?.colors === 'string' ? JSON.parse(row.colors) : row?.colors;
+      expect(colors).toEqual(DEFAULT_COLORS);
+
+      const config = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${created.publicKey}/config`,
+      });
+      expect(config.statusCode).toBe(200);
+      expect(config.json()).toMatchObject({
+        svgSource: DEFAULT_SVG_SOURCE,
+        colors: DEFAULT_COLORS,
+      });
+    });
+
+    it('keeps an explicit icon over the default', async () => {
+      const created = await createButton();
+      const row = await queryOne<{ svg_source: string }>(
+        context.pool,
+        'SELECT svg_source FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+
+      expect(row?.svg_source).toBe(SVG);
     });
 
     it('never returns the same public key twice', async () => {
@@ -198,7 +295,7 @@ describe('management routes', () => {
         method: 'POST',
         url: '/v1/buttons',
         headers: { authorization: tenant.authHeader },
-        payload: { svgSource: SVG, colors: validInput().colors },
+        payload: { svgSource: SVG, colors: COLORS },
       });
 
       expect(response.statusCode).toBe(400);
@@ -246,7 +343,7 @@ describe('management routes', () => {
         url: '/v1/buttons',
         headers: { authorization: tenant.authHeader },
         payload: validInput({
-          colors: { ...validInput().colors, default: '#fff" onload="alert(1)' },
+          colors: { ...COLORS, default: '#fff" onload="alert(1)' },
         }),
       });
 

@@ -18,12 +18,17 @@ export interface ButtonConfig {
   createdAt: string;
 }
 
-/** Request body for POST /v1/buttons and PATCH /v1/buttons/:id. */
+/**
+ * Request body for POST /v1/buttons and PATCH /v1/buttons/:id.
+ *
+ * Only `allowedOrigins` is required to create a button: the icon and colours
+ * default to the server's built-in heart, so a first button is one request.
+ */
 export interface ButtonConfigInput {
   maxClicks?: number;
   allowedOrigins: string[];
-  svgSource: string;
-  colors: ButtonColors;
+  svgSource?: string;
+  colors?: ButtonColors;
   urlNormalization?: UrlNormalization;
 }
 
@@ -45,4 +50,9 @@ export interface CreateButtonResponse {
   buttonId: string;
   publicKey: string;
   embedSnippet: string;
+}
+
+/** GET /v1/buttons: every button the authenticated tenant owns, oldest first. */
+export interface ButtonListResponse {
+  buttons: ButtonConfig[];
 }

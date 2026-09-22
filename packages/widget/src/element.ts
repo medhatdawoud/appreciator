@@ -62,9 +62,27 @@ button:not(:disabled):hover svg {
 }
 `;
 
+/**
+ * Server base URL used by elements that carry no `data-api`. Set once when the
+ * bundle is loaded from the server's own `/widget.js`, so an element only has
+ * to name its key.
+ */
+let defaultApi: string | undefined;
+
+export function setDefaultApi(api: string | undefined): void {
+  defaultApi = api;
+}
+
+export function getDefaultApi(): string | undefined {
+  return defaultApi;
+}
+
 export interface MountOptions {
-  /** Base URL of the appreciator server, e.g. https://appreciator.example.com */
-  api: string;
+  /**
+   * Base URL of the appreciator server, e.g. https://appreciator.example.com.
+   * Optional when the bundle was loaded from that server.
+   */
+  api?: string;
   /** The button's public key (`pk_...`). */
   key: string;
   /** Explicit counter id. Defaults to the page URL. */
@@ -77,7 +95,10 @@ export interface ErrorDetail {
 }
 
 /**
- * `<appreciator-button data-api data-key [data-item] [data-label]>`
+ * `<appreciator-button data-key [data-api] [data-item] [data-label]>`
+ *
+ * `data-api` is only needed when the bundle was not loaded from the server it
+ * should talk to; otherwise the element uses the URL the bundle came from.
  *
  * Reflects `data-state` (`default` | `clicked` | `full`) and `data-error` on
  * itself, and dispatches `appreciator:ready`, `appreciator:change`,
@@ -173,9 +194,13 @@ export class AppreciatorButton extends HTMLElement {
 
   private async initialize(): Promise<void> {
     const generation = ++this.generation;
-    const { api, key, item } = this.dataset;
+    const { key, item } = this.dataset;
+    const api = this.dataset.api || defaultApi;
     if (!api || !key) {
-      this.fail('missing_attributes', 'data-api and data-key are required');
+      this.fail(
+        'missing_attributes',
+        'data-key is required, and data-api unless the widget was loaded from the appreciator server',
+      );
       return;
     }
 

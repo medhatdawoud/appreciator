@@ -1,7 +1,7 @@
 import type { ButtonColors, ButtonConfig, UrlNormalization } from '@appreciator/shared';
 
 import type { Executor } from './pool.js';
-import { queryOne } from './pool.js';
+import { queryOne, queryRows } from './pool.js';
 
 /** Row shape of the `buttons` table, as created by 002_buttons.sql. */
 export interface ButtonRow {
@@ -99,5 +99,14 @@ export function findButtonForTenant(
     executor,
     `SELECT ${BUTTON_COLUMNS} FROM buttons WHERE id = ? AND tenant_id = ?`,
     [buttonId, tenantId],
+  );
+}
+
+/** Every button a tenant owns, oldest first. Same tenant scoping as `findButtonForTenant`. */
+export function listButtonsForTenant(executor: Executor, tenantId: string): Promise<ButtonRow[]> {
+  return queryRows<ButtonRow>(
+    executor,
+    `SELECT ${BUTTON_COLUMNS} FROM buttons WHERE tenant_id = ? ORDER BY created_at ASC, id ASC`,
+    [tenantId],
   );
 }
