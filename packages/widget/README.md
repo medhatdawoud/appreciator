@@ -69,6 +69,15 @@ The element reflects `data-state` on itself so the host page can style around it
 
 `hover` is pure CSS and recolours the outline with the `hover` colour.
 
+It also reflects `data-icons`, which says how the icon is drawn:
+
+- `single` — one SVG, recoloured per state through the colour variables.
+- `states` — the button has four SVGs (`svgSources`), one per state, each
+  tagged `data-for="default|hover|clicked|full"` inside `::part(icon)`. Exactly
+  one is shown at a time: `hover` replaces `default` while the pointer is over
+  an enabled button, and `clicked` and `full` follow `data-state`. Hover is
+  still pure CSS.
+
 If loading fails the element gets `data-error` (e.g. `network_error`,
 `origin_not_allowed`, `invalid_svg`, `missing_attributes`) and stays disabled.
 
@@ -86,6 +95,11 @@ appreciator-button {
 
 The inner button, icon and count are exposed as `::part(button)`,
 `::part(icon)` and `::part(count)`.
+
+A button configured with four SVGs draws each state with its own complete
+document, so the colour variables have nothing to recolour unless those
+documents reference them themselves; `--appreciator-size` still sizes every
+icon. Package the four files with `svg-gen generate --explicit`.
 
 ### Events
 

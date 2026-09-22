@@ -1,10 +1,20 @@
-import type { ButtonPublicConfig, ClickCounts } from '@appreciator/shared';
+import type { ButtonPublicConfig, ButtonSvgSources, ClickCounts } from '@appreciator/shared';
 import { vi } from 'vitest';
 
 export const SAMPLE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ' +
   'style="fill: var(--appr-fill, none); stroke: var(--appr-stroke, currentColor);">' +
   '<path d="M4 4h16v16H4z"/></svg>';
+
+/** Four distinguishable drawings, one per state, as a per-state button would serve. */
+export function sampleSvgSources(): ButtonSvgSources {
+  return {
+    default: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle r="8"/></svg>',
+    hover: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle r="9"/></svg>',
+    clicked: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle r="10"/></svg>',
+    full: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle r="11"/></svg>',
+  };
+}
 
 export function sampleConfig(overrides: Partial<ButtonPublicConfig> = {}): ButtonPublicConfig {
   return {

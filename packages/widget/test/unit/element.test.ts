@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppreciatorButton, PULSE_MS, mount, setDefaultApi } from '../../src/index.js';
 import { writeCachedCounts } from '../../src/storage.js';
-import { installFakeServer, sampleConfig, type FakeServer } from './fake-server.js';
+import {
+  installFakeServer,
+  sampleConfig,
+  sampleSvgSources,
+  type FakeServer,
+} from './fake-server.js';
 
 const API = 'https://api.test';
 const KEY = `pk_${'a'.repeat(32)}`;
@@ -66,6 +71,7 @@ describe('AppreciatorButton', () => {
     expect(element.getAttribute('data-state')).toBe('default');
     expect(element.hasAttribute('data-error')).toBe(false);
     expect(shadow(element).querySelector('svg')).not.toBeNull();
+    expect(element.getAttribute('data-icons')).toBe('single');
     expect(countText(element)).toBe('0');
     expect(innerButton(element).disabled).toBe(false);
     expect(innerButton(element).style.getPropertyValue('--_c-full')).toBe('#444444');
@@ -253,6 +259,56 @@ describe('AppreciatorButton', () => {
     expect(element.getAttribute('data-error')).toBe('invalid_svg');
     expect(shadow(element).querySelector('svg')).toBeNull();
     expect(innerButton(element).disabled).toBe(true);
+  });
+
+  describe('per-state icons', () => {
+    function iconStates(element: AppreciatorButton): (string | null)[] {
+      return Array.from(shadow(element).querySelectorAll('svg'), (svg) =>
+        svg.getAttribute('data-for'),
+      );
+    }
+
+    it('renders one icon per state when the config carries svgSources', async () => {
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ svgSources: sampleSvgSources() }));
+
+      const element = await mountReady();
+
+      expect(element.getAttribute('data-icons')).toBe('states');
+      expect(iconStates(element)).toEqual(['default', 'hover', 'clicked', 'full']);
+      expect(shadow(element).querySelector('svg[data-for="full"] circle')?.getAttribute('r')).toBe(
+        '11',
+      );
+      expect(innerButton(element).disabled).toBe(false);
+    });
+
+    it('refuses the whole set when one state icon is not an SVG', async () => {
+      vi.unstubAllGlobals();
+      installFakeServer(
+        sampleConfig({ svgSources: { ...sampleSvgSources(), clicked: '<div>no</div>' } }),
+      );
+
+      const element = await mountReady();
+
+      expect(element.getAttribute('data-error')).toBe('invalid_svg');
+      expect(shadow(element).querySelector('svg')).toBeNull();
+      expect(innerButton(element).disabled).toBe(true);
+    });
+
+    it('leaves a single icon when a re-initialisation brings a single-icon config', async () => {
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ svgSources: sampleSvgSources() }));
+      const element = await mountReady();
+      expect(iconStates(element)).toHaveLength(4);
+
+      vi.unstubAllGlobals();
+      installFakeServer();
+      element.dataset.item = 'second';
+      await element.whenReady();
+
+      expect(element.getAttribute('data-icons')).toBe('single');
+      expect(iconStates(element)).toEqual([null]);
+    });
   });
 
   it('re-initialises against the new item when data-item changes', async () => {

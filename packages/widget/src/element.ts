@@ -14,6 +14,10 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * Colours come from the button config as `--_c-<state>` on the inner button;
  * a host page can override any of them with `--appreciator-<state>` on the
  * element, and size it with `--appreciator-size`.
+ *
+ * With `data-icons="states"` the icon span holds one complete drawing per
+ * state, tagged `data-for`, and these rules show exactly one of them. Hover
+ * stays a CSS-only state, as it is for a single recoloured icon.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -51,6 +55,18 @@ button:not(:disabled):hover svg {
 :host([data-state="full"]) svg {
   --appr-fill: var(--appreciator-full, var(--_c-full));
   --appr-stroke: var(--appreciator-full, var(--_c-full));
+}
+:host([data-icons="states"]) svg { display: none; }
+:host([data-icons="states"][data-state="default"]) svg[data-for="default"],
+:host([data-icons="states"][data-state="clicked"]) svg[data-for="clicked"],
+:host([data-icons="states"][data-state="full"]) svg[data-for="full"] {
+  display: block;
+}
+:host([data-icons="states"][data-state="default"]) button:not(:disabled):hover svg[data-for="default"] {
+  display: none;
+}
+:host([data-icons="states"][data-state="default"]) button:not(:disabled):hover svg[data-for="hover"] {
+  display: block;
 }
 @keyframes appreciator-pulse {
   0% { transform: scale(1); }
@@ -128,8 +144,8 @@ export interface ErrorDetail {
  * `data-api` is only needed when the bundle was not loaded from the server it
  * should talk to; otherwise the element uses the URL the bundle came from.
  *
- * Reflects `data-state` (`default` | `clicked` | `full`) and `data-error` on
- * itself, and dispatches `appreciator:ready`, `appreciator:change`,
+ * Reflects `data-state` (`default` | `clicked` | `full`), `data-icons`
+ * (`single` | `states`) and `data-error` on itself, and dispatches `appreciator:ready`, `appreciator:change`,
  * `appreciator:maxed` (detail: ClickCounts) and `appreciator:error`
  * (detail: ErrorDetail). All events bubble and cross the shadow boundary.
  */
@@ -252,13 +268,14 @@ export class AppreciatorButton extends HTMLElement {
     }
     if (generation !== this.generation) return;
 
-    const svg = parseSafeSvg(config.svgSource);
-    if (svg === null) {
+    const icons = parseIcons(config);
+    if (icons === null) {
       this.fail('invalid_svg', 'The button icon could not be parsed');
       return;
     }
 
-    this.icon.replaceChildren(svg);
+    this.icon.replaceChildren(...icons);
+    this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }
@@ -387,6 +404,28 @@ export class AppreciatorButton extends HTMLElement {
   private emit(name: string, detail: unknown): void {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
+}
+
+/**
+ * The button's icon(s) as inert DOM: the single recolourable `svgSource`, or
+ * one drawing per state tagged with `data-for` when the config carries
+ * `svgSources`. Null if any of them fails to parse, so a button never renders
+ * with some of its states missing.
+ */
+function parseIcons(config: ButtonPublicConfig): Element[] | null {
+  const { svgSources } = config;
+  if (svgSources === undefined) {
+    const svg = parseSafeSvg(config.svgSource);
+    return svg === null ? null : [svg];
+  }
+  const icons: Element[] = [];
+  for (const state of COLOR_STATES) {
+    const svg = parseSafeSvg(svgSources[state]);
+    if (svg === null) return null;
+    svg.setAttribute('data-for', state);
+    icons.push(svg);
+  }
+  return icons;
 }
 
 function errorCode(error: unknown): string {
