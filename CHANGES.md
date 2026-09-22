@@ -3,6 +3,45 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — Self-serve dashboard, sign-in, per-state icons, and the last gaps
+
+Everything the "known gaps" list and the landing/dashboard request asked for,
+landed as phases A–E on `main`.
+
+- **Server, gap fixes (A).** `https://*.example.com` wildcard origins (apex
+  excluded, same scheme and port); `?origin=` filter on the items listing
+  (prefix match on the item key, LIKE-escaped); `/widget.js` gets its own
+  per-IP limit (`WIDGET_RATE_LIMIT_MAX`); buttons gain `name` and
+  `svgSources` (four SVGs, one per state, each validated like `svgSource`;
+  `conflicting_icon` when both are sent); every `ButtonConfig` carries its
+  `embedSnippet`. Body limit raised to 512 KiB for four 64 KiB icons.
+- **Server, accounts and sign-in (B).** `accounts` table and
+  `tenants.account_id`; stateless signed session cookie with a CSRF header +
+  origin rule; GitHub OAuth (`/auth/github`, callback, logout, `/auth/me`)
+  restricted to `GITHUB_ALLOWED_LOGINS`; sites API (`/v1/sites`, rotate key,
+  delete, 20 per account under a row lock); the management routes mounted a
+  second time under `/v1/sites/:siteId` for the session; demo button
+  provisioned at start (`DEMO_BUTTON`, `DEMO_ALLOWED_ORIGINS`) and
+  `GET /config.json`; public `GET /v1/leaderboard` (`LEADERBOARD`). Found and
+  fixed on the way: the public rate limiter ran after the button lookup, so
+  rejected requests were never counted.
+- **Widget (C).** Renders four icons with `data-for` when a button has
+  `svgSources` and shows exactly one per state (hover still CSS-only);
+  `data-icons="single|states"` on the host. `svg-gen --explicit` also writes
+  a ready-to-post `svgSources.json`; `examples/icons/explicit/` star set.
+- **Pages (D).** Landing page and leaderboard in `site/` (static, relative
+  paths, GitHub Pages workflow), dashboard in `packages/server/src/web/`,
+  all served by the API under a strict CSP; the widget was made CSP-clean
+  (constructed stylesheet, icon `style` attributes applied through the CSSOM).
+  Dashboard onboarding: first sign-in opens "name your site", then "create
+  your first button", then the highlighted snippet.
+- **Packaging and docs (E).** Dockerfile copies `site/`; README rewritten
+  around the new flow (quick tour, Coolify step by step including the GitHub
+  OAuth app, dashboard guide, GitHub Pages, full API and config tables).
+- Tests: 189 unit, 241 integration (real MySQL), 14 e2e (Chromium against
+  the real server: widget in both icon modes, landing, leaderboard, the whole
+  dashboard flow).
+
 ## 2026-09-22 — Landing page, leaderboard page and dashboard served by the API
 
 - **Pages.** `site/` (landing and leaderboard, also deployed to GitHub Pages

@@ -12,6 +12,7 @@ COPY packages/svg-gen/package.json packages/svg-gen/
 RUN npm ci
 
 COPY tsconfig.base.json ./
+COPY site site
 COPY packages/shared packages/shared
 COPY packages/widget packages/widget
 COPY packages/server packages/server
