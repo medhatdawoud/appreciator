@@ -44,6 +44,14 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 Changing `VISITOR_HASH_SECRET` invalidates every stored visitor hash: existing
 visitors get a fresh allowance, and their old rows become unreachable.
 
+> **Set `TRUST_PROXY=true` if you deploy behind a reverse proxy or load
+> balancer.** Visitor identity is derived from the client's source address (see
+> below), so without it every visitor behind the proxy resolves to the proxy's
+> own address and they all share a single allowance of `maxClicks` for the whole
+> site. Do **not** set it when the server is directly reachable: `X-Forwarded-For`
+> is then client-controlled, and a client that forges it gets both an unlimited
+> supply of allowances and a way around the per-IP rate limit.
+
 ## Creating a tenant
 
 There is no self-serve signup, and only the hash of a management secret is ever
@@ -71,11 +79,11 @@ Management — `Authorization: Bearer <secret>`:
 Public — identified by the button's public key in the path, subject to the
 button's origin allowlist and a per-IP rate limit:
 
-| Method | Path                            |                                   |
-| ------ | ------------------------------- | --------------------------------- |
-| `GET`  | `/v1/buttons/:publicKey/config` | → `ButtonPublicConfig`            |
-| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=&visitor=` → `ClickCounts` |
-| `POST` | `/v1/buttons/:publicKey/click`  | `ClickRequest` → `ClickCounts`    |
+| Method | Path                            |                                 |
+| ------ | ------------------------------- | ------------------------------- |
+| `GET`  | `/v1/buttons/:publicKey/config` | → `ButtonPublicConfig`          |
+| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `ClickCounts`        |
+| `POST` | `/v1/buttons/:publicKey/click`  | `{ "item": … }` → `ClickCounts` |
 
 Unauthenticated, outside the per-button scope:
 
@@ -114,6 +122,58 @@ sound because the response also carries `Vary: Origin`, which keeps a shared
 cache from handing one site's `Access-Control-Allow-Origin` to another.
 
 Unknown and malformed public keys both answer `404` with an identical body.
+
+### `GET /v1/buttons/:publicKey/state` and `POST /v1/buttons/:publicKey/click`
+
+`item` is the only field either endpoint accepts — a page URL, or an opaque id
+of your own:
+
+```
+GET  /v1/buttons/pk_…/state?item=https%3A%2F%2Fexample.com%2Fpost
+POST /v1/buttons/pk_…/click     { "item": "https://example.com/post" }
+```
+
+Both answer with `ClickCounts`:
+
+```json
+{
+  "totalCount": 42,
+  "maxClicks": 10,
+  "visitorCount": 3,
+  "visitorRemaining": 7,
+  "maxed": false
+}
+```
+
+`GET /state` never writes: a page nobody has clicked reads as zero rather than
+creating a row.
+
+### Visitor identity and what the cap actually guarantees
+
+There is no `visitor` field. The server derives visitor identity itself, as a
+keyed HMAC of the request's **source address and user agent** — properties the
+client does not choose. A request that tries to supply its own `visitor` is
+rejected with `400`, not ignored.
+
+This is the whole reason dedup happens server-side, and it is a deliberate
+trade:
+
+- **Clearing localStorage, clearing cookies, or opening a private window does
+  not grant a new allowance.** A client-supplied id would, which would make the
+  cap advisory rather than enforced. This is the property the design exists for.
+- **Visitors who share an egress address and a user agent share one allowance.**
+  Behind a corporate NAT or a mobile carrier, colleagues on the same browser
+  build will exhaust each other's clicks. That is a real false positive and the
+  accepted cost of the guarantee above.
+- **Changing network or browser does yield a new allowance.** Preventing that
+  would mean storing something far more invasive than a salted digest.
+- **No IP address is stored.** The column holds only the HMAC, which is keyed by
+  `VISITOR_HASH_SECRET` and is not reversible — and because the inputs are
+  low-entropy and enumerable, the key is what stops anyone who obtains the table
+  from confirming whether a given person clicked.
+
+Because identity is derived from the source address, `TRUST_PROXY` has to match
+the deployment. See the warning under Configuration.
 
 ### `GET /widget.js`
 

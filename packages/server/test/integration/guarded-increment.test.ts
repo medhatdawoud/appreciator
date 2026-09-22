@@ -14,6 +14,7 @@ import {
 const SVG = '<svg viewBox="0 0 24 24"><path d="M12 2 L2 22 h20 z"/></svg>';
 const ORIGIN = 'https://example.com';
 const PAGE = 'https://example.com/blog/post';
+const UA = 'Mozilla/5.0 (integration test)';
 const MAX_CLICKS = 10;
 const CONCURRENT_REQUESTS = 20;
 
@@ -32,6 +33,9 @@ function buttonInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigIn
  * that arrive one after another. A sequential test passes even if the code
  * reads the count, decides, and then writes - the window where two requests
  * both read 9 simply never opens. These tests open it deliberately.
+ *
+ * Visitor identity comes from source address and user agent, so "one visitor"
+ * here means one source address and "different visitors" means different ones.
  */
 describe('concurrent clicks', () => {
   let context: TestContext;
@@ -63,14 +67,15 @@ describe('concurrent clicks', () => {
     return response.json() as CreateButtonResponse;
   }
 
-  function fireClicks(publicKey: string, visitor: string, count: number) {
+  function fireClicks(publicKey: string, ip: string, count: number, item: string = PAGE) {
     return Promise.all(
       Array.from({ length: count }, () =>
         context.app.inject({
           method: 'POST',
           url: `/v1/buttons/${publicKey}/click`,
-          headers: { origin: ORIGIN },
-          payload: { item: PAGE, visitor },
+          headers: { origin: ORIGIN, 'user-agent': UA },
+          remoteAddress: ip,
+          payload: { item },
         }),
       ),
     );
@@ -93,7 +98,7 @@ describe('concurrent clicks', () => {
   it(`never exceeds the cap under ${CONCURRENT_REQUESTS} concurrent clicks from one visitor`, async () => {
     const button = await createButton();
 
-    const responses = await fireClicks(button.publicKey, 'visitor-1', CONCURRENT_REQUESTS);
+    const responses = await fireClicks(button.publicKey, '203.0.113.1', CONCURRENT_REQUESTS);
 
     // Every request is answered; none error out under contention.
     expect(responses.map((response) => response.statusCode)).toEqual(
@@ -108,7 +113,7 @@ describe('concurrent clicks', () => {
   it('reports the cap consistently to every caller once it is reached', async () => {
     const button = await createButton();
 
-    const responses = await fireClicks(button.publicKey, 'visitor-1', CONCURRENT_REQUESTS);
+    const responses = await fireClicks(button.publicKey, '203.0.113.1', CONCURRENT_REQUESTS);
     const bodies = responses.map((response) => response.json());
 
     // Exactly maxClicks requests recorded a click; the rest were refused.
@@ -123,7 +128,7 @@ describe('concurrent clicks', () => {
   it('holds with a cap of one, where the race window is widest', async () => {
     const button = await createButton(buttonInput({ maxClicks: 1 }));
 
-    await fireClicks(button.publicKey, 'visitor-1', CONCURRENT_REQUESTS);
+    await fireClicks(button.publicKey, '203.0.113.1', CONCURRENT_REQUESTS);
 
     const rows = await readRows(button.buttonId);
     expect(rows.visitorCount).toBe(1);
@@ -132,37 +137,35 @@ describe('concurrent clicks', () => {
 
   it('keeps each concurrent visitor to their own allowance', async () => {
     const button = await createButton();
-    const visitors = ['visitor-a', 'visitor-b', 'visitor-c'];
+    const addresses = ['203.0.113.1', '198.51.100.9', '192.0.2.44'];
 
-    await Promise.all(visitors.map((visitor) => fireClicks(button.publicKey, visitor, 15)));
+    await Promise.all(addresses.map((ip) => fireClicks(button.publicKey, ip, 15)));
 
     const rows = await queryOne<{ total_count: number }>(
       context.pool,
       'SELECT total_count FROM items WHERE button_id = ? AND item_key = ?',
       [button.buttonId, PAGE],
     );
-    expect(rows?.total_count).toBe(MAX_CLICKS * visitors.length);
+    expect(rows?.total_count).toBe(MAX_CLICKS * addresses.length);
 
-    for (const visitor of visitors) {
-      const body = (
-        await context.app.inject({
-          method: 'GET',
-          url: `/v1/buttons/${button.publicKey}/state?item=${encodeURIComponent(PAGE)}&visitor=${visitor}`,
-          headers: { origin: ORIGIN },
-        })
-      ).json();
-      expect(body.visitorCount).toBe(MAX_CLICKS);
-    }
+    const perVisitor = await queryOne<{ visitor_count: number; max_count: number }>(
+      context.pool,
+      // `rows` is reserved in MySQL 8, hence the alias names.
+      'SELECT COUNT(*) AS visitor_count, MAX(click_count) AS max_count FROM visitor_clicks WHERE button_id = ?',
+      [button.buttonId],
+    );
+    expect(perVisitor?.visitor_count).toBe(addresses.length);
+    expect(perVisitor?.max_count).toBe(MAX_CLICKS);
   });
 
   it('keeps a click out of the public total when the visitor is already maxed', async () => {
     const button = await createButton(buttonInput({ maxClicks: 3 }));
 
-    await fireClicks(button.publicKey, 'visitor-1', 3);
+    await fireClicks(button.publicKey, '203.0.113.1', 3);
     const before = await readRows(button.buttonId);
     expect(before).toEqual({ totalCount: 3, visitorCount: 3 });
 
-    await fireClicks(button.publicKey, 'visitor-1', CONCURRENT_REQUESTS);
+    await fireClicks(button.publicKey, '203.0.113.1', CONCURRENT_REQUESTS);
 
     // The refused clicks roll back: neither counter moves.
     expect(await readRows(button.buttonId)).toEqual({ totalCount: 3, visitorCount: 3 });
@@ -172,18 +175,7 @@ describe('concurrent clicks', () => {
     const button = await createButton();
     const pages = ['https://example.com/a', 'https://example.com/b', 'https://example.com/c'];
 
-    await Promise.all(
-      pages.flatMap((page) =>
-        Array.from({ length: 8 }, () =>
-          context.app.inject({
-            method: 'POST',
-            url: `/v1/buttons/${button.publicKey}/click`,
-            headers: { origin: ORIGIN },
-            payload: { item: page, visitor: 'visitor-1' },
-          }),
-        ),
-      ),
-    );
+    await Promise.all(pages.map((page) => fireClicks(button.publicKey, '203.0.113.1', 8, page)));
 
     for (const page of pages) {
       const row = await queryOne<{ total_count: number }>(

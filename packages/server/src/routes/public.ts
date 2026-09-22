@@ -52,11 +52,15 @@ const publicKeyParamsSchema = {
   properties: { publicKey: { type: 'string', pattern: PUBLIC_KEY_PATTERN } },
 };
 
+/**
+ * `item` is the only field either public endpoint accepts.
+ *
+ * Visitor identity is derived server-side from the request itself, never sent
+ * by the client. `additionalProperties: false` therefore means a client that
+ * tries to nominate its own visitor id is refused rather than ignored.
+ */
 const clickInputProperties = {
   item: { type: 'string', minLength: 1, maxLength: MAX_ITEM_INPUT_LENGTH },
-  // A client-generated opaque id. It is HMAC'd before it touches the database,
-  // so the character class exists to bound it, not to make it meaningful.
-  visitor: { type: 'string', minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9_.:-]+$' },
 };
 
 const clickCountsSchema = {
@@ -162,6 +166,22 @@ function buttonOf(request: FastifyRequest): ButtonRow {
   return request.button;
 }
 
+/**
+ * Derives the visitor identity for a request.
+ *
+ * Both public endpoints go through here, so neither can accidentally start
+ * trusting something the client sent. `request.ip` is only the real client
+ * address when TRUST_PROXY is set correctly for the deployment; see
+ * `lib/visitor-hash.ts`.
+ */
+function visitorHashFor(request: FastifyRequest): string {
+  return hashVisitor(
+    request.server.appConfig.visitorHashSecret,
+    request.ip,
+    request.headers['user-agent'],
+  );
+}
+
 /** Applies the button's normalization mode, turning a bad key into a 400. */
 function itemKeyFor(button: ButtonRow, item: string): string {
   try {
@@ -236,7 +256,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         querystring: {
           type: 'object',
           additionalProperties: false,
-          required: ['item', 'visitor'],
+          required: ['item'],
           properties: clickInputProperties,
         },
         response: { 200: clickCountsSchema },
@@ -248,12 +268,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       return readCounts(app.pool, {
         buttonId: button.id,
         itemKey: itemKeyFor(button, request.query.item),
-        visitorHash: hashVisitor(
-          app.appConfig.visitorHashSecret,
-          request.query.visitor,
-          request.ip,
-          request.headers['user-agent'],
-        ),
+        visitorHash: visitorHashFor(request),
         maxClicks: button.max_clicks,
       });
     },
@@ -267,7 +282,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         body: {
           type: 'object',
           additionalProperties: false,
-          required: ['item', 'visitor'],
+          required: ['item'],
           properties: clickInputProperties,
         },
         response: { 200: clickCountsSchema },
@@ -279,12 +294,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
       return incrementClick(app.pool, {
         buttonId: button.id,
         itemKey: itemKeyFor(button, request.body.item),
-        visitorHash: hashVisitor(
-          app.appConfig.visitorHashSecret,
-          request.body.visitor,
-          request.ip,
-          request.headers['user-agent'],
-        ),
+        visitorHash: visitorHashFor(request),
         maxClicks: button.max_clicks,
       });
     },

@@ -15,6 +15,7 @@ import {
 const SVG = '<svg viewBox="0 0 24 24"><path d="M12 2 L2 22 h20 z"/></svg>';
 const ORIGIN = 'https://example.com';
 const PAGE = 'https://example.com/blog/post';
+const UA = 'Mozilla/5.0 (integration test)';
 
 function buttonInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigInput {
   return {
@@ -22,6 +23,26 @@ function buttonInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigIn
     svgSource: SVG,
     colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
     ...overrides,
+  };
+}
+
+/**
+ * Who is calling. Visitor identity is derived from the request, not sent in
+ * it, so "a different visitor" in these tests means a different source address
+ * or user agent - there is no client-supplied id to vary.
+ *
+ * `origin: null` sends no Origin header at all.
+ */
+interface Caller {
+  origin?: string | null;
+  ip?: string;
+  userAgent?: string;
+}
+
+function headersFor({ origin = ORIGIN, userAgent = UA }: Caller): Record<string, string> {
+  return {
+    ...(origin === null ? {} : { origin }),
+    'user-agent': userAgent,
   };
 }
 
@@ -57,35 +78,28 @@ describe('public routes', () => {
     button = await createButton();
   });
 
-  function click(
-    publicKey: string,
-    body: { item: string; visitor: string },
-    origin: string | undefined = ORIGIN,
-  ) {
+  function click(publicKey: string, item: string, caller: Caller = {}) {
     return context.app.inject({
       method: 'POST',
       url: `/v1/buttons/${publicKey}/click`,
-      headers: origin === undefined ? {} : { origin },
-      payload: body,
+      headers: headersFor(caller),
+      remoteAddress: caller.ip ?? '203.0.113.1',
+      payload: { item },
     });
   }
 
-  function state(
-    publicKey: string,
-    query: { item: string; visitor: string },
-    origin: string | undefined = ORIGIN,
-  ) {
-    const search = new URLSearchParams(query).toString();
+  function state(publicKey: string, item: string, caller: Caller = {}) {
     return context.app.inject({
       method: 'GET',
-      url: `/v1/buttons/${publicKey}/state?${search}`,
-      headers: origin === undefined ? {} : { origin },
+      url: `/v1/buttons/${publicKey}/state?item=${encodeURIComponent(item)}`,
+      headers: headersFor(caller),
+      remoteAddress: caller.ip ?? '203.0.113.1',
     });
   }
 
   describe('GET /state', () => {
     it('reports zeros for a page nobody has clicked', async () => {
-      const response = await state(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
+      const response = await state(button.publicKey, PAGE);
 
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
@@ -98,7 +112,7 @@ describe('public routes', () => {
     });
 
     it('creates no rows', async () => {
-      await state(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
+      await state(button.publicKey, PAGE);
 
       expect(
         await queryOne(context.pool, 'SELECT item_key FROM items WHERE button_id = ?', [
@@ -113,10 +127,10 @@ describe('public routes', () => {
     });
 
     it('reflects clicks already recorded', async () => {
-      await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
-      await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
+      await click(button.publicKey, PAGE);
+      await click(button.publicKey, PAGE);
 
-      expect((await state(button.publicKey, { item: PAGE, visitor: 'visitor-1' })).json()).toEqual({
+      expect((await state(button.publicKey, PAGE)).json()).toEqual({
         totalCount: 2,
         maxClicks: 10,
         visitorCount: 2,
@@ -126,23 +140,23 @@ describe('public routes', () => {
     });
 
     it('shows another visitor the shared total but their own allowance', async () => {
-      await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
-      await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
+      await click(button.publicKey, PAGE);
+      await click(button.publicKey, PAGE);
 
-      const body = (await state(button.publicKey, { item: PAGE, visitor: 'visitor-2' })).json();
+      const body = (await state(button.publicKey, PAGE, { ip: '198.51.100.9' })).json();
       expect(body.totalCount).toBe(2);
       expect(body.visitorCount).toBe(0);
     });
 
     it('404s on an unknown public key', async () => {
-      const response = await state(`pk_${'0'.repeat(32)}`, { item: PAGE, visitor: 'v' });
+      const response = await state(`pk_${'0'.repeat(32)}`, PAGE);
 
       expect(response.statusCode).toBe(404);
     });
 
     it('answers a malformed public key exactly like an unknown one', async () => {
-      const malformed = await state('not-a-key', { item: PAGE, visitor: 'v' });
-      const unknown = await state(`pk_${'0'.repeat(32)}`, { item: PAGE, visitor: 'v' });
+      const malformed = await state('not-a-key', PAGE);
+      const unknown = await state(`pk_${'0'.repeat(32)}`, PAGE);
 
       // Same status and message either way, so the response cannot be used to
       // tell a badly formed key from one that simply does not exist.
@@ -151,14 +165,24 @@ describe('public routes', () => {
       expect(malformed.json().message).toBe(unknown.json().message);
     });
 
-    it('requires both item and visitor', async () => {
-      const missingVisitor = await context.app.inject({
+    it('requires item', async () => {
+      const response = await context.app.inject({
         method: 'GET',
-        url: `/v1/buttons/${button.publicKey}/state?item=${encodeURIComponent(PAGE)}`,
+        url: `/v1/buttons/${button.publicKey}/state`,
         headers: { origin: ORIGIN },
       });
 
-      expect(missingVisitor.statusCode).toBe(400);
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('refuses a client that tries to nominate its own visitor id', async () => {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: `/v1/buttons/${button.publicKey}/state?item=${encodeURIComponent(PAGE)}&visitor=chosen`,
+        headers: { origin: ORIGIN },
+      });
+
+      expect(response.statusCode).toBe(400);
     });
   });
 
@@ -236,12 +260,10 @@ describe('public routes', () => {
         payload: { maxClicks: 4 },
       });
 
-      const maxAge = Number(
-        /max-age=(\d+)/.exec(
-          String((await config(button.publicKey)).headers['cache-control']),
-        )?.[1],
-      );
-      expect((await config(button.publicKey)).json().maxClicks).toBe(4);
+      const response = await config(button.publicKey);
+      const maxAge = Number(/max-age=(\d+)/.exec(String(response.headers['cache-control']))?.[1]);
+
+      expect(response.json().maxClicks).toBe(4);
       expect(maxAge).toBeLessThanOrEqual(60);
     });
 
@@ -284,16 +306,130 @@ describe('public routes', () => {
 
     it('is counted against the same public rate limit', async () => {
       // Shares the plugin scope with /state and /click, so it cannot be used
-      // as an unmetered way to hammer the server.
+      // as an unmetered way to read a button.
       const response = await config(button.publicKey);
 
       expect(response.headers['x-ratelimit-limit']).toBeDefined();
     });
   });
 
+  describe('visitor identity', () => {
+    it('is derived from the request, never sent by the client', async () => {
+      await click(button.publicKey, PAGE, { ip: '203.0.113.7', userAgent: UA });
+
+      const row = await queryOne<{ visitor_hash: string }>(
+        context.pool,
+        'SELECT visitor_hash FROM visitor_clicks WHERE button_id = ?',
+        [button.buttonId],
+      );
+
+      expect(row?.visitor_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(row?.visitor_hash).toBe(
+        hashVisitor(context.config.visitorHashSecret, '203.0.113.7', UA),
+      );
+    });
+
+    it('does not grant a fresh allowance to a client that cleared its storage', async () => {
+      // This is the property the whole design exists for. A client that has
+      // cleared localStorage sends exactly what it sent before - nothing
+      // identifying - so it lands on the same allowance.
+      for (let i = 0; i < 10; i += 1) {
+        await click(button.publicKey, PAGE);
+      }
+
+      const afterClearing = await click(button.publicKey, PAGE);
+
+      expect(afterClearing.json()).toEqual({
+        totalCount: 10,
+        maxClicks: 10,
+        visitorCount: 10,
+        visitorRemaining: 0,
+        maxed: true,
+      });
+    });
+
+    it('refuses a client that tries to nominate its own visitor id', async () => {
+      const response = await context.app.inject({
+        method: 'POST',
+        url: `/v1/buttons/${button.publicKey}/click`,
+        headers: { origin: ORIGIN },
+        payload: { item: PAGE, visitor: 'chosen-by-the-client' },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('ignores anything else the client sends alongside item', async () => {
+      for (const extra of [{ visitorId: 'x' }, { visitor_hash: 'y' }, { visitorCount: 0 }]) {
+        const response = await context.app.inject({
+          method: 'POST',
+          url: `/v1/buttons/${button.publicKey}/click`,
+          headers: { origin: ORIGIN },
+          payload: { item: PAGE, ...extra },
+        });
+
+        expect(response.statusCode, `extra field ${Object.keys(extra)[0]}`).toBe(400);
+      }
+    });
+
+    it('shares one allowance across tabs and sessions from the same ip and agent', async () => {
+      const first = await click(button.publicKey, PAGE, { ip: '203.0.113.7', userAgent: UA });
+      const second = await click(button.publicKey, PAGE, { ip: '203.0.113.7', userAgent: UA });
+
+      expect(first.json().visitorCount).toBe(1);
+      expect(second.json().visitorCount).toBe(2);
+    });
+
+    it('gives a separate allowance from a different network', async () => {
+      const fromOne = await click(button.publicKey, PAGE, { ip: '203.0.113.7' });
+      const fromAnother = await click(button.publicKey, PAGE, { ip: '198.51.100.9' });
+
+      expect(fromOne.json().visitorCount).toBe(1);
+      expect(fromAnother.json().visitorCount).toBe(1);
+      expect(fromAnother.json().totalCount).toBe(2);
+    });
+
+    it('gives a separate allowance from a different browser', async () => {
+      const fromOne = await click(button.publicKey, PAGE, { userAgent: 'Browser/1.0' });
+      const fromAnother = await click(button.publicKey, PAGE, { userAgent: 'Browser/2.0' });
+
+      expect(fromOne.json().visitorCount).toBe(1);
+      expect(fromAnother.json().visitorCount).toBe(1);
+      expect(fromAnother.json().totalCount).toBe(2);
+    });
+
+    it('shares an allowance between visitors behind one NAT, the accepted cost', async () => {
+      // Same egress address and same browser build: the server cannot tell
+      // these apart, and the guarantee above is why we accept that.
+      for (let i = 0; i < 10; i += 1) {
+        await click(button.publicKey, PAGE, { ip: '203.0.113.50', userAgent: 'Chrome/120' });
+      }
+      const colleague = await click(button.publicKey, PAGE, {
+        ip: '203.0.113.50',
+        userAgent: 'Chrome/120',
+      });
+
+      expect(colleague.json().maxed).toBe(true);
+      expect(colleague.json().totalCount).toBe(10);
+    });
+
+    it('stores nothing that reveals the source address', async () => {
+      await click(button.publicKey, PAGE, { ip: '203.0.113.7' });
+
+      const row = await queryOne<{ visitor_hash: string }>(
+        context.pool,
+        'SELECT visitor_hash FROM visitor_clicks WHERE button_id = ?',
+        [button.buttonId],
+      );
+
+      expect(row?.visitor_hash).not.toContain('203.0.113.7');
+      expect(row?.visitor_hash).not.toContain(Buffer.from('203.0.113.7').toString('hex'));
+    });
+  });
+
   describe('POST /click', () => {
     it('records a click and returns the updated counts', async () => {
-      const response = await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
+      const response = await click(button.publicKey, PAGE);
 
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({
@@ -305,54 +441,10 @@ describe('public routes', () => {
       });
     });
 
-    it('stores the visitor as a keyed hash, not as the raw id', async () => {
-      const userAgent = 'Mozilla/5.0 (integration test)';
-      await context.app.inject({
-        method: 'POST',
-        url: `/v1/buttons/${button.publicKey}/click`,
-        headers: { origin: ORIGIN, 'user-agent': userAgent },
-        remoteAddress: '203.0.113.7',
-        payload: { item: PAGE, visitor: 'visitor-1' },
-      });
-
-      const row = await queryOne<{ visitor_hash: string }>(
-        context.pool,
-        'SELECT visitor_hash FROM visitor_clicks WHERE button_id = ?',
-        [button.buttonId],
-      );
-
-      expect(row?.visitor_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(row?.visitor_hash).not.toContain('visitor-1');
-      expect(row?.visitor_hash).toBe(
-        hashVisitor(context.config.visitorHashSecret, 'visitor-1', '203.0.113.7', userAgent),
-      );
-    });
-
-    it('gives the same visitor id a separate allowance from a different network', async () => {
-      const fromOne = await context.app.inject({
-        method: 'POST',
-        url: `/v1/buttons/${button.publicKey}/click`,
-        headers: { origin: ORIGIN },
-        remoteAddress: '203.0.113.7',
-        payload: { item: PAGE, visitor: 'visitor-1' },
-      });
-      const fromAnother = await context.app.inject({
-        method: 'POST',
-        url: `/v1/buttons/${button.publicKey}/click`,
-        headers: { origin: ORIGIN },
-        remoteAddress: '198.51.100.9',
-        payload: { item: PAGE, visitor: 'visitor-1' },
-      });
-
-      expect(fromOne.json().visitorCount).toBe(1);
-      expect(fromAnother.json().visitorCount).toBe(1);
-      expect(fromAnother.json().totalCount).toBe(2);
-    });
-
     it('accumulates up to the cap and then reports maxed', async () => {
       let body: ClickCounts | undefined;
       for (let i = 0; i < 12; i += 1) {
-        body = (await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' })).json();
+        body = (await click(button.publicKey, PAGE)).json();
       }
 
       expect(body).toEqual({
@@ -368,7 +460,7 @@ describe('public routes', () => {
       const small = await createButton(buttonInput({ maxClicks: 2 }));
 
       for (let i = 0; i < 5; i += 1) {
-        await click(small.publicKey, { item: PAGE, visitor: 'visitor-1' });
+        await click(small.publicKey, PAGE);
       }
 
       const row = await queryOne<{ total_count: number }>(
@@ -379,32 +471,19 @@ describe('public routes', () => {
       expect(row?.total_count).toBe(2);
     });
 
-    it('gives each visitor their own allowance', async () => {
-      for (let i = 0; i < 12; i += 1) {
-        await click(button.publicKey, { item: PAGE, visitor: 'visitor-1' });
-      }
-      const second = (await click(button.publicKey, { item: PAGE, visitor: 'visitor-2' })).json();
-
-      expect(second.totalCount).toBe(11);
-      expect(second.visitorCount).toBe(1);
-      expect(second.maxed).toBe(false);
-    });
-
     it('scopes counters per page', async () => {
-      await click(button.publicKey, { item: 'https://example.com/a', visitor: 'v' });
-      await click(button.publicKey, { item: 'https://example.com/b', visitor: 'v' });
+      await click(button.publicKey, 'https://example.com/a');
+      await click(button.publicKey, 'https://example.com/b');
 
-      const a = (
-        await state(button.publicKey, { item: 'https://example.com/a', visitor: 'v' })
-      ).json();
+      const a = (await state(button.publicKey, 'https://example.com/a')).json();
       expect(a.totalCount).toBe(1);
     });
 
     it('collapses query strings onto one counter in pathname mode', async () => {
-      await click(button.publicKey, { item: `${PAGE}?utm_source=twitter`, visitor: 'v' });
-      await click(button.publicKey, { item: `${PAGE}#comments`, visitor: 'v' });
+      await click(button.publicKey, `${PAGE}?utm_source=twitter`);
+      await click(button.publicKey, `${PAGE}#comments`);
 
-      const body = (await state(button.publicKey, { item: PAGE, visitor: 'v' })).json();
+      const body = (await state(button.publicKey, PAGE)).json();
       expect(body.totalCount).toBe(2);
       expect(body.visitorCount).toBe(2);
     });
@@ -412,18 +491,15 @@ describe('public routes', () => {
     it('separates query strings in full mode', async () => {
       const full = await createButton(buttonInput({ urlNormalization: 'full' }));
 
-      await click(full.publicKey, { item: `${PAGE}?page=1`, visitor: 'v' });
-      await click(full.publicKey, { item: `${PAGE}?page=2`, visitor: 'v' });
+      await click(full.publicKey, `${PAGE}?page=1`);
+      await click(full.publicKey, `${PAGE}?page=2`);
 
-      const body = (await state(full.publicKey, { item: `${PAGE}?page=1`, visitor: 'v' })).json();
+      const body = (await state(full.publicKey, `${PAGE}?page=1`)).json();
       expect(body.totalCount).toBe(1);
     });
 
     it('rejects an item that normalizes past the column width', async () => {
-      const response = await click(button.publicKey, {
-        item: `https://example.com/${'a'.repeat(600)}`,
-        visitor: 'v',
-      });
+      const response = await click(button.publicKey, `https://example.com/${'a'.repeat(600)}`);
 
       expect(response.statusCode).toBe(400);
       expect(response.json().error).toBe('invalid_item');
@@ -434,7 +510,7 @@ describe('public routes', () => {
         method: 'POST',
         url: `/v1/buttons/${button.publicKey}/click`,
         headers: { origin: ORIGIN },
-        payload: { item: PAGE, visitor: 'v', count: 500 },
+        payload: { item: PAGE, count: 500 },
       });
 
       expect(response.statusCode).toBe(400);
@@ -445,7 +521,7 @@ describe('public routes', () => {
         method: 'POST',
         url: `/v1/buttons/${button.publicKey}/click`,
         headers: { origin: ORIGIN },
-        payload: { item: PAGE, visitor: 'v', totalCount: 9999 },
+        payload: { item: PAGE, totalCount: 9999 },
       });
 
       const row = await queryOne<{ total_count: number }>(
@@ -457,7 +533,7 @@ describe('public routes', () => {
     });
 
     it('404s on an unknown public key without creating anything', async () => {
-      const response = await click(`pk_${'a'.repeat(32)}`, { item: PAGE, visitor: 'v' });
+      const response = await click(`pk_${'a'.repeat(32)}`, PAGE);
 
       expect(response.statusCode).toBe(404);
       expect(await queryOne(context.pool, 'SELECT item_key FROM items LIMIT 1')).toBeUndefined();
@@ -466,18 +542,14 @@ describe('public routes', () => {
 
   describe('origin enforcement', () => {
     it('allows a listed origin and echoes it back', async () => {
-      const response = await click(button.publicKey, { item: PAGE, visitor: 'v' }, ORIGIN);
+      const response = await click(button.publicKey, PAGE, { origin: ORIGIN });
 
       expect(response.statusCode).toBe(200);
       expect(response.headers['access-control-allow-origin']).toBe(ORIGIN);
     });
 
     it('refuses an unlisted origin and records nothing', async () => {
-      const response = await click(
-        button.publicKey,
-        { item: PAGE, visitor: 'v' },
-        'https://evil.test',
-      );
+      const response = await click(button.publicKey, PAGE, { origin: 'https://evil.test' });
 
       expect(response.statusCode).toBe(403);
       expect(response.json().error).toBe('origin_not_allowed');
@@ -489,11 +561,7 @@ describe('public routes', () => {
     });
 
     it('sends no allow-origin header to an unlisted origin', async () => {
-      const response = await click(
-        button.publicKey,
-        { item: PAGE, visitor: 'v' },
-        'https://evil.test',
-      );
+      const response = await click(button.publicKey, PAGE, { origin: 'https://evil.test' });
 
       expect(response.headers['access-control-allow-origin']).toBeUndefined();
     });
@@ -521,17 +589,15 @@ describe('public routes', () => {
     });
 
     it('refuses a lookalike origin', async () => {
-      const response = await click(
-        button.publicKey,
-        { item: PAGE, visitor: 'v' },
-        'https://example.com.evil.test',
-      );
+      const response = await click(button.publicKey, PAGE, {
+        origin: 'https://example.com.evil.test',
+      });
 
       expect(response.statusCode).toBe(403);
     });
 
     it('allows a request that sends no Origin at all', async () => {
-      const response = await click(button.publicKey, { item: PAGE, visitor: 'v' }, undefined);
+      const response = await click(button.publicKey, PAGE, { origin: null });
 
       expect(response.statusCode).toBe(200);
     });
@@ -561,11 +627,7 @@ describe('public routes', () => {
     it('honours a wildcard allowlist when a tenant opts into one', async () => {
       const open = await createButton(buttonInput({ allowedOrigins: ['*'] }));
 
-      const response = await click(
-        open.publicKey,
-        { item: PAGE, visitor: 'v' },
-        'https://anywhere.test',
-      );
+      const response = await click(open.publicKey, PAGE, { origin: 'https://anywhere.test' });
 
       expect(response.statusCode).toBe(200);
     });
@@ -573,19 +635,16 @@ describe('public routes', () => {
     it('applies the allowlist of the button named in the path, not another one', async () => {
       const other = await createButton(buttonInput({ allowedOrigins: ['https://other.test'] }));
 
-      expect((await click(other.publicKey, { item: PAGE, visitor: 'v' }, ORIGIN)).statusCode).toBe(
-        403,
-      );
+      expect((await click(other.publicKey, PAGE, { origin: ORIGIN })).statusCode).toBe(403);
       expect(
-        (await click(other.publicKey, { item: PAGE, visitor: 'v' }, 'https://other.test'))
-          .statusCode,
+        (await click(other.publicKey, PAGE, { origin: 'https://other.test' })).statusCode,
       ).toBe(200);
     });
   });
 
   describe('public routes are not management routes', () => {
     it('does not expose the button configuration', async () => {
-      const response = await state(button.publicKey, { item: PAGE, visitor: 'v' });
+      const response = await state(button.publicKey, PAGE);
 
       expect(response.body).not.toContain('svg');
       expect(response.body).not.toContain(tenant.id);
@@ -596,7 +655,7 @@ describe('public routes', () => {
         method: 'POST',
         url: `/v1/buttons/${button.buttonId}/click`,
         headers: { authorization: tenant.authHeader, origin: ORIGIN },
-        payload: { item: PAGE, visitor: 'v' },
+        payload: { item: PAGE },
       });
 
       // The path segment is a button id, not a public key, so no button
@@ -634,7 +693,8 @@ describe('rate limiting', () => {
         method: 'POST',
         url: `/v1/buttons/${created.publicKey}/click`,
         headers: { origin: ORIGIN },
-        payload: { item: PAGE, visitor: `visitor-${i}` },
+        remoteAddress: '203.0.113.1',
+        payload: { item: `${PAGE}/${i}` },
       });
       statuses.push(response.statusCode);
     }
