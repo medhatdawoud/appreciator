@@ -1,7 +1,13 @@
-import type { ButtonConfigInput, ClickCounts, CreateButtonResponse } from '@appreciator/shared';
+import type {
+  ButtonConfigInput,
+  ButtonSvgSources,
+  ClickCounts,
+  CreateButtonResponse,
+} from '@appreciator/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { queryOne } from '../../src/db/pool.js';
+import { DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
 import { hashVisitor } from '../../src/lib/visitor-hash.js';
 import {
   closeTestContext,
@@ -209,7 +215,10 @@ describe('public routes', () => {
 
     it('exposes no private field', async () => {
       const created = await createButton(
-        buttonInput({ allowedOrigins: [ORIGIN, 'https://secret-staging.internal'] }),
+        buttonInput({
+          name: 'Internal campaign label',
+          allowedOrigins: [ORIGIN, 'https://secret-staging.internal'],
+        }),
       );
 
       const response = await config(created.publicKey);
@@ -229,9 +238,55 @@ describe('public routes', () => {
         'secret-staging.internal',
         'tenantId',
         'createdAt',
+        'Internal campaign label',
+        'embedSnippet',
+        'widget.js',
       ]) {
         expect(response.body, `must not contain ${leak}`).not.toContain(leak);
       }
+    });
+
+    describe('with per-state icons', () => {
+      const SVG_SOURCES: ButtonSvgSources = {
+        default: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>',
+        hover: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>',
+        clicked: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>',
+        full: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      };
+
+      it('returns them along with the default single icon', async () => {
+        const created = await createButton({ allowedOrigins: [ORIGIN], svgSources: SVG_SOURCES });
+
+        const response = await config(created.publicKey);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toMatchObject({
+          svgSources: SVG_SOURCES,
+          svgSource: DEFAULT_SVG_SOURCE,
+        });
+      });
+
+      it('omits svgSources entirely for a button with a single icon', async () => {
+        const body = (await config(button.publicKey)).json();
+
+        expect(body).not.toHaveProperty('svgSources');
+      });
+
+      it('stops returning them once a single svgSource is set', async () => {
+        const created = await createButton({ allowedOrigins: [ORIGIN], svgSources: SVG_SOURCES });
+
+        const patched = await context.app.inject({
+          method: 'PATCH',
+          url: `/v1/buttons/${created.buttonId}`,
+          headers: { authorization: tenant.authHeader },
+          payload: { svgSource: SVG },
+        });
+        expect(patched.statusCode).toBe(200);
+
+        const body = (await config(created.publicKey)).json();
+        expect(body).not.toHaveProperty('svgSources');
+        expect(body.svgSource).toBe(SVG);
+      });
     });
 
     it('reflects a button-specific maxClicks and normalization mode', async () => {

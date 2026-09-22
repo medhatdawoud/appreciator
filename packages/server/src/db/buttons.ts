@@ -1,17 +1,25 @@
-import type { ButtonColors, ButtonConfig, UrlNormalization } from '@appreciator/shared';
+import type {
+  ButtonColors,
+  ButtonConfig,
+  ButtonState,
+  ButtonSvgSources,
+  UrlNormalization,
+} from '@appreciator/shared';
 
 import type { Executor } from './pool.js';
 import { queryOne, queryRows } from './pool.js';
 
-/** Row shape of the `buttons` table, as created by 002_buttons.sql. */
+/** Row shape of the `buttons` table, as created by 002_buttons.sql and later migrations. */
 export interface ButtonRow {
   id: string;
   tenant_id: string;
   public_key: string;
+  name: string | null;
   max_clicks: number;
   allowed_origins: unknown;
   svg_source: string;
   colors: unknown;
+  svg_sources: unknown;
   url_normalization: UrlNormalization;
   created_at: Date;
 }
@@ -21,7 +29,7 @@ export interface ButtonRow {
  * silently start pulling extra columns into responses.
  */
 export const BUTTON_COLUMNS =
-  'id, tenant_id, public_key, max_clicks, allowed_origins, svg_source, colors, url_normalization, created_at';
+  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, url_normalization, created_at';
 
 /**
  * mysql2 usually hands back JSON columns already parsed, but returns a string
@@ -57,17 +65,52 @@ function toColors(value: unknown): ButtonColors {
   };
 }
 
-/** Maps a row to the public `ButtonConfig` contract. `tenant_id` is never exposed. */
-export function toButtonConfig(row: ButtonRow): ButtonConfig {
+const BUTTON_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'full'];
+
+/**
+ * Reads the per-state icons, or null when the button has none. A value that
+ * is not a complete set of four strings also reads as null, so a damaged row
+ * falls back to the single recoloured icon rather than rendering a partial set.
+ */
+function toSvgSources(value: unknown): ButtonSvgSources | null {
+  const parsed = parseJsonColumn(value);
+  if (typeof parsed !== 'object' || parsed === null) return null;
+
+  const source = parsed as Record<string, unknown>;
+  const sources: Partial<ButtonSvgSources> = {};
+  for (const state of BUTTON_STATES) {
+    const svg = source[state];
+    if (typeof svg !== 'string') return null;
+    sources[state] = svg;
+  }
+  return sources as ButtonSvgSources;
+}
+
+/**
+ * One tag: the bundle reads its own `src` to find the server and its `data-*`
+ * attributes to render the button where the tag sits.
+ */
+export function buildEmbedSnippet(baseUrl: string, publicKey: string): string {
+  return `<script src="${baseUrl}/widget.js" data-key="${publicKey}" async></script>`;
+}
+
+/**
+ * Maps a row to the public `ButtonConfig` contract. `tenant_id` is never exposed.
+ * `publicBaseUrl` is only needed for the embed snippet.
+ */
+export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonConfig {
   return {
     id: row.id,
     publicKey: row.public_key,
+    name: row.name,
     maxClicks: row.max_clicks,
     allowedOrigins: toAllowedOrigins(row.allowed_origins),
     svgSource: row.svg_source,
     colors: toColors(row.colors),
+    svgSources: toSvgSources(row.svg_sources),
     urlNormalization: row.url_normalization,
     createdAt: row.created_at.toISOString(),
+    embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key),
   };
 }
 

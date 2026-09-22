@@ -31,3 +31,29 @@ export const colorsSchema = {
     full: colorSchema,
   },
 };
+
+/**
+ * One tenant-supplied SVG document. The schema bounds characters as a cheap
+ * first cut; `assertSafeSvg` enforces the real byte cap and content rules.
+ */
+export const svgSourceSchema = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 65536,
+};
+
+/**
+ * Per-state icons: all four states or none, so the widget never has to guess
+ * what to draw for a state that was left out.
+ */
+export const svgSourcesSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['default', 'hover', 'clicked', 'full'],
+  properties: {
+    default: svgSourceSchema,
+    hover: svgSourceSchema,
+    clicked: svgSourceSchema,
+    full: svgSourceSchema,
+  },
+};

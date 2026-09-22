@@ -3,6 +3,13 @@ export type ButtonState = 'default' | 'hover' | 'clicked' | 'full';
 
 export type ButtonColors = Record<ButtonState, string>;
 
+/**
+ * One complete SVG document per state, for icons a single recoloured shape
+ * cannot express. When a button has these, they win over `svgSource` and
+ * `colors`.
+ */
+export type ButtonSvgSources = Record<ButtonState, string>;
+
 /** How a button derives its per-item counter key from the embedding page. */
 export type UrlNormalization = 'pathname' | 'full';
 
@@ -10,12 +17,17 @@ export type UrlNormalization = 'pathname' | 'full';
 export interface ButtonConfig {
   id: string;
   publicKey: string;
+  /** Tenant-facing label. Never served to embedding pages. */
+  name: string | null;
   maxClicks: number;
   allowedOrigins: string[];
   svgSource: string;
   colors: ButtonColors;
+  svgSources: ButtonSvgSources | null;
   urlNormalization: UrlNormalization;
   createdAt: string;
+  /** The one-tag embed for this button, the same one `CreateButtonResponse` returns. */
+  embedSnippet: string;
 }
 
 /**
@@ -25,10 +37,14 @@ export interface ButtonConfig {
  * default to the server's built-in heart, so a first button is one request.
  */
 export interface ButtonConfigInput {
+  /** Trimmed; an empty name is stored as no name. */
+  name?: string;
   maxClicks?: number;
   allowedOrigins: string[];
   svgSource?: string;
   colors?: ButtonColors;
+  /** Mutually exclusive with `svgSource` in one request. */
+  svgSources?: ButtonSvgSources;
   urlNormalization?: UrlNormalization;
 }
 
@@ -43,6 +59,8 @@ export interface ButtonPublicConfig {
   maxClicks: number;
   svgSource: string;
   colors: ButtonColors;
+  /** Present only when the button has per-state icons; render these instead of `svgSource`. */
+  svgSources?: ButtonSvgSources;
   urlNormalization: UrlNormalization;
 }
 

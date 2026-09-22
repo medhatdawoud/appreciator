@@ -11,11 +11,13 @@ import { publicRoutes } from './routes/public.js';
 import { widgetRoutes } from './routes/widget.js';
 
 /**
- * Request body ceiling. The only large field we accept is `svgSource` (capped
- * at 64 KiB by `assertSafeSvg`); this leaves generous room for JSON escaping
- * while still refusing a multi-megabyte POST before it is parsed.
+ * Request body ceiling. The only large fields we accept are the icons: one
+ * `svgSource`, or four `svgSources`, each capped at 64 KiB by `assertSafeSvg`.
+ * Four maximum-size icons are 256 KiB before JSON escaping, so this leaves
+ * room for the escaping while still refusing a multi-megabyte POST before it
+ * is parsed.
  */
-const BODY_LIMIT_BYTES = 256 * 1024;
+const BODY_LIMIT_BYTES = 512 * 1024;
 
 declare module 'fastify' {
   interface FastifyInstance {

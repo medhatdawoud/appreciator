@@ -15,7 +15,7 @@ import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { incrementClick, readCounts } from '../lib/guarded-increment.js';
 import { ItemKeyError, normalizeItemKey } from '../lib/url-normalize.js';
 import { hashVisitor } from '../lib/visitor-hash.js';
-import { colorsSchema } from './schemas.js';
+import { colorsSchema, svgSourcesSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -233,6 +233,9 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               maxClicks: { type: 'integer' },
               svgSource: { type: 'string' },
               colors: colorsSchema,
+              // Not required: absent, rather than null, when the button has
+              // no per-state icons.
+              svgSources: svgSourcesSchema,
               urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
             },
           },
@@ -241,10 +244,19 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply): Promise<ButtonPublicConfig> => {
       const button = buttonOf(request);
-      const { maxClicks, svgSource, colors, urlNormalization } = toButtonConfig(button);
+      const { maxClicks, svgSource, colors, svgSources, urlNormalization } = toButtonConfig(
+        button,
+        app.appConfig.publicBaseUrl,
+      );
 
       void reply.header('cache-control', CONFIG_CACHE_CONTROL);
-      return { maxClicks, svgSource, colors, urlNormalization };
+      return {
+        maxClicks,
+        svgSource,
+        colors,
+        ...(svgSources === null ? {} : { svgSources }),
+        urlNormalization,
+      };
     },
   );
 

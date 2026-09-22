@@ -3,6 +3,7 @@ import type {
   ButtonConfig,
   ButtonConfigInput,
   ButtonListResponse,
+  ButtonSvgSources,
   CreateButtonResponse,
 } from '@appreciator/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -24,6 +25,13 @@ const COLORS: ButtonColors = {
   hover: '#dddddd',
   clicked: '#ff0000',
   full: '#990000',
+};
+
+const SVG_SOURCES: ButtonSvgSources = {
+  default: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>',
+  hover: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>',
+  clicked: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>',
+  full: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
 };
 
 function validInput(overrides: Partial<ButtonConfigInput> = {}): ButtonConfigInput {
@@ -66,6 +74,34 @@ describe('management routes', () => {
     });
     expect(response.statusCode).toBe(201);
     return response.json() as CreateButtonResponse;
+  }
+
+  async function listButtons(as: TestTenant = tenant): Promise<ButtonConfig[]> {
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/v1/buttons',
+      headers: { authorization: as.authHeader },
+    });
+    expect(response.statusCode).toBe(200);
+    return (response.json() as ButtonListResponse).buttons;
+  }
+
+  async function postButton(payload: unknown) {
+    return context.app.inject({
+      method: 'POST',
+      url: '/v1/buttons',
+      headers: { authorization: tenant.authHeader },
+      payload: payload as Record<string, unknown>,
+    });
+  }
+
+  async function patchButton(buttonId: string, payload: unknown) {
+    return context.app.inject({
+      method: 'PATCH',
+      url: `/v1/buttons/${buttonId}`,
+      headers: { authorization: tenant.authHeader },
+      payload: payload as Record<string, unknown>,
+    });
   }
 
   describe('authentication', () => {
@@ -203,6 +239,21 @@ describe('management routes', () => {
         urlNormalization: 'pathname',
       });
       for (const button of buttons) expect(button).not.toHaveProperty('tenantId');
+    });
+
+    it('gives every button the embed snippet it was created with', async () => {
+      const first = await createButton();
+      const second = await createButton(
+        validInput({ svgSource: undefined, svgSources: SVG_SOURCES }),
+      );
+
+      const buttons = await listButtons();
+
+      expect(buttons).toHaveLength(2);
+      for (const created of [first, second]) {
+        const listed = buttons.find((button) => button.id === created.buttonId);
+        expect(listed?.embedSnippet).toBe(created.embedSnippet);
+      }
     });
 
     it('is empty for a tenant with no buttons', async () => {
@@ -412,6 +463,122 @@ describe('management routes', () => {
     });
   });
 
+  describe('POST /v1/buttons with per-state icons', () => {
+    const PER_STATE = { allowedOrigins: ['https://example.com'], svgSources: SVG_SOURCES };
+
+    it('stores them and lists them alongside the default single icon', async () => {
+      const created = await createButton(PER_STATE);
+      const row = await queryOne<{ svg_sources: unknown }>(
+        context.pool,
+        'SELECT svg_sources FROM buttons WHERE id = ?',
+        [created.buttonId],
+      );
+      const stored =
+        typeof row?.svg_sources === 'string' ? JSON.parse(row.svg_sources) : row?.svg_sources;
+
+      expect(stored).toEqual(SVG_SOURCES);
+      const [listed] = await listButtons();
+      expect(listed).toMatchObject({ svgSources: SVG_SOURCES, svgSource: DEFAULT_SVG_SOURCE });
+    });
+
+    it('lists svgSources as null for a button with a single icon', async () => {
+      await createButton();
+
+      const [listed] = await listButtons();
+
+      expect(listed?.svgSources).toBeNull();
+    });
+
+    it('refuses svgSource and svgSources together', async () => {
+      const response = await postButton({ ...PER_STATE, svgSource: SVG });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('conflicting_icon');
+    });
+
+    it('checks every state icon for script', async () => {
+      const response = await postButton({
+        ...PER_STATE,
+        svgSources: { ...SVG_SOURCES, hover: '<svg><script>alert(1)</script></svg>' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('invalid_svg');
+      expect(response.json().message).toMatch(/^svgSources\.hover /);
+    });
+
+    it('requires all four states', async () => {
+      for (const state of Object.keys(SVG_SOURCES)) {
+        const partial = Object.fromEntries(
+          Object.entries(SVG_SOURCES).filter(([key]) => key !== state),
+        );
+        const response = await postButton({ ...PER_STATE, svgSources: partial });
+
+        expect(response.statusCode, `missing ${state} should be rejected`).toBe(400);
+      }
+    });
+
+    it('refuses a state it does not know', async () => {
+      const response = await postButton({
+        ...PER_STATE,
+        svgSources: { ...SVG_SOURCES, pressed: SVG_SOURCES.clicked },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('accepts four icons at the size cap in one request', async () => {
+      // Quote-heavy on purpose: every `"` doubles in the JSON body, so this is
+      // close to the largest body a valid request can produce.
+      const path = '<path d="M0 0"/>';
+      const body = path.repeat(Math.floor((65536 - 64) / path.length));
+      const large = `<svg viewBox="0 0 24 24">${body}</svg>`;
+      expect(Buffer.byteLength(large)).toBeLessThanOrEqual(65536);
+
+      const response = await postButton({
+        ...PER_STATE,
+        svgSources: { default: large, hover: large, clicked: large, full: large },
+      });
+
+      expect(response.statusCode).toBe(201);
+    });
+  });
+
+  describe('button names', () => {
+    it('round-trips a name, trimmed', async () => {
+      await createButton(validInput({ name: '  Blog likes  ' }));
+
+      const [listed] = await listButtons();
+
+      expect(listed?.name).toBe('Blog likes');
+    });
+
+    it('is null when none is given, or when it is blank', async () => {
+      await createButton();
+      await createButton(validInput({ name: '   ' }));
+
+      const buttons = await listButtons();
+
+      expect(buttons.map((button) => button.name)).toEqual([null, null]);
+    });
+
+    it('can be renamed and cleared with a PATCH', async () => {
+      const created = await createButton(validInput({ name: 'Old' }));
+
+      const renamed = await patchButton(created.buttonId, { name: ' New ' });
+      expect(renamed.json().name).toBe('New');
+
+      const cleared = await patchButton(created.buttonId, { name: '' });
+      expect(cleared.json().name).toBeNull();
+    });
+
+    it('refuses a name longer than 255 characters', async () => {
+      const response = await postButton(validInput({ name: 'x'.repeat(256) }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('PATCH /v1/buttons/:id', () => {
     it('applies a partial update and returns the full config', async () => {
       const created = await createButton();
@@ -521,6 +688,70 @@ describe('management routes', () => {
         url: `/v1/buttons/${created.buttonId}`,
         headers: { authorization: tenant.authHeader },
         payload: { svgSource: '<svg><script>alert(1)</script></svg>' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('invalid_svg');
+    });
+
+    it('returns the embed snippet with the updated config', async () => {
+      const created = await createButton();
+
+      const response = await patchButton(created.buttonId, { maxClicks: 4 });
+
+      expect(response.json().embedSnippet).toBe(created.embedSnippet);
+    });
+
+    it('switches a single-icon button to per-state icons, keeping svgSource', async () => {
+      const created = await createButton();
+
+      const response = await patchButton(created.buttonId, { svgSources: SVG_SOURCES });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ svgSources: SVG_SOURCES, svgSource: SVG });
+    });
+
+    it('drops per-state icons when a single svgSource is set', async () => {
+      const created = await createButton({
+        allowedOrigins: ['https://example.com'],
+        svgSources: SVG_SOURCES,
+      });
+
+      const response = await patchButton(created.buttonId, { svgSource: SVG });
+
+      expect(response.json()).toMatchObject({ svgSources: null, svgSource: SVG });
+    });
+
+    it('keeps per-state icons across unrelated changes', async () => {
+      const created = await createButton({
+        allowedOrigins: ['https://example.com'],
+        svgSources: SVG_SOURCES,
+      });
+
+      const response = await patchButton(created.buttonId, { colors: COLORS });
+
+      expect(response.json().svgSources).toEqual(SVG_SOURCES);
+    });
+
+    it('refuses svgSource and svgSources together and changes nothing', async () => {
+      const created = await createButton();
+
+      const response = await patchButton(created.buttonId, {
+        svgSource: SVG,
+        svgSources: SVG_SOURCES,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('conflicting_icon');
+      const [listed] = await listButtons();
+      expect(listed?.svgSources).toBeNull();
+    });
+
+    it('checks per-state icons on update too', async () => {
+      const created = await createButton();
+
+      const response = await patchButton(created.buttonId, {
+        svgSources: { ...SVG_SOURCES, full: '<svg onload="alert(1)"/>' },
       });
 
       expect(response.statusCode).toBe(400);

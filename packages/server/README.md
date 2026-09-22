@@ -113,6 +113,31 @@ to `DEFAULT_MAX_CLICKS`. The response's `embedSnippet` is the one-tag embed:
 <script src="https://appreciator.example.com/widget.js" data-key="pk_…" async></script>
 ```
 
+Every `ButtonConfig` — each entry of `GET /v1/buttons` and the `PATCH`
+response — carries the same `embedSnippet`, so it can be fetched again later.
+
+`name` is an optional label, up to 255 characters, for telling buttons apart
+in the management API. It is trimmed, and an empty or blank name is stored as
+`null`, which is also how a `PATCH` clears it. It is never served to embedding
+pages.
+
+A button's icon takes one of two shapes:
+
+- **One recoloured icon**: `svgSource` plus `colors`, as above. The widget
+  repaints the same SVG for each state.
+- **Per-state icons**: `svgSources`, an object with exactly the four keys
+  `default`, `hover`, `clicked` and `full`, each a complete SVG document of at
+  most 64 KiB. Each one goes through the same safety checks as `svgSource`,
+  and a rejection names the state (`svgSources.hover …`). When present,
+  these win over `svgSource` and `colors`.
+
+`svgSource` and `svgSources` in the same request answer
+`400 conflicting_icon`. A button created with `svgSources` still stores the
+default heart as its `svgSource`. A `PATCH` that sets `svgSource` drops any
+per-state icons, since they would otherwise keep winning over the new icon; a
+`PATCH` that sets `svgSources` leaves `svgSource` as it was. In a
+`ButtonConfig`, `svgSources` is `null` for a single-icon button.
+
 Each `allowedOrigins` entry is an origin (`https://example.com`,
 `http://localhost:8080`), the literal `null` a sandboxed iframe sends, `*`, or a
 subdomain wildcard. Entries are compared on their canonical form: host casing,
@@ -153,14 +178,24 @@ What the widget needs to render itself, and nothing else:
   "maxClicks": 10,
   "svgSource": "<svg viewBox=\"0 0 24 24\">…</svg>",
   "colors": { "default": "#ccc", "hover": "#ddd", "clicked": "#f00", "full": "#900" },
+  "svgSources": {
+    "default": "<svg viewBox=\"0 0 24 24\">…</svg>",
+    "hover": "<svg viewBox=\"0 0 24 24\">…</svg>",
+    "clicked": "<svg viewBox=\"0 0 24 24\">…</svg>",
+    "full": "<svg viewBox=\"0 0 24 24\">…</svg>"
+  },
   "urlNormalization": "pathname"
 }
 ```
 
+`svgSources` is present only for a button with per-state icons, and the widget
+should render those instead of `svgSource`. A single-icon button's response has
+no `svgSources` key at all, rather than a `null` one.
+
 It is deliberately separate from `/state` so the widget can fetch configuration
 and counts in parallel on mount, and so configuration can be cached while counts
-are not. `id`, `publicKey`, `allowedOrigins` and anything identifying the owning
-tenant are omitted, and that omission is enforced by the route's response schema
+are not. `id`, `publicKey`, `name`, `allowedOrigins`, `embedSnippet` and
+anything identifying the owning tenant are omitted, and that omission is enforced by the route's response schema
 rather than by the handler: Fastify serializes only the declared properties, so
 a column added to `buttons` later cannot leak through here by accident.
 

@@ -36,20 +36,24 @@ const FORBIDDEN_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }> = [
   { pattern: /<!ENTITY\b/i, reason: 'declares an XML entity' },
 ];
 
-/** Throws `SvgValidationError` if `source` is not something we are willing to store. */
-export function assertSafeSvg(source: string): void {
+/**
+ * Throws `SvgValidationError` if `source` is not something we are willing to store.
+ * `field` names the input in the message, so a caller sending several icons
+ * is told which one was refused.
+ */
+export function assertSafeSvg(source: string, field = 'svgSource'): void {
   const bytes = Buffer.byteLength(source, 'utf8');
   if (bytes > MAX_SVG_BYTES) {
-    throw new SvgValidationError(`svgSource must be at most ${MAX_SVG_BYTES} bytes`);
+    throw new SvgValidationError(`${field} must be at most ${MAX_SVG_BYTES} bytes`);
   }
 
   if (!/<\s*svg\b/i.test(source)) {
-    throw new SvgValidationError('svgSource must contain an <svg> element');
+    throw new SvgValidationError(`${field} must contain an <svg> element`);
   }
 
   for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
     if (pattern.test(source)) {
-      throw new SvgValidationError(`svgSource ${reason}`);
+      throw new SvgValidationError(`${field} ${reason}`);
     }
   }
 }

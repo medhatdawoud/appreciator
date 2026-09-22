@@ -10,7 +10,12 @@ import type {
 } from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { findButtonForTenant, listButtonsForTenant, toButtonConfig } from '../db/buttons.js';
+import {
+  buildEmbedSnippet,
+  findButtonForTenant,
+  listButtonsForTenant,
+  toButtonConfig,
+} from '../db/buttons.js';
 import type { SqlParam } from '../db/pool.js';
 import { execute, queryRows, withTransaction } from '../db/pool.js';
 import {
@@ -23,7 +28,7 @@ import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
 import { MAX_ITEM_KEY_LENGTH } from '../lib/url-normalize.js';
-import { colorsSchema } from './schemas.js';
+import { colorsSchema, svgSourceSchema, svgSourcesSchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -50,6 +55,9 @@ const UUID_PATTERN =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
 const inputProperties = {
+  // No minLength: an empty or blank name is how a caller clears it (see
+  // `normalizeName`).
+  name: { type: 'string', maxLength: 255 },
   maxClicks: { type: 'integer', minimum: 1, maximum: 1000 },
   allowedOrigins: {
     type: 'array',
@@ -57,8 +65,9 @@ const inputProperties = {
     maxItems: 50,
     items: { type: 'string', minLength: 1, maxLength: 255, pattern: ORIGIN_PATTERN },
   },
-  svgSource: { type: 'string', minLength: 1, maxLength: 65536 },
+  svgSource: svgSourceSchema,
   colors: colorsSchema,
+  svgSources: svgSourcesSchema,
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
 };
 
@@ -86,22 +95,28 @@ const buttonConfigSchema = {
   required: [
     'id',
     'publicKey',
+    'name',
     'maxClicks',
     'allowedOrigins',
     'svgSource',
     'colors',
+    'svgSources',
     'urlNormalization',
     'createdAt',
+    'embedSnippet',
   ],
   properties: {
     id: { type: 'string' },
     publicKey: { type: 'string' },
+    name: { type: ['string', 'null'] },
     maxClicks: { type: 'integer' },
     allowedOrigins: { type: 'array', items: { type: 'string' } },
     svgSource: { type: 'string' },
     colors: colorsSchema,
+    svgSources: { ...svgSourcesSchema, type: ['object', 'null'] },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
+    embedSnippet: { type: 'string' },
   },
 };
 
@@ -150,24 +165,41 @@ function tenantOf(request: FastifyRequest): TenantRow {
   return request.tenant;
 }
 
-/**
- * One tag: the bundle reads its own `src` to find the server and its `data-*`
- * attributes to render the button where the tag sits.
- */
-function buildEmbedSnippet(baseUrl: string, publicKey: string): string {
-  return `<script src="${baseUrl}/widget.js" data-key="${publicKey}" async></script>`;
-}
-
 /** Re-throws SVG rejections as 400s; anything else keeps its own handling. */
-function validateSvg(source: string): void {
+function validateSvg(source: string, field?: string): void {
   try {
-    assertSafeSvg(source);
+    assertSafeSvg(source, field);
   } catch (error) {
     if (error instanceof SvgValidationError) {
       throw badRequest(error.message, 'invalid_svg');
     }
     throw error;
   }
+}
+
+/**
+ * Validates whichever icon a request carries. `svgSource` and `svgSources`
+ * are alternatives, so a request naming both is refused rather than having
+ * one of them silently win.
+ */
+function validateIcons(input: Partial<ButtonConfigInput>): void {
+  if (input.svgSource !== undefined && input.svgSources !== undefined) {
+    throw badRequest('svgSource and svgSources cannot be sent together', 'conflicting_icon');
+  }
+  if (input.svgSource !== undefined) {
+    validateSvg(input.svgSource);
+  }
+  if (input.svgSources !== undefined) {
+    for (const [state, source] of Object.entries(input.svgSources)) {
+      validateSvg(source, `svgSources.${state}`);
+    }
+  }
+}
+
+/** Trims a name; one that trims to nothing is stored as no name at all. */
+function normalizeName(name: string): string | null {
+  const trimmed = name.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 /** Loads a button the tenant owns, or 404s. Absent and not-yours look the same. */
@@ -180,7 +212,7 @@ async function loadOwnedButton(
   if (row === undefined) {
     throw notFound('Button not found');
   }
-  return toButtonConfig(row);
+  return toButtonConfig(row, app.appConfig.publicBaseUrl);
 }
 
 function decodeCursor(cursor: string | undefined): string | undefined {
@@ -244,9 +276,12 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply): Promise<CreateButtonResponse> => {
       const tenant = tenantOf(request);
       const input = request.body;
+      validateIcons(input);
+      // A button with per-state icons still gets the default single icon, so
+      // `svg_source` is never empty and dropping the per-state set later with
+      // a PATCH leaves something to render.
       const svgSource = input.svgSource ?? DEFAULT_SVG_SOURCE;
       const colors = input.colors ?? DEFAULT_COLORS;
-      validateSvg(svgSource);
 
       const id = randomUUID();
       const publicKey = generatePublicKey();
@@ -255,16 +290,19 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       await execute(
         app.pool,
         `INSERT INTO buttons
-           (id, tenant_id, public_key, max_clicks, allowed_origins, svg_source, colors, url_normalization)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
+            svg_sources, url_normalization)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           tenant.id,
           publicKey,
+          input.name === undefined ? null : normalizeName(input.name),
           input.maxClicks ?? app.appConfig.defaultMaxClicks,
           JSON.stringify(input.allowedOrigins),
           svgSource,
           JSON.stringify(colors),
+          input.svgSources === undefined ? null : JSON.stringify(input.svgSources),
           urlNormalization,
         ],
       );
@@ -296,7 +334,7 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
     async (request): Promise<ButtonListResponse> => {
       const tenant = tenantOf(request);
       const rows = await listButtonsForTenant(app.pool, tenant.id);
-      return { buttons: rows.map(toButtonConfig) };
+      return { buttons: rows.map((row) => toButtonConfig(row, app.appConfig.publicBaseUrl)) };
     },
   );
 
@@ -314,18 +352,24 @@ export async function managementRoutes(app: FastifyInstance): Promise<void> {
       await loadOwnedButton(app, tenant.id, request.params.id);
 
       const patch = request.body;
-      if (patch.svgSource !== undefined) {
-        validateSvg(patch.svgSource);
-      }
+      validateIcons(patch);
 
       // Column names come from this literal map, never from the request; only
       // values are bound. A key the schema did not allow cannot reach it.
       const assignments: Array<[column: string, value: SqlParam]> = [];
+      if (patch.name !== undefined) assignments.push(['name', normalizeName(patch.name)]);
       if (patch.maxClicks !== undefined) assignments.push(['max_clicks', patch.maxClicks]);
       if (patch.allowedOrigins !== undefined) {
         assignments.push(['allowed_origins', JSON.stringify(patch.allowedOrigins)]);
       }
-      if (patch.svgSource !== undefined) assignments.push(['svg_source', patch.svgSource]);
+      if (patch.svgSource !== undefined) {
+        // Per-state icons win over the single one, so keeping them would
+        // store the new icon and never show it.
+        assignments.push(['svg_source', patch.svgSource], ['svg_sources', null]);
+      }
+      if (patch.svgSources !== undefined) {
+        assignments.push(['svg_sources', JSON.stringify(patch.svgSources)]);
+      }
       if (patch.colors !== undefined) assignments.push(['colors', JSON.stringify(patch.colors)]);
       if (patch.urlNormalization !== undefined) {
         assignments.push(['url_normalization', patch.urlNormalization]);

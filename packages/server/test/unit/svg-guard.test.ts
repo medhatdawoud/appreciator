@@ -79,4 +79,11 @@ describe('assertSafeSvg', () => {
     expect(multibyte.length).toBeLessThan(MAX_SVG_BYTES);
     expect(() => assertSafeSvg(multibyte)).toThrow(SvgValidationError);
   });
+
+  it('names the input it refused', () => {
+    expect(() => assertSafeSvg('<svg><script>alert(1)</script></svg>')).toThrow(/^svgSource /);
+    expect(() => assertSafeSvg('<svg><script>alert(1)</script></svg>', 'svgSources.hover')).toThrow(
+      /^svgSources\.hover contains a <script> element$/,
+    );
+  });
 });
