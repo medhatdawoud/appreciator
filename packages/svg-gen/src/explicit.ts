@@ -17,6 +17,8 @@ export interface ExplicitResult {
   /** Output path written for each state, keyed the same way as the input. */
   files: Record<ExplicitState, string>;
   manifestPath: string;
+  /** `{ svgSources: { default, hover, clicked, full } }` with the SVG markup inline. */
+  svgSourcesPath: string;
 }
 
 /**
@@ -25,7 +27,8 @@ export interface ExplicitResult {
  * hand-authored SVG. No normalization is applied -- each input is validated as well-formed SVG
  * and copied through byte-for-byte, so the caller's markup (colors, ids, structure) is preserved
  * exactly. A manifest.json records that this button is "explicit" so the consumer knows to swap
- * the whole SVG per state instead of driving `--appr-fill`/`--appr-stroke`.
+ * the whole SVG per state instead of driving `--appr-fill`/`--appr-stroke`, and svgSources.json
+ * carries the four documents as the request body the management API expects.
  */
 export async function generateExplicit(options: ExplicitOptions): Promise<ExplicitResult> {
   const { inputs, outDir } = options;
@@ -55,5 +58,10 @@ export async function generateExplicit(options: ExplicitOptions): Promise<Explic
   const manifestPath = join(outDir, 'manifest.json');
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
-  return { files, manifestPath };
+  // The four sources inline, in the exact shape `POST /v1/buttons` takes, so registering the
+  // button is one `jq` merge rather than four --rawfile arguments.
+  const svgSourcesPath = join(outDir, 'svgSources.json');
+  await writeFile(svgSourcesPath, `${JSON.stringify({ svgSources: sources }, null, 2)}\n`, 'utf8');
+
+  return { files, manifestPath, svgSourcesPath };
 }

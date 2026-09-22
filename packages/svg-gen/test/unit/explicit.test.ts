@@ -43,21 +43,42 @@ describe('generateExplicit', () => {
       full: join(outDir, 'full.svg'),
     });
     expect(result.manifestPath).toBe(join(outDir, 'manifest.json'));
+    expect(result.svgSourcesPath).toBe(join(outDir, 'svgSources.json'));
 
-    const [defaultOut, hoverOut, clickedOut, fullOut, sourceDefault, sourceFull] =
-      await Promise.all([
-        readFile(result.files.default, 'utf8'),
-        readFile(result.files.hover, 'utf8'),
-        readFile(result.files.clicked, 'utf8'),
-        readFile(result.files.full, 'utf8'),
-        readFile(fixture('explicit-default.svg'), 'utf8'),
-        readFile(fixture('explicit-full.svg'), 'utf8'),
-      ]);
+    const [
+      defaultOut,
+      hoverOut,
+      clickedOut,
+      fullOut,
+      sourceDefault,
+      sourceHover,
+      sourceClicked,
+      sourceFull,
+    ] = await Promise.all([
+      readFile(result.files.default, 'utf8'),
+      readFile(result.files.hover, 'utf8'),
+      readFile(result.files.clicked, 'utf8'),
+      readFile(result.files.full, 'utf8'),
+      readFile(fixture('explicit-default.svg'), 'utf8'),
+      readFile(fixture('explicit-hover.svg'), 'utf8'),
+      readFile(fixture('explicit-clicked.svg'), 'utf8'),
+      readFile(fixture('explicit-full.svg'), 'utf8'),
+    ]);
 
     expect(defaultOut).toBe(sourceDefault);
     expect(fullOut).toBe(sourceFull);
     expect(hoverOut).toContain('#6b7280');
     expect(clickedOut).toContain('#f43f5e');
+
+    const svgSources = JSON.parse(await readFile(result.svgSourcesPath, 'utf8'));
+    expect(svgSources).toEqual({
+      svgSources: {
+        default: sourceDefault,
+        hover: sourceHover,
+        clicked: sourceClicked,
+        full: sourceFull,
+      },
+    });
 
     const manifest = JSON.parse(await readFile(result.manifestPath, 'utf8'));
     expect(manifest).toEqual({

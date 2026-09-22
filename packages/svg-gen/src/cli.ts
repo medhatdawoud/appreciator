@@ -35,6 +35,18 @@ program
   .option('--hover <color>', 'CSS color for the hover state')
   .option('--clicked <color>', 'CSS color for the clicked state')
   .option('--full <color>', 'CSS color for the full (max-clicks-reached) state')
+  .addHelpText(
+    'after',
+    `
+With --explicit the output also holds svgSources.json, the four documents inline in the shape
+POST /v1/buttons takes. Register a button with it:
+
+  curl -s -X POST https://appreciator.example.com/v1/buttons \\
+    -H "Authorization: Bearer $MANAGEMENT_SECRET" -H 'Content-Type: application/json' \\
+    -d "$(jq '. + {allowedOrigins: ["https://example.com"], name: "Stars"}' \\
+          ./appreciator-out/svgSources.json)"
+`,
+  )
   .action(async (inputs: string[], options: GenerateCliOptions) => {
     try {
       if (options.explicit) {
@@ -54,6 +66,7 @@ program
           console.log(`  ${state}: ${path}`);
         }
         console.log(`  manifest: ${result.manifestPath}`);
+        console.log(`  svgSources: ${result.svgSourcesPath}`);
       } else {
         if (inputs.length !== 1) {
           program.error(
