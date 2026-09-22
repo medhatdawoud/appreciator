@@ -1,0 +1,25 @@
+{
+  "name": "@appreciator/svg-gen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "svg-gen": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@appreciator/shared": "*",
+    "@xmldom/xmldom": "^0.9.8",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.1"
+  }
+}
