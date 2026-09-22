@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Appreciator example</title>
+    <style>
+      body {
+        font: 16px/1.5 system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        color: #1f2937;
+      }
+      appreciator-button {
+        --appreciator-size: 2rem;
+        font-size: 1.25rem;
+        vertical-align: middle;
+      }
+      .missing {
+        color: #b91c1c;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 0.1em 0.3em;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Appreciator example</h1>
+    <p>
+      Open this page with <code>?api=&lt;server base url&gt;&amp;key=&lt;public key&gt;</code>.
+      Add <code>&amp;item=&lt;id&gt;</code> to count against an explicit id instead of this
+      page's URL.
+    </p>
+    <p id="status" class="missing" hidden>
+      Missing the <code>api</code> or <code>key</code> query parameter.
+    </p>
+    <p>
+      Did this help?
+      <appreciator-button data-label="Appreciate this page"></appreciator-button>
+    </p>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const api = params.get('api');
+      const key = params.get('key');
+      const item = params.get('item');
+      const button = document.querySelector('appreciator-button');
+
+      if (api && key) {
+        button.dataset.api = api;
+        button.dataset.key = key;
+        if (item) button.dataset.item = item;
+        const script = document.createElement('script');
+        script.src = `${api.replace(/\/+$/, '')}/widget.js`;
+        document.head.append(script);
+      } else {
+        document.getElementById('status').hidden = false;
+      }
+    </script>
+  </body>
+</html>
