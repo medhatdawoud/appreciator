@@ -1,0 +1,10 @@
+{
+  "mode": "explicit",
+  "states": ["default", "hover", "clicked", "full"],
+  "files": {
+    "default": "default.svg",
+    "hover": "hover.svg",
+    "clicked": "clicked.svg",
+    "full": "full.svg"
+  }
+}
