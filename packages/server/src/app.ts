@@ -11,6 +11,7 @@ import { healthRoutes } from './routes/health.js';
 import { managementRoutes } from './routes/management.js';
 import { publicRoutes } from './routes/public.js';
 import { siteRoutes } from './routes/sites.js';
+import { webRoutes } from './routes/web.js';
 import { widgetRoutes } from './routes/widget.js';
 
 /**
@@ -26,15 +27,23 @@ declare module 'fastify' {
   interface FastifyInstance {
     pool: Pool;
     appConfig: AppConfig;
+    /** Public key of the landing page's demo button, or null when there is none. */
+    demoPublicKey: string | null;
   }
 }
 
 export interface BuildAppOptions {
   config: AppConfig;
   pool: Pool;
+  /** From `ensureDemoButton`, which runs before the app is built. */
+  demoPublicKey?: string | null;
 }
 
-export async function buildApp({ config, pool }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({
+  config,
+  pool,
+  demoPublicKey = null,
+}: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     genReqId: () => randomUUID(),
     bodyLimit: BODY_LIMIT_BYTES,
@@ -64,6 +73,7 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
 
   app.decorate('pool', pool);
   app.decorate('appConfig', config);
+  app.decorate('demoPublicKey', demoPublicKey);
   // Cookies are parsed for every route, but only the session routes read
   // them; the bearer and public-key routes ignore them entirely.
   await app.register(fastifyCookie);
@@ -145,6 +155,7 @@ export async function buildApp({ config, pool }: BuildAppOptions): Promise<Fasti
   await app.register(authRoutes);
   // The dashboard's sites: session cookie plus CSRF, never the bearer secret.
   await app.register(siteRoutes);
+  await app.register(webRoutes);
 
   return app;
 }

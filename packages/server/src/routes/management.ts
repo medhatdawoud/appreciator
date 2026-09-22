@@ -1,30 +1,23 @@
-import { randomUUID } from 'node:crypto';
-
 import type {
   ButtonConfig,
   ButtonConfigInput,
   ButtonListResponse,
   CreateButtonResponse,
   ItemsPage,
-  UrlNormalization,
 } from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest, onRequestHookHandler } from 'fastify';
 
 import {
   buildEmbedSnippet,
   findButtonForTenant,
+  insertButton,
   listButtonsForTenant,
   toButtonConfig,
 } from '../db/buttons.js';
 import type { SqlParam } from '../db/pool.js';
 import { execute, queryRows, withTransaction } from '../db/pool.js';
 import { findSiteForAccount } from '../db/sites.js';
-import {
-  ALLOWED_ORIGIN_PATTERN,
-  extractBearerToken,
-  findTenantBySecretKey,
-  generatePublicKey,
-} from '../lib/auth.js';
+import { ALLOWED_ORIGIN_PATTERN, extractBearerToken, findTenantBySecretKey } from '../lib/auth.js';
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { accountOf, requireCsrf, requireSession } from '../lib/session.js';
@@ -316,29 +309,16 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       const svgSource = input.svgSource ?? DEFAULT_SVG_SOURCE;
       const colors = input.colors ?? DEFAULT_COLORS;
 
-      const id = randomUUID();
-      const publicKey = generatePublicKey();
-      const urlNormalization: UrlNormalization = input.urlNormalization ?? 'pathname';
-
-      await execute(
-        app.pool,
-        `INSERT INTO buttons
-           (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
-            svg_sources, url_normalization)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          tenantId,
-          publicKey,
-          input.name === undefined ? null : normalizeName(input.name),
-          input.maxClicks ?? app.appConfig.defaultMaxClicks,
-          JSON.stringify(input.allowedOrigins),
-          svgSource,
-          JSON.stringify(colors),
-          input.svgSources === undefined ? null : JSON.stringify(input.svgSources),
-          urlNormalization,
-        ],
-      );
+      const { id, publicKey } = await insertButton(app.pool, {
+        tenantId,
+        name: input.name === undefined ? null : normalizeName(input.name),
+        maxClicks: input.maxClicks ?? app.appConfig.defaultMaxClicks,
+        allowedOrigins: input.allowedOrigins,
+        svgSource,
+        colors,
+        svgSources: input.svgSources ?? null,
+        urlNormalization: input.urlNormalization ?? 'pathname',
+      });
 
       request.log.info({ buttonId: id, tenantId }, 'button created');
       reply.status(201);

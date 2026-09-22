@@ -116,10 +116,11 @@ status.
 
 Unauthenticated, outside the per-button scope:
 
-| Method | Path         |                                                                           |
-| ------ | ------------ | ------------------------------------------------------------------------- |
-| `GET`  | `/healthz`   | `200`, or `503` if MySQL is unreachable                                   |
-| `GET`  | `/widget.js` | the built widget bundle, or `404` if it is not built; per-IP rate limited |
+| Method | Path               |                                                                           |
+| ------ | ------------------ | ------------------------------------------------------------------------- |
+| `GET`  | `/healthz`         | `200`, or `503` if MySQL is unreachable                                   |
+| `GET`  | `/widget.js`       | the built widget bundle, or `404` if it is not built; per-IP rate limited |
+| `GET`  | `/web/config.json` | `WebConfig` for the landing page and dashboard                            |
 
 `POST /v1/buttons` needs only `allowedOrigins`; `svgSource` and `colors` fall
 back to a built-in heart icon (see `src/lib/default-icon.ts`) and `maxClicks`
@@ -396,6 +397,32 @@ Both act on the same buttons: a button created through one is listed by the
 other. The site routes apply the CSRF rules to writes, and answer `404` for a
 site the signed-in account does not own, before anything else is read. Neither
 form of credential works on the other form of route.
+
+## Demo button and web config
+
+With `DEMO_BUTTON` on (the default), every start makes sure a tenant named
+`demo` exists, with no owning account and a random management secret that is
+hashed and never shown, holding one button named `Landing demo`: the built-in
+heart, with `DEMO_ALLOWED_ORIGINS` (by default the origin of `PUBLIC_BASE_URL`)
+as its allowlist. The allowlist is brought in line with the environment on
+every start; nothing else about the button is changed. The step is idempotent,
+and concurrent starts are serialised with a MySQL named lock, so a fleet of
+instances converges on one tenant and one button. The demo cannot be managed
+through the API or the dashboard.
+
+`GET /web/config.json` (public, `Cache-Control: no-store`) is what the landing
+page and dashboard read to boot:
+
+```json
+{
+  "apiUrl": "https://appreciator.example.com",
+  "demoKey": "pk_…",
+  "signInEnabled": true,
+  "repoUrl": "https://github.com/medhatdawoud/appreciator"
+}
+```
+
+`demoKey` is the demo button's public key, or `null` with `DEMO_BUTTON=false`.
 
 ## Tests
 

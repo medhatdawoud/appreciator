@@ -7,6 +7,7 @@ import type { Pool } from '../../src/db/pool.js';
 import { createPool, execute } from '../../src/db/pool.js';
 import type { AppConfig } from '../../src/env.js';
 import { generateSecretKey, hashSecretKey } from '../../src/lib/auth.js';
+import { ensureDemoButton } from '../../src/lib/bootstrap.js';
 import {
   CSRF_HEADER,
   CSRF_HEADER_VALUE,
@@ -121,13 +122,17 @@ export interface TestContext {
   config: AppConfig;
 }
 
-/** Boots a migrated, empty database and an app wired to it. */
+/**
+ * Boots a migrated, empty database and an app wired to it, provisioning the
+ * demo button first when the config asks for it, as `server.ts` does.
+ */
 export async function createTestContext(overrides: Partial<AppConfig> = {}): Promise<TestContext> {
   await ensureSchema();
   const config = testConfig(overrides);
   const pool = createPool(config.databaseUrl);
   await truncateAll(pool);
-  const app = await buildApp({ config, pool });
+  const demo = config.demoButton ? await ensureDemoButton(pool, config) : undefined;
+  const app = await buildApp({ config, pool, demoPublicKey: demo?.publicKey ?? null });
   await app.ready();
   return { app, pool, config };
 }

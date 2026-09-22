@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type {
   ButtonColors,
   ButtonConfig,
@@ -6,8 +8,10 @@ import type {
   UrlNormalization,
 } from '@appreciator/shared';
 
+import { generatePublicKey } from '../lib/auth.js';
+
 import type { Executor } from './pool.js';
-import { queryOne, queryRows } from './pool.js';
+import { execute, queryOne, queryRows } from './pool.js';
 
 /** Row shape of the `buttons` table, as created by 002_buttons.sql and later migrations. */
 export interface ButtonRow {
@@ -152,4 +156,45 @@ export function listButtonsForTenant(executor: Executor, tenantId: string): Prom
     `SELECT ${BUTTON_COLUMNS} FROM buttons WHERE tenant_id = ? ORDER BY created_at ASC, id ASC`,
     [tenantId],
   );
+}
+
+/** Everything a new button row needs, already validated and defaulted by the caller. */
+export interface NewButton {
+  tenantId: string;
+  name: string | null;
+  maxClicks: number;
+  allowedOrigins: readonly string[];
+  svgSource: string;
+  colors: ButtonColors;
+  svgSources: ButtonSvgSources | null;
+  urlNormalization: UrlNormalization;
+}
+
+/** Inserts a button with a fresh id and public key, and returns both. */
+export async function insertButton(
+  executor: Executor,
+  button: NewButton,
+): Promise<{ id: string; publicKey: string }> {
+  const id = randomUUID();
+  const publicKey = generatePublicKey();
+  await execute(
+    executor,
+    `INSERT INTO buttons
+       (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
+        svg_sources, url_normalization)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      button.tenantId,
+      publicKey,
+      button.name,
+      button.maxClicks,
+      JSON.stringify(button.allowedOrigins),
+      button.svgSource,
+      JSON.stringify(button.colors),
+      button.svgSources === null ? null : JSON.stringify(button.svgSources),
+      button.urlNormalization,
+    ],
+  );
+  return { id, publicKey };
 }

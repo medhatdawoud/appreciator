@@ -1,12 +1,21 @@
 import { buildApp } from './app.js';
 import { createPool } from './db/pool.js';
 import { loadServerConfig } from './env.js';
-import { ensureManagementTenant } from './lib/bootstrap.js';
+import { ensureDemoButton, ensureManagementTenant } from './lib/bootstrap.js';
 
 async function main(): Promise<void> {
   const config = loadServerConfig();
   const pool = createPool(config.databaseUrl);
-  const app = await buildApp({ config, pool });
+  // Before the app is built, because the app serves the demo key.
+  const demo = config.demoButton ? await ensureDemoButton(pool, config) : undefined;
+  const app = await buildApp({ config, pool, demoPublicKey: demo?.publicKey ?? null });
+
+  if (demo !== undefined) {
+    app.log.info(
+      { tenantId: demo.tenantId, buttonId: demo.buttonId, created: demo.created },
+      'demo button ready',
+    );
+  }
 
   if (config.managementSecret !== undefined) {
     const { tenantId, created } = await ensureManagementTenant(pool, config.managementSecret);
