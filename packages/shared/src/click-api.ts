@@ -37,3 +37,13 @@ export interface ItemsPage {
   items: ItemSummary[];
   nextCursor: string | null;
 }
+
+/**
+ * POST /v1/buttons/:publicKey/reset (the landing-page demo button only): how
+ * many of the caller's per-item counters were cleared, and how many clicks
+ * that removed from the totals.
+ */
+export interface ResetResponse {
+  resetItems: number;
+  removedClicks: number;
+}

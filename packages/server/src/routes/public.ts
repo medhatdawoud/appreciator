@@ -3,6 +3,7 @@ import type {
   ButtonPublicConfig,
   ClickCounts,
   ClickRequest,
+  ResetResponse,
   StateQuery,
 } from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -13,6 +14,7 @@ import { isOriginAllowed } from '../lib/auth.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { incrementClick, readCounts } from '../lib/guarded-increment.js';
 import { registerIpRateLimit } from '../lib/rate-limit.js';
+import { resetVisitor } from '../lib/reset-visitor.js';
 import { ItemKeyError, normalizeItemKey } from '../lib/url-normalize.js';
 import { hashVisitor } from '../lib/visitor-hash.js';
 import { colorsSchema, svgSourcesSchema } from './schemas.js';
@@ -31,7 +33,7 @@ const PUBLIC_KEY_PATTERN = '^pk_[0-9a-f]{32}$';
  * from a wildcard `OPTIONS *` route. That route has no `:publicKey` param, so
  * the key is read from the path rather than from `request.params`.
  */
-const PUBLIC_ROUTE_PATTERN = /^\/v1\/buttons\/(pk_[0-9a-f]{32})\/(?:state|click|config)$/;
+const PUBLIC_ROUTE_PATTERN = /^\/v1\/buttons\/(pk_[0-9a-f]{32})\/(?:state|click|config|reset)$/;
 
 /**
  * Button config is static until the owner PATCHes it, so it is worth caching -
@@ -306,6 +308,40 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         itemKey: itemKeyFor(button, request.body.item),
         visitorHash: visitorHashFor(request),
         maxClicks: button.max_clicks,
+      });
+    },
+  );
+
+  // Only the landing page's demo button can be reset, so a visitor can try
+  // the demo again and again. On any other button the per-visitor cap is the
+  // point, and this route answers exactly as it would for an unknown key.
+  app.post<{ Params: PublicKeyParams }>(
+    '/v1/buttons/:publicKey/reset',
+    {
+      schema: {
+        params: publicKeyParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['resetItems', 'removedClicks'],
+            properties: {
+              resetItems: { type: 'integer' },
+              removedClicks: { type: 'integer' },
+            },
+          },
+        },
+      },
+    },
+    async (request): Promise<ResetResponse> => {
+      const button = buttonOf(request);
+      if (app.demoPublicKey === null || button.public_key !== app.demoPublicKey) {
+        throw notFound('Button not found');
+      }
+
+      return resetVisitor(app.pool, {
+        buttonId: button.id,
+        visitorHash: visitorHashFor(request),
       });
     },
   );
