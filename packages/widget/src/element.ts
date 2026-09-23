@@ -2,7 +2,7 @@ import type { ButtonPublicConfig, ButtonState, ClickCounts } from '@appreciator/
 
 import { ApiClient, ApiError } from './api.js';
 import { parseSafeSvg } from './sanitize-svg.js';
-import { canClick, optimisticClick, visualState } from './state.js';
+import { canClick, fillPercent, optimisticClick, progressPercent, visualState } from './state.js';
 import { readCachedCounts, writeCachedCounts } from './storage.js';
 
 /** How long the `clicked` state is held after a click. Matches the pulse keyframes below. */
@@ -15,9 +15,18 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * a host page can override any of them with `--appreciator-<state>` on the
  * element, and size it with `--appreciator-size`.
  *
+ * A single icon is drawn twice, stacked: a gray `base` silhouette painted with
+ * the `default` (or, hovered, `hover`) colour, and a `fill` copy painted with
+ * `full` (`clicked` during the pulse) that is revealed bottom-up by
+ * `--appr-progress`, the share of this visitor's allowance already spent
+ * (with a head start on the first click, see `fillPercent`), easing into
+ * place rather than jumping.
+ * The base is also run through `grayscale()`, so an icon that ignores the
+ * colour variables still starts gray.
+ *
  * With `data-icons="states"` the icon span holds one complete drawing per
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
- * stays a CSS-only state, as it is for a single recoloured icon.
+ * stays a CSS-only state in both modes.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -35,26 +44,40 @@ button {
 }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }
-[part="icon"] { display: inline-flex; }
-svg {
-  width: var(--appreciator-size, 1.5em);
-  height: var(--appreciator-size, 1.5em);
-  --appr-fill: none;
-  --appr-stroke: var(--appreciator-default, var(--_c-default));
-  transition: transform 150ms ease, fill 150ms ease, stroke 150ms ease;
+[part="icon"] {
+  display: inline-grid;
+  transition: transform 150ms ease;
 }
-button:not(:disabled):hover svg {
-  --appr-stroke: var(--appreciator-hover, var(--_c-hover));
-  transform: scale(1.08);
-}
-:host([data-state="clicked"]) svg {
-  --appr-fill: var(--appreciator-clicked, var(--_c-clicked));
-  --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
+button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
+:host([data-state="clicked"]) [part="icon"] {
   animation: appreciator-pulse ${PULSE_MS}ms ease-out;
 }
-:host([data-state="full"]) svg {
+svg {
+  grid-area: 1 / 1;
+  width: var(--appreciator-size, 1.5em);
+  height: var(--appreciator-size, 1.5em);
+}
+svg[data-layer="base"] {
+  --appr-fill: var(--appreciator-default, var(--_c-default));
+  --appr-stroke: var(--appreciator-default, var(--_c-default));
+  filter: grayscale(1);
+  opacity: 0.45;
+  transition: opacity 150ms ease;
+}
+button:not(:disabled):hover svg[data-layer="base"] {
+  --appr-fill: var(--appreciator-hover, var(--_c-hover));
+  --appr-stroke: var(--appreciator-hover, var(--_c-hover));
+  opacity: 0.6;
+}
+svg[data-layer="fill"] {
   --appr-fill: var(--appreciator-full, var(--_c-full));
   --appr-stroke: var(--appreciator-full, var(--_c-full));
+  clip-path: inset(calc(100% - var(--appr-progress, 0%)) 0 0 0);
+  transition: clip-path 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+:host([data-state="clicked"]) svg[data-layer="fill"] {
+  --appr-fill: var(--appreciator-clicked, var(--_c-clicked));
+  --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
 }
 :host([data-icons="states"]) svg { display: none; }
 :host([data-icons="states"][data-state="default"]) svg[data-for="default"],
@@ -74,7 +97,7 @@ button:not(:disabled):hover svg {
   100% { transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  svg { transition: none; animation: none !important; }
+  [part="icon"], svg { transition: none; animation: none !important; }
 }
 `;
 
@@ -387,6 +410,12 @@ export class AppreciatorButton extends HTMLElement {
     const counts = this.displayedCounts();
     this.setAttribute('data-state', visualState(counts, this.pulsing));
 
+    // data-progress is the honest share spent; the drawn fill has a head start
+    // on the first click. Set through the CSSOM, which a host page's
+    // style-src does not govern.
+    this.setAttribute('data-progress', String(progressPercent(counts)));
+    this.style.setProperty('--appr-progress', `${fillPercent(counts)}%`);
+
     const total = counts?.totalCount ?? 0;
     this.countLabel.textContent = String(total);
     this.button.disabled = this.config === null || !canClick(counts);
@@ -407,16 +436,23 @@ export class AppreciatorButton extends HTMLElement {
 }
 
 /**
- * The button's icon(s) as inert DOM: the single recolourable `svgSource`, or
- * one drawing per state tagged with `data-for` when the config carries
- * `svgSources`. Null if any of them fails to parse, so a button never renders
- * with some of its states missing.
+ * The button's icon(s) as inert DOM: the single `svgSource` as a gray `base`
+ * layer plus a `fill` copy that the progress reveals, or one drawing per state
+ * tagged with `data-for` when the config carries `svgSources`. Null if any of
+ * them fails to parse, so a button never renders with parts missing.
  */
 function parseIcons(config: ButtonPublicConfig): Element[] | null {
   const { svgSources } = config;
   if (svgSources === undefined) {
-    const svg = parseSafeSvg(config.svgSource);
-    return svg === null ? null : [svg];
+    // Parsed twice rather than cloned: a clone copies `style` attributes as
+    // attributes, which a strict host CSP refuses; parseSafeSvg applies them
+    // through the CSSOM instead.
+    const base = parseSafeSvg(config.svgSource);
+    const fill = parseSafeSvg(config.svgSource);
+    if (base === null || fill === null) return null;
+    base.setAttribute('data-layer', 'base');
+    fill.setAttribute('data-layer', 'fill');
+    return [base, fill];
   }
   const icons: Element[] = [];
   for (const state of COLOR_STATES) {

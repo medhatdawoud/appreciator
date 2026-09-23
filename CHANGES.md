@@ -3,6 +3,36 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — Progress fill: the icon colours in as the visitor clicks
+
+- Every single-icon button now shows progress toward the per-visitor cap: a
+  gray silhouette with a coloured copy on top, revealed bottom-up by
+  `visitorCount / maxClicks` (optimistic clicks included) through a
+  `clip-path` driven by `--appr-progress`. Replaces the outline → filled look
+  for all such buttons, including ones already embedded.
+- All four colours keep a meaning: `default`/`hover` paint the silhouette,
+  `full`/`clicked` the filled part. The silhouette also gets `grayscale()`,
+  so an icon that ignores the colour variables still starts gray, which is
+  the groundwork for uploading any multi-colour SVG as-is.
+- The first click gets a 10-point head start (fill = 10% + 90% × spent), so
+  it shows even where the bottom tenth of the icon's box is empty; the last
+  click still lands on exactly 100%. Each rise eases in over 800 ms
+  (`cubic-bezier(0.22, 1, 0.36, 1)`). Measured before the change: the fill
+  did animate, but 10% of the box over 400 ms mostly inside the heart's
+  empty tip was easy to miss.
+- The host reflects `data-progress` (0–100, the honest share spent; only the
+  drawn fill carries the head start). The pulse and hover scale moved
+  to `::part(icon)` so both layers move together; reduced motion disables
+  the reveal transition too.
+- The icon is parsed twice rather than cloned, because a clone would copy
+  `style` attributes that a strict host CSP refuses.
+- Four-SVG buttons keep their per-state swap and show no progress yet.
+- Known limitation: the reveal is measured on the icon's box, so bottom
+  padding (the heart's tip) makes a fill look a little lower than its number.
+- Tests: unit (progress helper, layers, optimistic progress, cached progress),
+  e2e in Chromium asserting silhouette and fill colours and the computed
+  `clip-path` at 0, 10% and 100%.
+
 ## 2026-09-23 — Self-serve dashboard, sign-in, per-state icons, and the last gaps
 
 Everything the "known gaps" list and the landing/dashboard request asked for,

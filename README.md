@@ -2,9 +2,9 @@
 
 A self-hostable "appreciate" button for any website, with a landing page, a
 GitHub-sign-in dashboard for creating buttons, and a public leaderboard of the
-most appreciated sites. Visitors click an SVG icon that pulses on each click
-and fills up once they have used their allowance (10 clicks by default,
-configurable per button). Counts are kept per page — or per explicit item id —
+most appreciated sites. Visitors click an SVG icon that starts gray and fills
+with colour from the bottom up, a little more with each click, until they
+have used their allowance (10 clicks by default, configurable per button). Counts are kept per page — or per explicit item id —
 in MySQL, and the whole embed is one tag:
 
 ```html
@@ -49,10 +49,11 @@ the person running an instance, or deploys their own in about ten minutes.
   (sign in → name a site → create a button → paste the snippet) and a public
   "Most appreciated" ranking at `/leaderboard`. The landing page can also be
   hosted on GitHub Pages.
-- **Four visual states from one SVG** — or four SVGs. Supply one outline icon
-  and the widget recolours it for `default`, `hover`, `clicked` (a 350 ms
-  fill-and-pulse) and `full`; or supply four drawings, one per state. A
-  built-in heart is used when you supply nothing.
+- **Progress you can see.** The icon is a gray silhouette that fills with
+  colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
+  bottom 30%, 10 of 10 is fully coloured. Each click also pulses. Works with
+  any single SVG; a built-in heart is used when you supply nothing. Buttons
+  configured with four SVGs, one per state, swap drawings instead.
 - **Per-page counters, automatically.** The counter key is origin + path, so
   one button serves every page of every allowed site. Pass `data-item` for
   SPAs or content reachable at several URLs.
@@ -224,8 +225,17 @@ stateDiagram-v2
 ```
 
 `hover` is not a JavaScript state: it is a CSS `:hover` rule. The element
-reflects `data-state="default|clicked|full"`, `data-icons="single|states"`
-and, on failure, `data-error="<code>"`, so host pages can style around them.
+reflects `data-state="default|clicked|full"`, `data-icons="single|states"`,
+`data-progress="0…100"` and, on failure, `data-error="<code>"`, so host pages
+can style around them.
+
+A single icon is drawn twice, stacked: a gray silhouette underneath, and a
+coloured copy on top revealed from the bottom by `--appr-progress`
+(`visitorCount / maxClicks`, including clicks still in flight, with a
+10-point head start on the first click so it is always visible: 19%, 28% …
+100% for a 10-click button), easing up over 0.8 s. The reveal is
+measured on the icon's box, so an icon with empty padding at the bottom (the
+heart's tip) looks a little less filled than the number says.
 
 ## Data model
 
@@ -478,10 +488,10 @@ The package is not published to npm yet; use a git dependency or copy
 ```css
 appreciator-button {
   --appreciator-size: 2rem; /* icon size, default 1.5em */
-  --appreciator-default: #9ca3af; /* outline when idle */
-  --appreciator-hover: #374151;
-  --appreciator-clicked: #f43f5e; /* fill during the pulse */
-  --appreciator-full: #e11d48; /* fill once the allowance is spent */
+  --appreciator-default: #9ca3af; /* the gray silhouette */
+  --appreciator-hover: #374151; /* the silhouette while hovered */
+  --appreciator-clicked: #f43f5e; /* the filled part during the pulse */
+  --appreciator-full: #e11d48; /* the filled part */
   font-size: 1.25rem; /* the count inherits the page font */
 }
 appreciator-button::part(count) {

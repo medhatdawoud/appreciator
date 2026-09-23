@@ -1,7 +1,13 @@
 import type { ClickCounts } from '@appreciator/shared';
 import { describe, expect, it } from 'vitest';
 
-import { canClick, optimisticClick, visualState } from '../../src/state.js';
+import {
+  canClick,
+  fillPercent,
+  optimisticClick,
+  progressPercent,
+  visualState,
+} from '../../src/state.js';
 
 const fresh: ClickCounts = {
   totalCount: 20,
@@ -26,6 +32,42 @@ describe('canClick', () => {
     expect(canClick(null)).toBe(false);
     expect(canClick(fresh)).toBe(true);
     expect(canClick({ ...fresh, maxed: true })).toBe(false);
+  });
+});
+
+describe('progressPercent', () => {
+  it('is the share of the allowance spent, rounded to a whole percent', () => {
+    expect(progressPercent(null)).toBe(0);
+    expect(progressPercent({ ...fresh, maxClicks: 10, visitorCount: 0 })).toBe(0);
+    expect(progressPercent({ ...fresh, maxClicks: 10, visitorCount: 3 })).toBe(30);
+    expect(progressPercent({ ...fresh, maxClicks: 3, visitorCount: 1 })).toBe(33);
+    expect(progressPercent({ ...fresh, maxClicks: 3, visitorCount: 3, maxed: true })).toBe(100);
+  });
+
+  it('stays within 0 to 100 for odd counts', () => {
+    expect(progressPercent({ ...fresh, maxClicks: 0, visitorCount: 0 })).toBe(0);
+    expect(progressPercent({ ...fresh, maxClicks: 5, visitorCount: 9 })).toBe(100);
+  });
+});
+
+describe('fillPercent', () => {
+  const of = (visitorCount: number, maxClicks: number): number =>
+    fillPercent({ ...fresh, visitorCount, maxClicks, maxed: visitorCount >= maxClicks });
+
+  it('draws nothing before the first click', () => {
+    expect(fillPercent(null)).toBe(0);
+    expect(of(0, 10)).toBe(0);
+    expect(of(0, 0)).toBe(0);
+  });
+
+  it('gives the first click a head start, then even steps to exactly 100', () => {
+    expect([1, 2, 3, 5, 9, 10].map((n) => of(n, 10))).toEqual([19, 28, 37, 55, 91, 100]);
+    expect([1, 2, 3].map((n) => of(n, 3))).toEqual([40, 70, 100]);
+    expect(of(1, 1)).toBe(100);
+  });
+
+  it('never overshoots', () => {
+    expect(of(12, 10)).toBe(100);
   });
 });
 

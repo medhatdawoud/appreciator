@@ -26,6 +26,8 @@ interface Widget {
   host: Locator;
   button: Locator;
   svg: Locator;
+  base: Locator;
+  fill: Locator;
   count: Locator;
 }
 
@@ -35,6 +37,8 @@ function widget(page: Page): Widget {
     host,
     button: host.locator('button'),
     svg: host.locator('svg'),
+    base: host.locator('svg[data-layer="base"]'),
+    fill: host.locator('svg[data-layer="fill"]'),
     count: host.locator('[part="count"]'),
   };
 }
@@ -48,38 +52,48 @@ async function open(page: Page): Promise<Widget> {
   return ui;
 }
 
-test('renders the default state from the server config', async ({ page }) => {
+test('starts as a gray silhouette with nothing filled', async ({ page }) => {
   const ui = await open(page);
 
   await expect(ui.count).toHaveText('0');
   await expect(ui.host).toHaveAttribute('data-icons', 'single');
-  await expect(ui.svg).toHaveCSS('stroke', rgb(fixture.colors.default));
-  await expect(ui.svg).toHaveCSS('fill', 'none');
+  await expect(ui.host).toHaveAttribute('data-progress', '0');
+  await expect(ui.svg).toHaveCount(2);
+  await expect(ui.base).toHaveCSS('fill', rgb(fixture.colors.default));
+  await expect(ui.base).toHaveCSS('filter', 'grayscale(1)');
+  await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
+  await expect(ui.fill).toHaveCSS('clip-path', 'inset(100% 0px 0px)');
   await expect(ui.host).not.toHaveAttribute('data-error', /./);
 });
 
-test('hover recolours the outline', async ({ page }) => {
+test('hover recolours the silhouette', async ({ page }) => {
   const ui = await open(page);
 
   await ui.button.hover();
 
-  await expect(ui.svg).toHaveCSS('stroke', rgb(fixture.colors.hover));
+  await expect(ui.base).toHaveCSS('fill', rgb(fixture.colors.hover));
 });
 
-test('a click pulses the fill, counts, and survives a reload', async ({ page }) => {
+test('a click fills a tenth, pulses in the clicked colour, and survives a reload', async ({
+  page,
+}) => {
   const ui = await open(page);
 
   await ui.button.click();
 
   await expect(ui.host).toHaveAttribute('data-state', 'clicked');
-  await expect(ui.svg).toHaveCSS('fill', rgb(fixture.colors.clicked));
+  await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.clicked));
   await expect(ui.count).toHaveText('1');
+  await expect(ui.host).toHaveAttribute('data-progress', '10');
+  await expect(ui.fill).toHaveCSS('clip-path', 'inset(81% 0px 0px)');
   await expect(ui.host).toHaveAttribute('data-state', 'default');
+  await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
 
   await page.reload();
 
   await expect(ui.count).toHaveText('1');
   await expect(ui.button).toBeEnabled();
+  await expect(ui.host).toHaveAttribute('data-progress', '10');
 });
 
 test('fills up at the cap and stays full even after localStorage is cleared', async ({ page }) => {
@@ -92,7 +106,9 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
   await expect(ui.host).toHaveAttribute('data-state', 'full');
   await expect(ui.button).toBeDisabled();
-  await expect(ui.svg).toHaveCSS('fill', rgb(fixture.colors.full));
+  await expect(ui.host).toHaveAttribute('data-progress', '100');
+  await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
+  await expect(ui.fill).toHaveCSS('clip-path', 'inset(0% 0px 0px)');
 
   await ui.button.click({ force: true });
   await expect(ui.count).toHaveText(String(fixture.maxClicks));

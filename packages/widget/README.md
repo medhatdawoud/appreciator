@@ -63,20 +63,35 @@ appreciator server (a bundler build, or a copy hosted elsewhere).
 
 The element reflects `data-state` on itself so the host page can style around it:
 
-- `default` — clickable, outline in the `default` colour.
-- `clicked` — held for 350 ms after each click; the icon fills with the `clicked` colour and pulses.
-- `full` — this visitor has used their allowance; the icon is filled with the `full` colour and the button is disabled.
+- `default` — clickable.
+- `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour.
+- `full` — this visitor has used their allowance; the icon is fully coloured and the button is disabled.
 
-`hover` is pure CSS and recolours the outline with the `hover` colour.
+`hover` is pure CSS: the icon grows slightly and the gray part takes the
+`hover` colour.
 
-It also reflects `data-icons`, which says how the icon is drawn:
+It also reflects `data-progress`, the share of this visitor's allowance
+already spent as a whole percentage (`0`–`100`), counting clicks still in
+flight. The drawn fill, `--appr-progress` on the element, gives the first
+click a 10-point head start and spreads the rest evenly, so a 10-click button
+fills to 19%, 28%, 37% … 100%, and a first click is visible even on icons
+with an empty bottom edge. Each rise eases in over 0.8 s (instant with
+`prefers-reduced-motion`).
 
-- `single` — one SVG, recoloured per state through the colour variables.
+And `data-icons`, which says how the icon is drawn:
+
+- `single` — one SVG drawn twice inside `::part(icon)`: a gray silhouette
+  (`svg[data-layer="base"]`, painted with the `default` colour and run through
+  `grayscale()`, so even an icon that ignores the colour variables starts
+  gray), and a coloured copy (`svg[data-layer="fill"]`, painted with `full`)
+  revealed from the bottom up to `--appr-progress`. The reveal is measured on
+  the icon's box, so padding below the drawing makes it look slightly less
+  filled than the number.
 - `states` — the button has four SVGs (`svgSources`), one per state, each
   tagged `data-for="default|hover|clicked|full"` inside `::part(icon)`. Exactly
   one is shown at a time: `hover` replaces `default` while the pointer is over
   an enabled button, and `clicked` and `full` follow `data-state`. Hover is
-  still pure CSS.
+  still pure CSS. These buttons do not show progress.
 
 If loading fails the element gets `data-error` (e.g. `network_error`,
 `origin_not_allowed`, `invalid_svg`, `missing_attributes`) and stays disabled.
@@ -89,7 +104,10 @@ and the icon size, with CSS custom properties on the element:
 ```css
 appreciator-button {
   --appreciator-size: 2rem;
-  --appreciator-full: gold;
+  --appreciator-default: #9ca3af; /* the gray silhouette */
+  --appreciator-hover: #6b7280; /* the silhouette while hovered */
+  --appreciator-clicked: orange; /* the filled part during the pulse */
+  --appreciator-full: gold; /* the filled part */
 }
 ```
 

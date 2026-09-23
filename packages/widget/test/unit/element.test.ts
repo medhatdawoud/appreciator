@@ -307,7 +307,73 @@ describe('AppreciatorButton', () => {
       await element.whenReady();
 
       expect(element.getAttribute('data-icons')).toBe('single');
-      expect(iconStates(element)).toEqual([null]);
+      expect(iconStates(element)).toEqual([null, null]);
+    });
+
+    it('has no progress layers', async () => {
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ svgSources: sampleSvgSources() }));
+
+      const element = await mountReady();
+
+      expect(shadow(element).querySelectorAll('svg[data-layer]')).toHaveLength(0);
+    });
+  });
+
+  describe('progress fill', () => {
+    function layers(element: AppreciatorButton): (string | null)[] {
+      return Array.from(shadow(element).querySelectorAll('svg'), (svg) =>
+        svg.getAttribute('data-layer'),
+      );
+    }
+
+    function progress(element: AppreciatorButton): { attribute: string | null; variable: string } {
+      return {
+        attribute: element.getAttribute('data-progress'),
+        variable: element.style.getPropertyValue('--appr-progress'),
+      };
+    }
+
+    it('draws a single icon twice: a gray base and a fill layer', async () => {
+      const element = await mountReady();
+
+      expect(layers(element)).toEqual(['base', 'fill']);
+      expect(progress(element)).toEqual({ attribute: '0', variable: '0%' });
+    });
+
+    it('advances with each click before the server answers, and is full at the cap', async () => {
+      const element = await mountReady();
+      const release = server.hold();
+
+      innerButton(element).click();
+      expect(progress(element)).toEqual({ attribute: '33', variable: '40%' });
+
+      release();
+      await element.whenIdle();
+      expect(progress(element).attribute).toBe('33');
+
+      await clickAndSettle(element, 2);
+      expect(progress(element)).toEqual({ attribute: '100', variable: '100%' });
+    });
+
+    it('shows cached progress before the server answers', async () => {
+      writeCachedCounts(KEY, 'article-1', {
+        totalCount: 7,
+        maxClicks: 3,
+        visitorCount: 2,
+        visitorRemaining: 1,
+        maxed: false,
+      });
+      const release = server.hold();
+
+      const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+      await Promise.resolve();
+
+      expect(progress(element)).toEqual({ attribute: '67', variable: '70%' });
+
+      release();
+      await element.whenReady();
+      expect(progress(element).attribute).toBe('0');
     });
   });
 
