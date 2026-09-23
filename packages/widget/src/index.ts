@@ -2,7 +2,14 @@ import { AppreciatorButton, setDefaultApi, type MountOptions } from './element.j
 import { apiBaseFromScriptSrc, autoMount } from './embed.js';
 
 export { ApiClient, ApiError } from './api.js';
-export { AppreciatorButton, PULSE_MS, getDefaultApi, setDefaultApi } from './element.js';
+export {
+  AppreciatorButton,
+  BURST_MS,
+  BURST_PARTICLES,
+  PULSE_MS,
+  getDefaultApi,
+  setDefaultApi,
+} from './element.js';
 export { apiBaseFromScriptSrc, autoMount } from './embed.js';
 export type { ErrorDetail, MountOptions } from './element.js';
 export type { VisualState } from './state.js';

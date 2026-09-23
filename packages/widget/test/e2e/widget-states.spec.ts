@@ -50,7 +50,7 @@ test('shows the default drawing alone, and marks the host as drawing per state',
   const ui = await open(page);
 
   await expect(ui.host).toHaveAttribute('data-icons', 'states');
-  await expect(ui.host.locator('svg')).toHaveCount(4);
+  await expect(ui.host.locator('[part="icon"] > svg')).toHaveCount(4);
   await expectOnlyVisible(ui, 'default');
 });
 
@@ -81,12 +81,12 @@ test('the full drawing takes over at the cap and survives a reload', async ({ pa
   }
 
   await expect(ui.host).toHaveAttribute('data-state', 'full');
-  await expect(ui.button).toBeDisabled();
+  await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
   await expectOnlyVisible(ui, 'full');
 
   await page.reload();
 
   await expect(ui.host).toHaveAttribute('data-state', 'full');
-  await expect(ui.button).toBeDisabled();
+  await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
   await expectOnlyVisible(ui, 'full');
 });

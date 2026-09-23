@@ -73,6 +73,74 @@ test('renders the live demo under the server CSP with nothing refused', async ({
   expect(problems.console).toEqual([]);
 });
 
+test('bursts when the demo is used up, keeps bursting, and resets for another try', async ({
+  page,
+}) => {
+  const problems = await watchProblems(page);
+  const clicks: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/click')) clicks.push(request.url());
+  });
+  await page.goto(`${API_ORIGIN}/`);
+  const hero = page.locator('[data-demo-slot="hero"] appreciator-button');
+  const button = hero.locator('button');
+  const count = hero.locator('[part="count"]');
+  const particles = hero.locator('[part="burst"] > svg');
+  const reset = page.getByRole('button', { name: 'Reset my votes' });
+  await expect(hero).toHaveAttribute('data-icons', 'single');
+  await expect(button).toBeEnabled();
+
+  // Not offered until the demo is used up.
+  await expect(reset).toBeHidden();
+
+  // Earlier specs may already have clicked the demo from this browser, so
+  // spend exactly what is left.
+  const { totalCount, visitorRemaining } = await hero.evaluate(
+    (element) =>
+      (element as unknown as { currentCounts: { totalCount: number; visitorRemaining: number } })
+        .currentCounts,
+  );
+  for (let i = 0; i < visitorRemaining; i += 1) {
+    await button.click();
+    if (i < visitorRemaining - 1) await expect(reset).toBeHidden();
+  }
+  const full = totalCount + visitorRemaining;
+  await expect(hero).toHaveAttribute('data-burst', '');
+  await expect(particles).toHaveCount(6);
+  await expect(particles.first()).toBeVisible();
+  await expect(count).toHaveText(String(full));
+  await expect(hero).toHaveAttribute('data-state', 'full');
+  // Spent but still clickable: aria-disabled for assistive tech, not disabled.
+  await expect(button).toHaveAttribute('aria-disabled', 'true');
+  expect(await button.evaluate((element) => (element as HTMLButtonElement).disabled)).toBe(false);
+  await expect(reset).toBeVisible();
+  await expect(hero).not.toHaveAttribute('data-burst', /.*/);
+  expect(clicks).toHaveLength(visitorRemaining);
+
+  // Spent: another click counts nothing and sends nothing, but bursts again.
+  // Forced, because Playwright treats aria-disabled as not clickable.
+  await button.click({ force: true });
+  await expect(hero).toHaveAttribute('data-burst', '');
+  await expect(count).toHaveText(String(full));
+  expect(clicks).toHaveLength(visitorRemaining);
+
+  await reset.click();
+  await expect(page.locator('[data-reset-status]')).toHaveText(/Reset/);
+  await expect(reset).toBeHidden();
+  await expect(hero).toHaveAttribute('data-state', 'default');
+  await expect(hero).toHaveAttribute('data-progress', '0');
+  await expect(count).toHaveText(String(full - 10));
+  await expect(button).not.toHaveAttribute('aria-disabled', /.*/);
+  const start = full - 10;
+
+  await button.click();
+  await expect(count).toHaveText(String(start + 1));
+  await expect(hero).toHaveAttribute('data-progress', '10');
+
+  expect(await problems.csp()).toEqual([]);
+  expect(problems.console).toEqual([]);
+});
+
 test('explains a refused sign-in', async ({ page }) => {
   await page.goto(`${API_ORIGIN}/?error=not_allowed`);
 

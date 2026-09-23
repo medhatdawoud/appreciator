@@ -9,6 +9,12 @@ import { readCachedCounts, writeCachedCounts } from './storage.js';
 /** How long the `clicked` state is held after a click. Matches the pulse keyframes below. */
 export const PULSE_MS = 350;
 
+/** How long one burst plays. Matches the burst keyframes below, delays included. */
+export const BURST_MS = 800;
+
+/** Copies of the icon thrown out when the allowance is spent, one per direction. */
+export const BURST_PARTICLES = 6;
+
 const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'full'];
 
 /**
@@ -29,6 +35,10 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * With `data-icons="states"` the icon span holds one complete drawing per
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
+ *
+ * `[part="burst"]` holds small full-colour copies of the icon, hidden until
+ * `data-burst` is set: each then flies out along its own `--dx`/`--dy`
+ * (six directions, 60 degrees apart) and fades.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -48,13 +58,14 @@ button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; bor
 button:disabled { cursor: default; }
 [part="icon"] {
   display: inline-grid;
+  position: relative;
   transition: transform 150ms ease;
 }
 button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
 :host([data-state="clicked"]) [part="icon"] {
   animation: appreciator-pulse ${PULSE_MS}ms ease-out;
 }
-svg {
+[part="icon"] > svg {
   grid-area: 1 / 1;
   width: var(--appreciator-size, 1.5em);
   height: var(--appreciator-size, 1.5em);
@@ -81,7 +92,7 @@ svg[data-layer="fill"] {
   --appr-fill: var(--appreciator-clicked, var(--_c-clicked));
   --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
 }
-:host([data-icons="states"]) svg { display: none; }
+:host([data-icons="states"]) [part="icon"] > svg { display: none; }
 :host([data-icons="states"][data-state="default"]) svg[data-for="default"],
 :host([data-icons="states"][data-state="clicked"]) svg[data-for="clicked"],
 :host([data-icons="states"][data-state="full"]) svg[data-for="full"] {
@@ -93,6 +104,32 @@ svg[data-layer="fill"] {
 :host([data-icons="states"][data-state="default"]) button:not(:disabled):hover svg[data-for="hover"] {
   display: block;
 }
+[part="burst"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+[part="burst"] svg {
+  --appr-fill: var(--appreciator-full, var(--_c-full));
+  --appr-stroke: var(--appreciator-full, var(--_c-full));
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--appreciator-size, 1.5em) * 0.55);
+  height: calc(var(--appreciator-size, 1.5em) * 0.55);
+  margin: calc(var(--appreciator-size, 1.5em) * -0.275) 0 0 calc(var(--appreciator-size, 1.5em) * -0.275);
+  opacity: 0;
+  visibility: hidden;
+}
+:host([data-burst]) [part="burst"] svg {
+  visibility: visible;
+  animation: appreciator-burst 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+}
+@keyframes appreciator-burst {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+  60% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.35); opacity: 0; }
+}
 @keyframes appreciator-pulse {
   0% { transform: scale(1); }
   40% { transform: scale(1.3); }
@@ -100,6 +137,7 @@ svg[data-layer="fill"] {
 }
 @media (prefers-reduced-motion: reduce) {
   [part="icon"], svg { transition: none; animation: none !important; }
+  [part="burst"] { display: none; }
 }
 `;
 
@@ -193,6 +231,10 @@ export class AppreciatorButton extends HTMLElement {
   private draining: Promise<void> | null = null;
   private pulsing = false;
   private pulseTimer: ReturnType<typeof setTimeout> | undefined;
+  private burstTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Set by refresh(): the next initialisation ignores the localStorage cache. */
+  private skipCache = false;
 
   /**
    * Where the drawing sits in its box. Measured once the icon is laid out;
@@ -234,6 +276,17 @@ export class AppreciatorButton extends HTMLElement {
     return this.draining ?? Promise.resolve();
   }
 
+  /**
+   * Re-reads the button's config and counts from the server, ignoring the
+   * cached counts, for when the host page knows they changed (for example
+   * after resetting the landing demo). Resolves once loaded.
+   */
+  refresh(): Promise<void> {
+    this.skipCache = true;
+    this.scheduleInitialize();
+    return this.ready;
+  }
+
   /** Counts as currently displayed, including clicks not yet confirmed. */
   get currentCounts(): ClickCounts | null {
     return this.displayedCounts();
@@ -246,6 +299,7 @@ export class AppreciatorButton extends HTMLElement {
   disconnectedCallback(): void {
     this.generation += 1;
     this.clearPulse();
+    this.clearBurst();
   }
 
   attributeChangedCallback(): void {
@@ -284,7 +338,9 @@ export class AppreciatorButton extends HTMLElement {
     this.config = null;
     this.pending = 0;
     this.clearPulse();
-    this.counts = readCachedCounts(key, this.item);
+    this.clearBurst();
+    this.counts = this.skipCache ? null : readCachedCounts(key, this.item);
+    this.skipCache = false;
     this.removeAttribute('data-error');
     this.render();
 
@@ -305,7 +361,10 @@ export class AppreciatorButton extends HTMLElement {
       return;
     }
 
-    this.icon.replaceChildren(...icons);
+    const burst = document.createElement('span');
+    burst.setAttribute('part', 'burst');
+    burst.append(...parseParticles(config));
+    this.icon.replaceChildren(...icons, burst);
     this.bounds = null;
     this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
     for (const state of COLOR_STATES) {
@@ -325,10 +384,20 @@ export class AppreciatorButton extends HTMLElement {
     this.emit('appreciator:error', { code, message } satisfies ErrorDetail);
   }
 
+  /**
+   * A click with allowance left counts; a click once it is spent counts
+   * nothing and replays the burst, so a full button still answers.
+   */
   private handleClick(): void {
-    if (this.config === null || !canClick(this.displayedCounts())) return;
+    const counts = this.displayedCounts();
+    if (this.config === null || counts === null) return;
+    if (!canClick(counts)) {
+      this.burst();
+      return;
+    }
     this.pending += 1;
     this.pulse();
+    if (optimisticClick(counts).maxed) this.burst();
     this.render();
     this.draining ??= this.drain().finally(() => {
       this.draining = null;
@@ -409,6 +478,26 @@ export class AppreciatorButton extends HTMLElement {
     }, PULSE_MS);
   }
 
+  private burst(): void {
+    this.clearBurst();
+    // Same restart trick as the pulse: a click during a running burst starts
+    // it again from the centre.
+    this.removeAttribute('data-burst');
+    void this.button.offsetWidth;
+    this.setAttribute('data-burst', '');
+    this.burstTimer = setTimeout(() => {
+      this.burstTimer = undefined;
+      this.removeAttribute('data-burst');
+    }, BURST_MS);
+    this.emit('appreciator:burst', this.displayedCounts());
+  }
+
+  private clearBurst(): void {
+    if (this.burstTimer !== undefined) clearTimeout(this.burstTimer);
+    this.burstTimer = undefined;
+    this.removeAttribute('data-burst');
+  }
+
   private clearPulse(): void {
     if (this.pulseTimer !== undefined) clearTimeout(this.pulseTimer);
     this.pulseTimer = undefined;
@@ -433,7 +522,12 @@ export class AppreciatorButton extends HTMLElement {
 
     const total = counts?.totalCount ?? 0;
     this.countLabel.textContent = String(total);
-    this.button.disabled = this.config === null || !canClick(counts);
+    // A spent allowance leaves the button clickable (it replays the burst),
+    // so "finished" is conveyed to assistive tech rather than by disabling.
+    const spent = counts !== null && !canClick(counts);
+    this.button.disabled = this.config === null || counts === null;
+    if (spent) this.button.setAttribute('aria-disabled', 'true');
+    else this.button.removeAttribute('aria-disabled');
 
     const label = this.dataset.label ?? 'Appreciate';
     const remaining = counts?.visitorRemaining;
@@ -441,7 +535,9 @@ export class AppreciatorButton extends HTMLElement {
       'aria-label',
       remaining === undefined
         ? `${label}, ${total} total`
-        : `${label}, ${total} total, ${remaining} left for you`,
+        : spent
+          ? `${label}, ${total} total, all used`
+          : `${label}, ${total} total, ${remaining} left for you`,
     );
   }
 
@@ -477,6 +573,38 @@ function parseIcons(config: ButtonPublicConfig): Element[] | null {
     icons.push(svg);
   }
   return icons;
+}
+
+/**
+ * Small copies of the icon for the burst: the full-state drawing for a
+ * four-SVG button, the single icon otherwise (painted in the `full` colour by
+ * the styles). Parsed, not cloned, for the same CSP reason as the layers.
+ * An icon that cannot be parsed simply has no burst.
+ */
+function parseParticles(config: ButtonPublicConfig): Element[] {
+  const source = config.svgSources?.full ?? config.svgSource;
+  const particles: Element[] = [];
+  for (let i = 0; i < BURST_PARTICLES; i += 1) {
+    const particle = parseSafeSvg(source);
+    if (particle === null) return [];
+    const angle = (i * 2 * Math.PI) / BURST_PARTICLES - Math.PI / 2;
+    const style = (particle as SVGElement).style;
+    style.setProperty(
+      '--dx',
+      `calc(var(--appreciator-size, 1.5em) * ${round(Math.cos(angle) * 1.4)})`,
+    );
+    style.setProperty(
+      '--dy',
+      `calc(var(--appreciator-size, 1.5em) * ${round(Math.sin(angle) * 1.4)})`,
+    );
+    style.setProperty('--delay', `${i * 15}ms`);
+    particles.push(particle);
+  }
+  return particles;
+}
+
+function round(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { ClickCounts } from '@appreciator/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppreciatorButton, PULSE_MS, mount, setDefaultApi } from '../../src/index.js';
+import { AppreciatorButton, BURST_MS, PULSE_MS, mount, setDefaultApi } from '../../src/index.js';
 import { writeCachedCounts } from '../../src/storage.js';
 import {
   installFakeServer,
@@ -148,7 +148,7 @@ describe('AppreciatorButton', () => {
     innerButton(element).click();
     innerButton(element).click();
     expect(countText(element)).toBe('3');
-    expect(innerButton(element).disabled).toBe(true);
+    expect(innerButton(element).getAttribute('aria-disabled')).toBe('true');
 
     await element.whenIdle();
     await vi.advanceTimersByTimeAsync(PULSE_MS);
@@ -156,7 +156,10 @@ describe('AppreciatorButton', () => {
     expect(server.requests.filter((request) => request.method === 'POST')).toHaveLength(3);
     expect(server.counts().visitorCount).toBe(3);
     expect(element.getAttribute('data-state')).toBe('full');
-    expect(innerButton(element).disabled).toBe(true);
+    // Spent, but still clickable: further clicks replay the burst.
+    expect(innerButton(element).disabled).toBe(false);
+    expect(innerButton(element).getAttribute('aria-disabled')).toBe('true');
+    expect(innerButton(element).getAttribute('aria-label')).toBe('Appreciate, 3 total, all used');
     expect(maxed).toHaveLength(1);
     expect((maxed[0] as ClickCounts).maxed).toBe(true);
   });
@@ -263,7 +266,7 @@ describe('AppreciatorButton', () => {
 
   describe('per-state icons', () => {
     function iconStates(element: AppreciatorButton): (string | null)[] {
-      return Array.from(shadow(element).querySelectorAll('svg'), (svg) =>
+      return Array.from(shadow(element).querySelectorAll('[part="icon"] > svg'), (svg) =>
         svg.getAttribute('data-for'),
       );
     }
@@ -322,7 +325,7 @@ describe('AppreciatorButton', () => {
 
   describe('progress fill', () => {
     function layers(element: AppreciatorButton): (string | null)[] {
-      return Array.from(shadow(element).querySelectorAll('svg'), (svg) =>
+      return Array.from(shadow(element).querySelectorAll('[part="icon"] > svg'), (svg) =>
         svg.getAttribute('data-layer'),
       );
     }
@@ -379,6 +382,104 @@ describe('AppreciatorButton', () => {
       release();
       await element.whenReady();
       expect(progress(element).attribute).toBe('0');
+    });
+  });
+
+  describe('burst', () => {
+    function particles(element: AppreciatorButton): Element[] {
+      return Array.from(shadow(element).querySelectorAll('[part="burst"] > svg'));
+    }
+
+    function posts(): number {
+      return server.requests.filter((request) => request.method === 'POST').length;
+    }
+
+    it('keeps six copies of the icon ready, one per direction', async () => {
+      const element = await mountReady();
+
+      const all = particles(element);
+      expect(all).toHaveLength(6);
+      const offsets = all.map((particle) => [
+        (particle as SVGElement).style.getPropertyValue('--dx'),
+        (particle as SVGElement).style.getPropertyValue('--dy'),
+      ]);
+      expect(new Set(offsets.map((pair) => pair.join())).size).toBe(6);
+      expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+
+    it('plays on the click that spends the allowance, then stops', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const element = await mountReady();
+      const bursts = recordEvents(element, 'appreciator:burst');
+
+      innerButton(element).click();
+      innerButton(element).click();
+      expect(element.hasAttribute('data-burst')).toBe(false);
+
+      innerButton(element).click();
+      expect(element.hasAttribute('data-burst')).toBe(true);
+      expect(bursts).toHaveLength(1);
+
+      await element.whenIdle();
+      await vi.advanceTimersByTimeAsync(BURST_MS);
+      expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+
+    it('replays on every click once spent, counting nothing', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      await vi.advanceTimersByTimeAsync(BURST_MS);
+      const bursts = recordEvents(element, 'appreciator:burst');
+
+      innerButton(element).click();
+      await element.whenIdle();
+      expect(element.hasAttribute('data-burst')).toBe(true);
+      await vi.advanceTimersByTimeAsync(BURST_MS);
+      innerButton(element).click();
+
+      expect(bursts).toHaveLength(2);
+      expect(posts()).toBe(3);
+      expect(countText(element)).toBe('3');
+      expect(element.getAttribute('data-state')).toBe('full');
+    });
+
+    it('does not play when the page loads already spent', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      element.dataset.item = 'article-1-again';
+      element.dataset.item = 'article-1';
+      await element.whenReady();
+
+      expect(element.getAttribute('data-state')).toBe('full');
+      expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+  });
+
+  describe('refresh()', () => {
+    it('re-reads the counts from the server without flashing the cached ones', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      expect(element.getAttribute('data-progress')).toBe('100');
+
+      server.resetVisitor();
+      const release = server.hold();
+      const refreshed = element.refresh();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // The cache still says "full"; refresh() must not paint it.
+      expect(element.getAttribute('data-state')).toBe('default');
+      expect(element.getAttribute('data-progress')).toBe('0');
+
+      release();
+      await refreshed;
+      expect(element.getAttribute('data-state')).toBe('default');
+      expect(countText(element)).toBe('0');
+      expect(innerButton(element).getAttribute('aria-disabled')).toBeNull();
+
+      await clickAndSettle(element);
+      expect(server.counts().visitorCount).toBe(1);
     });
   });
 

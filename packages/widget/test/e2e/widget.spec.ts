@@ -54,7 +54,7 @@ function widget(page: Page): Widget {
   return {
     host,
     button: host.locator('button'),
-    svg: host.locator('svg'),
+    svg: host.locator('[part="icon"] > svg'),
     base: host.locator('svg[data-layer="base"]'),
     fill: host.locator('svg[data-layer="fill"]'),
     count: host.locator('[part="count"]'),
@@ -128,7 +128,7 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
 
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
   await expect(ui.host).toHaveAttribute('data-state', 'full');
-  await expect(ui.button).toBeDisabled();
+  await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
   await expect(ui.host).toHaveAttribute('data-progress', '100');
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
   // Full: exactly the drawing is revealed, so the inset is the empty space
@@ -137,12 +137,22 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   expect(atCap).toBeGreaterThan(0);
   expect(atCap).toBeLessThan(15);
 
+  // Spent: the button still answers with a burst, but counts nothing.
+  await expect(ui.host).not.toHaveAttribute('data-burst', /.*/);
+  expect(await ui.button.evaluate((element) => (element as HTMLButtonElement).disabled)).toBe(
+    false,
+  );
+  // Forced, because Playwright treats aria-disabled as not clickable.
   await ui.button.click({ force: true });
+  await expect(ui.host).toHaveAttribute('data-burst', '');
+  await expect(ui.host.locator('[part="burst"] > svg')).toHaveCount(6);
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
 
   await page.reload();
   await expect(ui.host).toHaveAttribute('data-state', 'full');
-  await expect(ui.button).toBeDisabled();
+  await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
+  // Loading an already-spent button does not burst on its own.
+  await expect(ui.host).not.toHaveAttribute('data-burst', /.*/);
 
   await page.evaluate(() => localStorage.clear());
   await page.reload();

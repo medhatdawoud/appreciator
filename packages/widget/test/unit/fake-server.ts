@@ -43,6 +43,8 @@ export interface FakeServer {
   failNextClick(status: number): void;
   /** Park every response until the returned function is called. */
   hold(): () => void;
+  /** Forget this visitor's clicks, as the demo reset endpoint does. */
+  resetVisitor(): void;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -81,6 +83,10 @@ export function installFakeServer(config: ButtonPublicConfig = sampleConfig()): 
         };
       });
       return release;
+    },
+    resetVisitor() {
+      totalCount -= visitorCount;
+      visitorCount = 0;
     },
   };
 

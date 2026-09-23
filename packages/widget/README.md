@@ -65,7 +65,10 @@ The element reflects `data-state` on itself so the host page can style around it
 
 - `default` — clickable.
 - `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour.
-- `full` — this visitor has used their allowance; the icon is fully coloured and the button is disabled.
+- `full` — this visitor has used their allowance; the icon is fully coloured.
+  The button stays clickable: every further click counts nothing and replays
+  the burst (below). It carries `aria-disabled="true"` and an accessible name
+  ending in "all used", so assistive tech still reports it as finished.
 
 `hover` is pure CSS: the icon grows slightly and the gray part takes the
 `hover` colour.
@@ -95,6 +98,13 @@ And `data-icons`, which says how the icon is drawn:
   an enabled button, and `clicked` and `full` follow `data-state`. Hover is
   still pure CSS. These buttons do not show progress.
 
+**Burst.** The click that spends the allowance, and every click after it,
+throws six small full-colour copies of the icon out of the button, 60° apart,
+for about 0.7 s (`data-burst` is set on the element meanwhile, and
+`appreciator:burst` fires). A button that loads already spent does not burst
+on its own. The copies live in `::part(burst)`; `prefers-reduced-motion`
+hides them.
+
 If loading fails the element gets `data-error` (e.g. `network_error`,
 `origin_not_allowed`, `invalid_svg`, `missing_attributes`) and stays disabled.
 
@@ -113,8 +123,8 @@ appreciator-button {
 }
 ```
 
-The inner button, icon and count are exposed as `::part(button)`,
-`::part(icon)` and `::part(count)`.
+The inner button, icon, count and burst are exposed as `::part(button)`,
+`::part(icon)`, `::part(count)` and `::part(burst)`.
 
 A button configured with four SVGs draws each state with its own complete
 document, so the colour variables have nothing to recolour unless those
@@ -125,7 +135,17 @@ icon. Package the four files with `svg-gen generate --explicit`.
 
 All bubble and cross the shadow boundary, with the counts (or an error) in `detail`:
 
-`appreciator:ready`, `appreciator:change`, `appreciator:maxed`, `appreciator:error`.
+`appreciator:ready`, `appreciator:change`, `appreciator:maxed`, `appreciator:burst`,
+`appreciator:error`.
+
+### Methods
+
+- `refresh()` re-reads the button's config and counts from the server, without
+  painting the cached counts first, and resolves once loaded. Use it when the
+  page knows the counts changed, as the landing page does after resetting the
+  demo.
+- `whenReady()` and `whenIdle()` resolve once loaded and once every accepted
+  click has been sent.
 
 ## How it behaves
 
