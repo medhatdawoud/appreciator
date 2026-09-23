@@ -105,7 +105,7 @@
     const hero = document.querySelector('[data-demo-slot="hero"]');
     const follow = (event) => {
       if (!hero || !hero.contains(event.target) || !event.detail) return;
-      button.hidden = event.detail.maxed !== true;
+      button.toggleAttribute('data-offered', event.detail.maxed === true);
     };
     for (const name of ['appreciator:ready', 'appreciator:change']) {
       document.addEventListener(name, follow);
@@ -131,7 +131,7 @@
           ),
         );
         show('Reset. You have ten more, try again.', false);
-        button.hidden = true;
+        button.removeAttribute('data-offered');
       } catch {
         show('Could not reset right now. Try again in a moment.', true);
       } finally {
