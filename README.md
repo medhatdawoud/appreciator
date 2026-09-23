@@ -233,9 +233,10 @@ A single icon is drawn twice, stacked: a gray silhouette underneath, and a
 coloured copy on top revealed from the bottom by `--appr-progress`
 (`visitorCount / maxClicks`, including clicks still in flight, with a
 10-point head start on the first click so it is always visible: 19%, 28% …
-100% for a 10-click button), easing up over 0.8 s. The reveal is
-measured on the icon's box, so an icon with empty padding at the bottom (the
-heart's tip) looks a little less filled than the number says.
+100% for a 10-click button), easing up over 0.8 s. The percentage is of the
+drawing itself, not the icon's square box: the widget measures where the
+drawing actually starts and ends (padding and the heart's tip included), so
+19% fills 19% of the heart and 100% colours exactly the drawing.
 
 ## Data model
 

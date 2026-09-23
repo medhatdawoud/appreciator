@@ -1,6 +1,7 @@
 import type { ButtonPublicConfig, ButtonState, ClickCounts } from '@appreciator/shared';
 
 import { ApiClient, ApiError } from './api.js';
+import { clipInsetTop, drawingBounds, type DrawingBounds } from './fill.js';
 import { parseSafeSvg } from './sanitize-svg.js';
 import { canClick, fillPercent, optimisticClick, progressPercent, visualState } from './state.js';
 import { readCachedCounts, writeCachedCounts } from './storage.js';
@@ -17,10 +18,11 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  *
  * A single icon is drawn twice, stacked: a gray `base` silhouette painted with
  * the `default` (or, hovered, `hover`) colour, and a `fill` copy painted with
- * `full` (`clicked` during the pulse) that is revealed bottom-up by
- * `--appr-progress`, the share of this visitor's allowance already spent
- * (with a head start on the first click, see `fillPercent`), easing into
- * place rather than jumping.
+ * `full` (`clicked` during the pulse) that is revealed bottom-up as the
+ * visitor spends their allowance (with a head start on the first click, see
+ * `fillPercent`), easing into place rather than jumping. The reveal is set on
+ * the fill layer through the CSSOM, mapped onto the drawing's measured
+ * extent (see `fill.ts`) rather than onto the whole box.
  * The base is also run through `grayscale()`, so an icon that ignores the
  * colour variables still starts gray.
  *
@@ -72,7 +74,7 @@ button:not(:disabled):hover svg[data-layer="base"] {
 svg[data-layer="fill"] {
   --appr-fill: var(--appreciator-full, var(--_c-full));
   --appr-stroke: var(--appreciator-full, var(--_c-full));
-  clip-path: inset(calc(100% - var(--appr-progress, 0%)) 0 0 0);
+  clip-path: inset(100% 0 0 0);
   transition: clip-path 800ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 :host([data-state="clicked"]) svg[data-layer="fill"] {
@@ -192,6 +194,12 @@ export class AppreciatorButton extends HTMLElement {
   private pulsing = false;
   private pulseTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /**
+   * Where the drawing sits in its box. Measured once the icon is laid out;
+   * stays null (fill measured on the whole box) until that succeeds.
+   */
+  private bounds: DrawingBounds | null = null;
+
   /** Bumped on every (re)initialisation so stale responses are ignored. */
   private generation = 0;
   private initScheduled = false;
@@ -298,6 +306,7 @@ export class AppreciatorButton extends HTMLElement {
     }
 
     this.icon.replaceChildren(...icons);
+    this.bounds = null;
     this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
@@ -413,8 +422,14 @@ export class AppreciatorButton extends HTMLElement {
     // data-progress is the honest share spent; the drawn fill has a head start
     // on the first click. Set through the CSSOM, which a host page's
     // style-src does not govern.
+    const fill = fillPercent(counts);
     this.setAttribute('data-progress', String(progressPercent(counts)));
-    this.style.setProperty('--appr-progress', `${fillPercent(counts)}%`);
+    this.style.setProperty('--appr-progress', `${fill}%`);
+    const fillLayer = this.icon.querySelector<SVGSVGElement>('svg[data-layer="fill"]');
+    if (fillLayer !== null) {
+      this.bounds ??= measureDrawing(fillLayer);
+      fillLayer.style.setProperty('clip-path', `inset(${clipInsetTop(fill, this.bounds)}% 0 0 0)`);
+    }
 
     const total = counts?.totalCount ?? 0;
     this.countLabel.textContent = String(total);
@@ -462,6 +477,30 @@ function parseIcons(config: ButtonPublicConfig): Element[] | null {
     icons.push(svg);
   }
   return icons;
+}
+
+/**
+ * Reads the drawing's extent from the browser's own geometry. Null while the
+ * icon is not laid out (detached, `display: none`) or where the SVG geometry
+ * API is missing, so render() simply tries again next time.
+ */
+function measureDrawing(svg: SVGSVGElement): DrawingBounds | null {
+  try {
+    const rect = svg.getBoundingClientRect();
+    const bbox = svg.getBBox();
+    const viewBox = svg.viewBox?.baseVal;
+    const hasViewBox = viewBox !== undefined && viewBox !== null && viewBox.height > 0;
+    return drawingBounds({
+      viewBox: hasViewBox
+        ? { y: viewBox.y, width: viewBox.width, height: viewBox.height }
+        : { y: 0, width: rect.width, height: rect.height },
+      box: { width: rect.width, height: rect.height },
+      bbox: { y: bbox.y, height: bbox.height },
+      strokeWidth: Number.parseFloat(getComputedStyle(svg).strokeWidth) || 0,
+    });
+  } catch {
+    return null;
+  }
 }
 
 function errorCode(error: unknown): string {

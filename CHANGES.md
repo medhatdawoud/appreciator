@@ -27,8 +27,12 @@ Each entry is written so it can seed a PR description.
 - The icon is parsed twice rather than cloned, because a clone would copy
   `style` attributes that a strict host CSP refuses.
 - Four-SVG buttons keep their per-state swap and show no progress yet.
-- Known limitation: the reveal is measured on the icon's box, so bottom
-  padding (the heart's tip) makes a fill look a little lower than its number.
+- The reveal is mapped onto the drawing, not the icon's box: the widget
+  measures the drawing's extent with `getBBox()` (plus half the stroke,
+  within the viewBox, allowing for letterboxing) and clips between its real
+  top and bottom. On the heart the first click went from a sliver to a clear
+  tip (inset 81% → 76.6%). The geometry lives in `src/fill.ts` as pure
+  functions; it falls back to the whole box until the icon is laid out.
 - Tests: unit (progress helper, layers, optimistic progress, cached progress),
   e2e in Chromium asserting silhouette and fill colours and the computed
   `clip-path` at 0, 10% and 100%.

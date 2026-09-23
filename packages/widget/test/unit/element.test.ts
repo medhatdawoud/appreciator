@@ -345,8 +345,13 @@ describe('AppreciatorButton', () => {
       const element = await mountReady();
       const release = server.hold();
 
+      const fillLayer = shadow(element).querySelector<SVGElement>('svg[data-layer="fill"]');
+      expect(fillLayer?.style.getPropertyValue('clip-path')).toBe('inset(100% 0 0 0)');
+
       innerButton(element).click();
       expect(progress(element)).toEqual({ attribute: '33', variable: '40%' });
+      // jsdom has no SVG geometry, so this is the whole-box fallback.
+      expect(fillLayer?.style.getPropertyValue('clip-path')).toBe('inset(60% 0 0 0)');
 
       release();
       await element.whenIdle();

@@ -84,9 +84,11 @@ And `data-icons`, which says how the icon is drawn:
   (`svg[data-layer="base"]`, painted with the `default` colour and run through
   `grayscale()`, so even an icon that ignores the colour variables starts
   gray), and a coloured copy (`svg[data-layer="fill"]`, painted with `full`)
-  revealed from the bottom up to `--appr-progress`. The reveal is measured on
-  the icon's box, so padding below the drawing makes it look slightly less
-  filled than the number.
+  revealed from the bottom up to `--appr-progress`. The reveal is mapped onto
+  the drawing's measured extent (`getBBox()` plus the stroke, within the
+  viewBox), not the whole box, so padding above or below an icon never
+  swallows progress. Until the icon is laid out (for example inside a hidden
+  tab) it falls back to the whole box and measures again on the next render.
 - `states` — the button has four SVGs (`svgSources`), one per state, each
   tagged `data-for="default|hover|clicked|full"` inside `::part(icon)`. Exactly
   one is shown at a time: `hover` replaces `default` while the pointer is over

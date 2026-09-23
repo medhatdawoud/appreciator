@@ -17,6 +17,24 @@ function rgb(hex: string): string {
   return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
 }
 
+/**
+ * The fill layer's top inset, once its eased transition has settled. The
+ * value depends on where the drawing sits in its box, so tests compare it
+ * with bounds rather than exact numbers.
+ */
+async function settledInsetTop(fill: Locator): Promise<number> {
+  await expect
+    .poll(async () => fill.evaluate((el) => getComputedStyle(el).clipPath), { intervals: [300] })
+    .toMatch(/^inset\(/);
+  let previous = '';
+  for (;;) {
+    const current = await fill.evaluate((el) => getComputedStyle(el).clipPath);
+    if (current === previous) return Number.parseFloat(current.slice('inset('.length));
+    previous = current;
+    await fill.page().waitForTimeout(300);
+  }
+}
+
 function pageUrl(item: string, host = '127.0.0.1'): string {
   const params = new URLSearchParams({ api: fixture.api, key: fixture.publicKey, item });
   return `http://${host}:${PAGE_PORT}/?${params.toString()}`;
@@ -85,7 +103,12 @@ test('a click fills a tenth, pulses in the clicked colour, and survives a reload
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.clicked));
   await expect(ui.count).toHaveText('1');
   await expect(ui.host).toHaveAttribute('data-progress', '10');
-  await expect(ui.fill).toHaveCSS('clip-path', 'inset(81% 0px 0px)');
+  // 19% of the drawing (a 10-point head start plus one tenth). Measured on
+  // the drawing rather than the 24x24 box, it reaches further up than the
+  // box-based 81% inset would, because the heart's tip and padding are skipped.
+  const afterOne = await settledInsetTop(ui.fill);
+  expect(afterOne).toBeGreaterThan(60);
+  expect(afterOne).toBeLessThan(81);
   await expect(ui.host).toHaveAttribute('data-state', 'default');
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
 
@@ -108,7 +131,11 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   await expect(ui.button).toBeDisabled();
   await expect(ui.host).toHaveAttribute('data-progress', '100');
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
-  await expect(ui.fill).toHaveCSS('clip-path', 'inset(0% 0px 0px)');
+  // Full: exactly the drawing is revealed, so the inset is the empty space
+  // above the heart, not 0.
+  const atCap = await settledInsetTop(ui.fill);
+  expect(atCap).toBeGreaterThan(0);
+  expect(atCap).toBeLessThan(15);
 
   await ui.button.click({ force: true });
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
