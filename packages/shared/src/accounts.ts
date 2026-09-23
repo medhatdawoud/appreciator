@@ -49,6 +49,11 @@ export interface WebConfig {
 /** One site on the public leaderboard. */
 export interface LeaderboardEntry {
   siteName: string;
+  /**
+   * The origin with the most clicks among the site's page counters, or null
+   * when none is usable (only opaque item ids, or only loopback hosts).
+   */
+  url: string | null;
   buttonCount: number;
   /** Every click on every one of the site's buttons. */
   totalCount: number;

@@ -16,6 +16,31 @@ import {
   type TestContext,
 } from './helpers.js';
 
+/** A button on `tenantId` with exactly these item keys and totals. */
+async function seedItems(
+  pool: Pool,
+  tenantId: string,
+  items: Array<[itemKey: string, total: number]>,
+): Promise<void> {
+  const { id } = await insertButton(pool, {
+    tenantId,
+    name: null,
+    maxClicks: 10,
+    allowedOrigins: ['*'],
+    svgSource: DEFAULT_SVG_SOURCE,
+    colors: DEFAULT_COLORS,
+    svgSources: null,
+    urlNormalization: 'pathname',
+  });
+  for (const [itemKey, total] of items) {
+    await execute(pool, 'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)', [
+      id,
+      itemKey,
+      total,
+    ]);
+  }
+}
+
 /** A button on `tenantId` whose items carry these totals. */
 async function seedButton(pool: Pool, tenantId: string, totals: number[]): Promise<void> {
   const { id } = await insertButton(pool, {
@@ -68,9 +93,9 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, gamma.id, [7, 7, 6]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'Gamma', buttonCount: 1, totalCount: 20 },
-      { siteName: 'Alpha', buttonCount: 3, totalCount: 10 },
-      { siteName: 'Beta', buttonCount: 1, totalCount: 10 },
+      { siteName: 'Gamma', url: 'https://example.com', buttonCount: 1, totalCount: 20 },
+      { siteName: 'Alpha', url: 'https://example.com', buttonCount: 3, totalCount: 10 },
+      { siteName: 'Beta', url: 'https://example.com', buttonCount: 1, totalCount: 10 },
     ]);
   });
 
@@ -107,8 +132,61 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, siteId, [4]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'demo', buttonCount: 1, totalCount: 4 },
+      { siteName: 'demo', url: 'https://example.com', buttonCount: 1, totalCount: 4 },
     ]);
+  });
+
+  it('links each site to its most-clicked origin across all its buttons', async () => {
+    const { app, pool } = await context();
+    const tenant = await seedTenant(pool, 'Multi');
+    await seedItems(pool, tenant.id, [
+      ['https://a.example/one', 3],
+      ['https://b.example/one', 2],
+      ['post-1', 100],
+    ]);
+    await seedItems(pool, tenant.id, [
+      ['https://b.example', 2],
+      ['https://b.example/two', 1],
+      ['http://localhost:5173/draft', 50],
+      ['https://c.example/unclicked', 0],
+    ]);
+
+    const [site] = (await leaderboard(app)).sites;
+
+    // b.example totals 5 over three counters, beating a.example's 3; the
+    // opaque id and the loopback origin never compete, however many clicks.
+    expect(site).toEqual({
+      siteName: 'Multi',
+      url: 'https://b.example',
+      buttonCount: 2,
+      totalCount: 158,
+    });
+  });
+
+  it('has no link when every counter is an opaque id or a loopback origin', async () => {
+    const { app, pool } = await context();
+    const tenant = await seedTenant(pool, 'Local');
+    await seedItems(pool, tenant.id, [
+      ['post-1', 4],
+      ['http://localhost:3000/x', 3],
+      ['http://127.0.0.1:4173', 2],
+      ['http://app.localhost/y', 1],
+    ]);
+
+    expect((await leaderboard(app)).sites).toEqual([
+      { siteName: 'Local', url: null, buttonCount: 1, totalCount: 10 },
+    ]);
+  });
+
+  it('breaks a tie between origins alphabetically, and keeps ports', async () => {
+    const { app, pool } = await context();
+    const tenant = await seedTenant(pool, 'Tie');
+    await seedItems(pool, tenant.id, [
+      ['https://zeta.example/x', 2],
+      ['https://alpha.example:8443/x', 2],
+    ]);
+
+    expect((await leaderboard(app)).sites[0]?.url).toBe('https://alpha.example:8443');
   });
 
   it('lists at most 100 sites', async () => {
@@ -121,7 +199,12 @@ describe('GET /v1/leaderboard', () => {
     const { sites } = await leaderboard(app);
 
     expect(sites).toHaveLength(100);
-    expect(sites[0]).toEqual({ siteName: 'Site 100', buttonCount: 1, totalCount: 101 });
+    expect(sites[0]).toEqual({
+      siteName: 'Site 100',
+      url: 'https://example.com',
+      buttonCount: 1,
+      totalCount: 101,
+    });
     expect(sites.at(-1)?.siteName).toBe('Site 001');
   });
 

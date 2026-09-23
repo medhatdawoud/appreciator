@@ -20,6 +20,27 @@
     return td;
   }
 
+  /**
+   * The site name, linked to its most-clicked origin when there is one. The
+   * URL comes from counters any allowed page can create, so it is checked to
+   * be plain http(s) and marked as user-generated rather than endorsed.
+   */
+  function siteCell(entry) {
+    const td = document.createElement('td');
+    if (typeof entry.url === 'string' && /^https?:\/\/[^/]+$/i.test(entry.url)) {
+      const link = document.createElement('a');
+      link.href = entry.url;
+      link.textContent = entry.siteName;
+      link.rel = 'nofollow ugc noopener noreferrer';
+      link.target = '_blank';
+      link.title = entry.url;
+      td.append(link);
+    } else {
+      td.textContent = entry.siteName;
+    }
+    return td;
+  }
+
   function render(entries) {
     const table = document.querySelector('[data-board]');
     const body = document.querySelector('[data-board-body]');
@@ -28,7 +49,7 @@
         const tr = document.createElement('tr');
         tr.append(
           cell(String(index + 1), 'rank'),
-          cell(entry.siteName),
+          siteCell(entry),
           cell(String(entry.buttonCount), 'num'),
           cell(entry.totalCount.toLocaleString(), 'num'),
         );

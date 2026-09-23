@@ -87,7 +87,8 @@ the person running an instance, or deploys their own in about ten minutes.
    one-tag snippet and a Copy button. Paste it into your page. Done.
 6. Come back to the dashboard for counts per page (filterable by origin), to
    change the icon, colours or cap, to add origins, or to rotate the key.
-   Visit `/leaderboard` to see which of your sites is the most appreciated.
+   Visit `/leaderboard` to see which of your sites is the most appreciated;
+   each name links to the site origin that collected the most clicks.
 
 ## Architecture
 
@@ -581,13 +582,13 @@ dashboard, authenticated by the session cookie instead of a bearer key.
 
 ### Everything else (no auth)
 
-| Method | Path                               |                                                                            |
-| ------ | ---------------------------------- | -------------------------------------------------------------------------- |
-| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                  |
-| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled }`          |
-| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, buttonCount, totalCount }] }`, CORS `*`, 60 s cache |
-| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                           |
-| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                  |
+| Method | Path                               |                                                                                 |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------- |
+| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                       |
+| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled }`               |
+| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache |
+| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                |
+| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                       |
 
 ## Configuration reference
 
