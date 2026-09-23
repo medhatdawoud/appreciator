@@ -53,7 +53,9 @@ the person running an instance, or deploys their own in about ten minutes.
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
   bottom 30%, 10 of 10 is fully coloured. Each click also pulses, and the
   click that uses up the allowance throws six copies of the icon out of the
-  button; clicking a full button replays that burst without counting. Works with
+  button; clicking a full button replays that burst without counting. The
+  count pops in the `clicked` colour on every counted click, and can sit on
+  any side of the icon (`data-count`). Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons
   configured with four SVGs, one per state, swap drawings instead.
 - **Per-page counters, automatically.** The counter key is origin + path, so
@@ -462,6 +464,7 @@ the same tag:
 | `data-item`   | the page URL                     | Count against an explicit id (SPAs, one article at several URLs, one button per comment). |
 | `data-target` | after the tag                    | CSS selector of the element to render into. Lets the tag live in `<head>`.                |
 | `data-label`  | `Appreciate`                     | Accessible name prefix, e.g. `Clap for this post`.                                        |
+| `data-count`  | `right`                          | Where the count sits relative to the icon: `right`, `left`, `top` or `bottom`.            |
 | `data-api`    | where the bundle was loaded from | Only needed when serving the bundle from somewhere other than your instance.              |
 
 ### Several buttons on one page

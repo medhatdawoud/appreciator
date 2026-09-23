@@ -160,6 +160,65 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
 });
 
+test('data-count places the count on any side of the icon, right by default', async ({ page }) => {
+  const ui = await open(page);
+  const icon = ui.host.locator('[part="icon"]');
+
+  async function boxes(): Promise<{
+    icon: { x: number; y: number; width: number; height: number };
+    count: { x: number; y: number; width: number; height: number };
+  }> {
+    const iconBox = await icon.boundingBox();
+    const countBox = await ui.count.boundingBox();
+    if (iconBox === null || countBox === null) throw new Error('expected laid-out parts');
+    return { icon: iconBox, count: countBox };
+  }
+
+  async function place(value: string | null): Promise<void> {
+    await ui.host.evaluate((element, next) => {
+      if (next === null) element.removeAttribute('data-count');
+      else element.setAttribute('data-count', next);
+    }, value);
+  }
+
+  let b = await boxes();
+  expect(b.count.x).toBeGreaterThanOrEqual(b.icon.x + b.icon.width);
+
+  await place('left');
+  b = await boxes();
+  expect(b.count.x + b.count.width).toBeLessThanOrEqual(b.icon.x);
+
+  await place('top');
+  b = await boxes();
+  expect(b.count.y + b.count.height).toBeLessThanOrEqual(b.icon.y);
+
+  await place('bottom');
+  b = await boxes();
+  expect(b.count.y).toBeGreaterThanOrEqual(b.icon.y + b.icon.height);
+
+  await place('sideways');
+  b = await boxes();
+  expect(b.count.x).toBeGreaterThanOrEqual(b.icon.x + b.icon.width);
+
+  await place('right');
+  b = await boxes();
+  expect(b.count.x).toBeGreaterThanOrEqual(b.icon.x + b.icon.width);
+});
+
+test('the count pops in the clicked colour on a counted click', async ({ page }) => {
+  const ui = await open(page);
+  const animation = () => ui.count.evaluate((element) => getComputedStyle(element).animationName);
+
+  expect(await animation()).toBe('none');
+
+  await ui.button.click();
+
+  await expect(ui.host).toHaveAttribute('data-state', 'clicked');
+  expect(await animation()).toBe('appreciator-count-pop');
+  await expect(ui.host).toHaveAttribute('data-state', 'default');
+  expect(await animation()).toBe('none');
+});
+
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {
   await page.goto(pageUrl(`e2e-${randomUUID()}`, 'localhost'));
   const ui = widget(page);

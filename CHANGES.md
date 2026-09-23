@@ -3,6 +3,20 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — Count position and count pop
+
+- `data-count="right|left|top|bottom"` on the element (or the one-tag
+  `<script>`, which now passes it through) places the count on any side of
+  the icon; missing or unknown values mean `right`, as before. Pure CSS on
+  `:host`, so it can be changed live.
+- On every counted click the count pops: it grows to 1.25× and flashes the
+  `clicked` colour for the length of the icon's pulse (350 ms), restarting on
+  rapid clicks. Spent-button clicks (burst only) don't pop it. Reduced motion
+  turns it off.
+- Tests: embed passthrough unit test; e2e comparing the count's and icon's
+  boxes for all four positions, the default and an unknown value, and the
+  count's animation during and after a click.
+
 ## 2026-09-23 — Burst at 100%, and "Reset my votes" on the landing demo
 
 - **Burst.** The click that spends a visitor's allowance throws six small

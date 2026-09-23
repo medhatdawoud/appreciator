@@ -72,6 +72,7 @@ describe('autoMount', () => {
       'data-key': KEY,
       'data-item': 'post-7',
       'data-label': 'Clap',
+      'data-count': 'top',
       'data-nonsense': 'ignored',
     });
 
@@ -79,7 +80,12 @@ describe('autoMount', () => {
 
     expect(element).toBeInstanceOf(AppreciatorButton);
     expect(script.nextElementSibling).toBe(element);
-    expect(element?.dataset).toMatchObject({ key: KEY, item: 'post-7', label: 'Clap' });
+    expect(element?.dataset).toMatchObject({
+      key: KEY,
+      item: 'post-7',
+      label: 'Clap',
+      count: 'top',
+    });
     expect(element?.dataset.api).toBeUndefined();
     expect(element?.dataset.nonsense).toBeUndefined();
 

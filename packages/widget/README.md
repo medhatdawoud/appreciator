@@ -23,6 +23,7 @@ after itself. Options are `data-*` attributes on the tag:
 | `data-key`    | yes      | The button's public key.                                                |
 | `data-item`   | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
 | `data-label`  | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
+| `data-count`  | no       | Where the count sits: `right` (default), `left`, `top` or `bottom`.     |
 | `data-target` | no       | CSS selector of the element to render into, instead of after the tag.   |
 | `data-api`    | no       | Server base URL. Defaults to where the bundle was loaded from.          |
 
@@ -55,7 +56,7 @@ mount(document.querySelector('#appreciate'), {
 Importing the module registers the element; `mount()` is a convenience for
 creating one programmatically.
 
-The element takes `data-key`, `data-item` and `data-label` as above, plus
+The element takes `data-key`, `data-item`, `data-label` and `data-count` as above, plus
 `data-api`, which is required when the bundle was **not** loaded from the
 appreciator server (a bundler build, or a copy hosted elsewhere).
 
@@ -64,7 +65,7 @@ appreciator server (a bundler build, or a copy hosted elsewhere).
 The element reflects `data-state` on itself so the host page can style around it:
 
 - `default` — clickable.
-- `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour.
+- `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour, and the count pops (grows to 1.25× and flashes the `clicked` colour). Clicks on a spent button don't pop the count, since nothing was counted.
 - `full` — this visitor has used their allowance; the icon is fully coloured.
   The button stays clickable: every further click counts nothing and replays
   the burst (below). It carries `aria-disabled="true"` and an accessible name
