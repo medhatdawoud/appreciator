@@ -54,8 +54,8 @@ the person running an instance, or deploys their own in about ten minutes.
   bottom 30%, 10 of 10 is fully coloured. Each click also pulses, and the
   click that uses up the allowance throws six copies of the icon out of the
   button; clicking a full button replays that burst without counting. The
-  count pops in the `clicked` colour on every counted click, and can sit on
-  any side of the icon (`data-count`). Works with
+  count rolls up to its new number like an odometer on every counted click,
+  and can sit on any side of the icon (`data-count`). Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons
   configured with four SVGs, one per state, swap drawings instead.
 - **Per-page counters, automatically.** The counter key is origin + path, so

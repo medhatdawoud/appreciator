@@ -3,6 +3,18 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — The count rolls up instead of popping
+
+- The count's pop is replaced by an odometer roll: on a counted click the old
+  number slides up and out while the new one slides in from below, clipped to
+  the count's own line so the layout never moves (~320 ms). Only the
+  visitor's own counted clicks roll it; loading, a server correction, a
+  refresh or reset, and burst-only clicks swap it without animating. Rapid
+  clicks finish the previous roll at once. `ROLL_MS` is exported.
+- Tests: roll unit tests (rolls on a click, one number leaving under rapid
+  clicks, no roll on load/rollback/refresh/burst) and an e2e roll check that
+  the count's height doesn't change mid-roll.
+
 ## 2026-09-23 — Count position and count pop
 
 - `data-count="right|left|top|bottom"` on the element (or the one-tag

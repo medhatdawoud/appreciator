@@ -7,6 +7,7 @@ export {
   BURST_MS,
   BURST_PARTICLES,
   PULSE_MS,
+  ROLL_MS,
   getDefaultApi,
   setDefaultApi,
 } from './element.js';

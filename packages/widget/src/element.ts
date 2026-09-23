@@ -12,6 +12,9 @@ export const PULSE_MS = 350;
 /** How long one burst plays. Matches the burst keyframes below, delays included. */
 export const BURST_MS = 800;
 
+/** How long the count takes to roll to its new number. Matches the roll keyframes below. */
+export const ROLL_MS = 320;
+
 /** Copies of the icon thrown out when the allowance is spent, one per direction. */
 export const BURST_PARTICLES = 6;
 
@@ -35,6 +38,10 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * With `data-icons="states"` the icon span holds one complete drawing per
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
+ *
+ * `[part="count"]` holds the number in a one-line, clipped grid cell. When a
+ * click raises it, the old number rolls up and out (`.roll-out`) while the new
+ * one rolls in from below (`.roll-in`), like an odometer.
  *
  * `[part="burst"]` holds small full-colour copies of the icon, hidden until
  * `data-burst` is set: each then flies out along its own `--dx`/`--dy`
@@ -60,11 +67,19 @@ button:disabled { cursor: default; }
 :host([data-count="top"]) button { flex-direction: column-reverse; gap: 0.15em; }
 :host([data-count="bottom"]) button { flex-direction: column; gap: 0.15em; }
 [part="count"] {
-  display: inline-block;
-  transform-origin: center;
+  display: inline-grid;
+  overflow: hidden;
+  justify-items: start;
 }
-:host([data-state="clicked"]) [part="count"] {
-  animation: appreciator-count-pop ${PULSE_MS}ms ease-out;
+:host([data-count="left"]) [part="count"] { justify-items: end; }
+:host([data-count="top"]) [part="count"],
+:host([data-count="bottom"]) [part="count"] { justify-items: center; }
+[part="count"] > span { grid-area: 1 / 1; }
+[part="count"] > .roll-out {
+  animation: appreciator-roll-out ${ROLL_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+[part="count"] > .roll-in {
+  animation: appreciator-roll-in ${ROLL_MS}ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 [part="icon"] {
   display: inline-grid;
@@ -140,11 +155,11 @@ svg[data-layer="fill"] {
   60% { opacity: 1; }
   100% { transform: translate(var(--dx), var(--dy)) scale(0.35); opacity: 0; }
 }
-@keyframes appreciator-count-pop {
-  40% {
-    transform: scale(1.25);
-    color: var(--appreciator-clicked, var(--_c-clicked));
-  }
+@keyframes appreciator-roll-out {
+  to { transform: translateY(-100%); opacity: 0; }
+}
+@keyframes appreciator-roll-in {
+  from { transform: translateY(100%); opacity: 0; }
 }
 @keyframes appreciator-pulse {
   0% { transform: scale(1); }
@@ -154,7 +169,8 @@ svg[data-layer="fill"] {
 @media (prefers-reduced-motion: reduce) {
   [part="icon"], svg { transition: none; animation: none !important; }
   [part="burst"] { display: none; }
-  [part="count"] { animation: none !important; }
+  [part="count"] > span { animation: none !important; }
+  [part="count"] > .roll-out { display: none; }
 }
 `;
 
@@ -252,6 +268,11 @@ export class AppreciatorButton extends HTMLElement {
 
   /** Set by refresh(): the next initialisation ignores the localStorage cache. */
   private skipCache = false;
+
+  /** The number the count currently shows, to tell a rise from a correction. */
+  private shownTotal: number | null = null;
+  /** Set by a counted click so the next render rolls the count rather than swapping it. */
+  private rollNext = false;
 
   /**
    * Where the drawing sits in its box. Measured once the icon is laid out;
@@ -414,6 +435,7 @@ export class AppreciatorButton extends HTMLElement {
     }
     this.pending += 1;
     this.pulse();
+    this.rollNext = true;
     if (optimisticClick(counts).maxed) this.burst();
     this.render();
     this.draining ??= this.drain().finally(() => {
@@ -538,7 +560,7 @@ export class AppreciatorButton extends HTMLElement {
     }
 
     const total = counts?.totalCount ?? 0;
-    this.countLabel.textContent = String(total);
+    this.renderCount(total);
     // A spent allowance leaves the button clickable (it replays the burst),
     // so "finished" is conveyed to assistive tech rather than by disabling.
     const spent = counts !== null && !canClick(counts);
@@ -556,6 +578,40 @@ export class AppreciatorButton extends HTMLElement {
           ? `${label}, ${total} total, all used`
           : `${label}, ${total} total, ${remaining} left for you`,
     );
+  }
+
+  /**
+   * Shows `total`, rolling it in when a click raised it. Anything else that
+   * changes the number (loading, a server correction, a reset) swaps it
+   * without animating, so only the visitor's own clicks move.
+   */
+  private renderCount(total: number): void {
+    const roll = this.rollNext && this.shownTotal !== null && total > this.shownTotal;
+    this.rollNext = false;
+    if (total === this.shownTotal) return;
+    this.shownTotal = total;
+
+    const incoming = document.createElement('span');
+    incoming.textContent = String(total);
+    if (!roll) {
+      this.countLabel.replaceChildren(incoming);
+      return;
+    }
+
+    // A click during a running roll finishes the previous one at once.
+    for (const leaving of this.countLabel.querySelectorAll('.roll-out')) leaving.remove();
+    for (const current of this.countLabel.querySelectorAll('span')) {
+      current.classList.remove('roll-in');
+      current.classList.add('roll-out');
+      current.setAttribute('aria-hidden', 'true');
+      // animationend never comes without animations (reduced motion, jsdom),
+      // so a timer is the backstop.
+      const remove = (): void => current.remove();
+      current.addEventListener('animationend', remove, { once: true });
+      setTimeout(remove, ROLL_MS + 50);
+    }
+    incoming.classList.add('roll-in');
+    this.countLabel.append(incoming);
   }
 
   private emit(name: string, detail: unknown): void {

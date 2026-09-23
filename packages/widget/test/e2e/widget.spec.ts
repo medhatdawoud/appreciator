@@ -205,18 +205,27 @@ test('data-count places the count on any side of the icon, right by default', as
   expect(b.count.x).toBeGreaterThanOrEqual(b.icon.x + b.icon.width);
 });
 
-test('the count pops in the clicked colour on a counted click', async ({ page }) => {
+test('the count rolls up to the new number on a counted click', async ({ page }) => {
   const ui = await open(page);
-  const animation = () => ui.count.evaluate((element) => getComputedStyle(element).animationName);
-
-  expect(await animation()).toBe('none');
+  const leaving = ui.count.locator('.roll-out');
+  const arriving = ui.count.locator('.roll-in');
 
   await ui.button.click();
 
-  await expect(ui.host).toHaveAttribute('data-state', 'clicked');
-  expect(await animation()).toBe('appreciator-count-pop');
-  await expect(ui.host).toHaveAttribute('data-state', 'default');
-  expect(await animation()).toBe('none');
+  await expect(arriving).toHaveText('1');
+  expect(await arriving.evaluate((element) => getComputedStyle(element).animationName)).toBe(
+    'appreciator-roll-in',
+  );
+  // The old number leaves upwards, and is gone once the roll finishes.
+  await expect(leaving).toHaveCount(0);
+  await expect(ui.count).toHaveText('1');
+
+  // Clipped to its own line: the roll never changes the layout.
+  const box = await ui.count.boundingBox();
+  await ui.button.click();
+  const during = await ui.count.boundingBox();
+  expect(during?.height).toBe(box?.height);
+  await expect(ui.count).toHaveText('2');
 });
 
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {

@@ -1,7 +1,14 @@
 import type { ClickCounts } from '@appreciator/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppreciatorButton, BURST_MS, PULSE_MS, mount, setDefaultApi } from '../../src/index.js';
+import {
+  AppreciatorButton,
+  BURST_MS,
+  PULSE_MS,
+  ROLL_MS,
+  mount,
+  setDefaultApi,
+} from '../../src/index.js';
 import { writeCachedCounts } from '../../src/storage.js';
 import {
   installFakeServer,
@@ -25,8 +32,9 @@ function innerButton(element: AppreciatorButton): HTMLButtonElement {
   return button;
 }
 
+/** The number the count is showing, or rolling to. */
 function countText(element: AppreciatorButton): string {
-  return shadow(element).querySelector('[part="count"]')?.textContent ?? '';
+  return shadow(element).querySelector('[part="count"] > span:not(.roll-out)')?.textContent ?? '';
 }
 
 function recordEvents(element: AppreciatorButton, name: string): unknown[] {
@@ -453,6 +461,76 @@ describe('AppreciatorButton', () => {
 
       expect(element.getAttribute('data-state')).toBe('full');
       expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+  });
+
+  describe('count roll', () => {
+    function spans(element: AppreciatorButton): { text: string | null; roll: string }[] {
+      return Array.from(shadow(element).querySelectorAll('[part="count"] > span'), (span) => ({
+        text: span.textContent,
+        roll: span.className,
+      }));
+    }
+
+    it('rolls the old number out and the new one in on a counted click', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const element = await mountReady();
+      expect(spans(element)).toEqual([{ text: '0', roll: '' }]);
+
+      innerButton(element).click();
+
+      expect(spans(element)).toEqual([
+        { text: '0', roll: 'roll-out' },
+        { text: '1', roll: 'roll-in' },
+      ]);
+      expect(shadow(element).querySelector('.roll-out')?.getAttribute('aria-hidden')).toBe('true');
+
+      await element.whenIdle();
+      await vi.advanceTimersByTimeAsync(ROLL_MS + 50);
+      expect(spans(element)).toEqual([{ text: '1', roll: 'roll-in' }]);
+    });
+
+    it('keeps a single number leaving when clicks come faster than the roll', async () => {
+      const element = await mountReady();
+
+      innerButton(element).click();
+      innerButton(element).click();
+
+      expect(spans(element).filter((span) => span.roll === 'roll-out')).toHaveLength(1);
+      expect(countText(element)).toBe('2');
+    });
+
+    it('swaps without rolling when loading, correcting or refreshing', async () => {
+      writeCachedCounts(KEY, 'article-1', {
+        totalCount: 7,
+        maxClicks: 3,
+        visitorCount: 0,
+        visitorRemaining: 3,
+        maxed: false,
+      });
+      const element = await mountReady();
+      expect(spans(element)).toEqual([{ text: '0', roll: '' }]);
+
+      server.failNextClick(500);
+      await clickAndSettle(element);
+      expect(countText(element)).toBe('0');
+      expect(shadow(element).querySelectorAll('[part="count"] > span:not(.roll-out)')).toHaveLength(
+        1,
+      );
+
+      await element.refresh();
+      expect(shadow(element).querySelector('.roll-in')).toBeNull();
+    });
+
+    it('does not roll on a click that only replays the burst', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      await new Promise((resolve) => setTimeout(resolve, ROLL_MS + 60));
+
+      innerButton(element).click();
+
+      expect(shadow(element).querySelector('.roll-out')).toBeNull();
+      expect(countText(element)).toBe('3');
     });
   });
 

@@ -65,7 +65,7 @@ appreciator server (a bundler build, or a copy hosted elsewhere).
 The element reflects `data-state` on itself so the host page can style around it:
 
 - `default` — clickable.
-- `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour, and the count pops (grows to 1.25× and flashes the `clicked` colour). Clicks on a spent button don't pop the count, since nothing was counted.
+- `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour, and the count rolls up to its new number: the old one slides up and out while the new one slides in from below, clipped to the count's line (about 0.3 s). Only a counted click rolls it; loading, server corrections, a reset and clicks on a spent button change it without animating. Reduced motion swaps it instantly.
 - `full` — this visitor has used their allowance; the icon is fully coloured.
   The button stays clickable: every further click counts nothing and replays
   the burst (below). It carries `aria-disabled="true"` and an accessible name
