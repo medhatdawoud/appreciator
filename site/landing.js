@@ -70,6 +70,8 @@
       if (demo) demo.hidden = true;
       if (missing) missing.hidden = false;
       if (variants) variants.hidden = true;
+      const positions = document.querySelector('[data-positions]');
+      if (positions) positions.hidden = true;
       if (multi) multi.hidden = true;
       return;
     }
@@ -81,6 +83,7 @@
       element.dataset.key = config.demoKey;
       element.dataset.item = `landing-${slot.dataset.demoSlot}`;
       if (slot.dataset.label) element.dataset.label = slot.dataset.label;
+      if (slot.dataset.count) element.dataset.count = slot.dataset.count;
       slot.replaceChildren(element);
     }
 

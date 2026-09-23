@@ -4,8 +4,11 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { API_ORIGIN, FIXTURE_PATH, type E2eFixture } from './constants.js';
 
-/** Every demo slot on the page: the hero, the three variants and the two "multiple" rows. */
-const DEMO_SLOTS = 6;
+/**
+ * Every demo slot on the page: the hero, the three variants, the four count
+ * positions and the two "multiple" rows.
+ */
+const DEMO_SLOTS = 10;
 
 let fixture: E2eFixture;
 
@@ -139,6 +142,33 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
 
   expect(await problems.csp()).toEqual([]);
   expect(problems.console).toEqual([]);
+});
+
+test('shows the count on every side, and on the left in the multi-button example', async ({
+  page,
+}) => {
+  await page.goto(`${API_ORIGIN}/`);
+  await expect(page.locator('appreciator-button[data-state="default"]')).toHaveCount(DEMO_SLOTS);
+
+  async function side(slot: string): Promise<string> {
+    const host = page.locator(`[data-demo-slot="${slot}"] appreciator-button`);
+    const icon = await host.locator('[part="icon"]').boundingBox();
+    const count = await host.locator('[part="count"]').boundingBox();
+    if (icon === null || count === null) throw new Error(`${slot} is not laid out`);
+    if (count.x >= icon.x + icon.width) return 'right';
+    if (count.x + count.width <= icon.x) return 'left';
+    if (count.y + count.height <= icon.y) return 'top';
+    if (count.y >= icon.y + icon.height) return 'bottom';
+    return 'overlapping';
+  }
+
+  expect(await side('count-right')).toBe('right');
+  expect(await side('count-left')).toBe('left');
+  expect(await side('count-top')).toBe('top');
+  expect(await side('count-bottom')).toBe('bottom');
+  expect(await side('multi-1')).toBe('left');
+  expect(await side('multi-2')).toBe('left');
+  expect(await side('hero')).toBe('right');
 });
 
 test('explains a refused sign-in', async ({ page }) => {

@@ -3,6 +3,16 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — Count positions on the landing page
+
+- "Where the count goes" under "Make it yours": four live buttons with
+  `data-count` right, left, top and bottom, each captioned with its
+  attribute. The multi-button example now places its counts on the left, and
+  its code sample shows `data-count="left"`. Demo slots centre their button
+  vertically, so the multi-button rows line up with their titles.
+- Tests: a landing e2e that measures each demo's count against its icon and
+  checks every side, the left-hand multi-button rows and the default hero.
+
 ## 2026-09-23 — The count rolls up instead of popping
 
 - The count's pop is replaced by an odometer roll: on a counted click the old
