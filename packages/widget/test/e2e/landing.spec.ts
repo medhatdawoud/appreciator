@@ -125,7 +125,7 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
   expect(clicks).toHaveLength(visitorRemaining);
 
   await reset.click();
-  await expect(page.locator('[data-reset-status]')).toHaveText(/Reset/);
+  await expect(page.locator('[data-reset-status]')).toBeHidden();
   await expect(reset).toBeHidden();
   await expect(hero).toHaveAttribute('data-state', 'default');
   await expect(hero).toHaveAttribute('data-progress', '0');

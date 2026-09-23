@@ -111,9 +111,9 @@
       document.addEventListener(name, follow);
     }
 
-    const show = (message, isError) => {
+    const showError = (message) => {
       status.textContent = message;
-      status.classList.toggle('error', isError);
+      status.classList.add('error');
       status.hidden = false;
     };
 
@@ -130,10 +130,10 @@
             typeof element.refresh === 'function' ? element.refresh() : undefined,
           ),
         );
-        show('Reset. You have ten more, try again.', false);
+        status.hidden = true;
         button.removeAttribute('data-offered');
       } catch {
-        show('Could not reset right now. Try again in a moment.', true);
+        showError('Could not reset right now. Try again in a moment.');
       } finally {
         button.disabled = false;
       }
