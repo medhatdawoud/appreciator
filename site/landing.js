@@ -90,6 +90,56 @@
     document.head.append(script);
   }
 
+  /**
+   * "Reset my votes": offered only once the visitor has used up the hero
+   * demo. It asks the instance to forget this visitor's clicks on the demo
+   * button (it refuses on any other button), then has every demo widget on the
+   * page re-read its counts, which hides the offer again.
+   */
+  function wireReset(config) {
+    const button = document.querySelector('[data-reset]');
+    const status = document.querySelector('[data-reset-status]');
+    if (!button || !status || !config.apiUrl || !config.demoKey) return;
+
+    // The widget's events bubble out of its shadow root with the counts.
+    const hero = document.querySelector('[data-demo-slot="hero"]');
+    const follow = (event) => {
+      if (!hero || !hero.contains(event.target) || !event.detail) return;
+      button.hidden = event.detail.maxed !== true;
+    };
+    for (const name of ['appreciator:ready', 'appreciator:change']) {
+      document.addEventListener(name, follow);
+    }
+
+    const show = (message, isError) => {
+      status.textContent = message;
+      status.classList.toggle('error', isError);
+      status.hidden = false;
+    };
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const response = await fetch(
+          `${trimSlash(config.apiUrl)}/v1/buttons/${encodeURIComponent(config.demoKey)}/reset`,
+          { method: 'POST', mode: 'cors', credentials: 'omit' },
+        );
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        await Promise.all(
+          Array.from(document.querySelectorAll('appreciator-button'), (element) =>
+            typeof element.refresh === 'function' ? element.refresh() : undefined,
+          ),
+        );
+        show('Reset. You have ten more, try again.', false);
+        button.hidden = true;
+      } catch {
+        show('Could not reset right now. Try again in a moment.', true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
   async function loadConfig() {
     try {
       const response = await fetch('./config.json', { cache: 'no-store' });
@@ -107,6 +157,7 @@
     fillSnippet(config);
     wireCopyButtons();
     mountDemos(config);
+    wireReset(config);
   }
 
   main();

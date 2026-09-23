@@ -51,7 +51,9 @@ the person running an instance, or deploys their own in about ten minutes.
   hosted on GitHub Pages.
 - **Progress you can see.** The icon is a gray silhouette that fills with
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
-  bottom 30%, 10 of 10 is fully coloured. Each click also pulses. Works with
+  bottom 30%, 10 of 10 is fully coloured. Each click also pulses, and the
+  click that uses up the allowance throws six copies of the icon out of the
+  button; clicking a full button replays that burst without counting. Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons
   configured with four SVGs, one per state, swap drawings instead.
 - **Per-page counters, automatically.** The counter key is origin + path, so
@@ -510,7 +512,9 @@ themselves change per state. `prefers-reduced-motion` disables the pulse.
 
 All bubble and cross the shadow boundary, with `ClickCounts` (or
 `{ code, message }`) in `event.detail`: `appreciator:ready`,
-`appreciator:change`, `appreciator:maxed`, `appreciator:error`. Error codes
+`appreciator:change`, `appreciator:maxed`, `appreciator:burst`,
+`appreciator:error`. `element.refresh()` re-reads the counts from the server.
+Error codes
 also appear in `data-error`: `missing_attributes`, `network_error` (includes
 an origin outside the allowlist), `origin_not_allowed`, `not_found`,
 `invalid_svg`, `load_failed`.
@@ -559,11 +563,12 @@ Every error has the same JSON shape:
 
 ### Public (button public key, origin allowlist, per-IP rate limit)
 
-| Method | Path                            |                                                                               |
-| ------ | ------------------------------- | ----------------------------------------------------------------------------- |
-| `GET`  | `/v1/buttons/:publicKey/config` | `{ maxClicks, svgSource, colors, svgSources?, urlNormalization }`             |
-| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }` |
-| `POST` | `/v1/buttons/:publicKey/click`  | `{ item }` → same as `state`                                                  |
+| Method | Path                            |                                                                                         |
+| ------ | ------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET`  | `/v1/buttons/:publicKey/config` | `{ maxClicks, svgSource, colors, svgSources?, urlNormalization }`                       |
+| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }`           |
+| `POST` | `/v1/buttons/:publicKey/click`  | `{ item }` → same as `state`                                                            |
+| `POST` | `/v1/buttons/:publicKey/reset`  | landing demo button only: forgets the caller's clicks → `{ resetItems, removedClicks }` |
 
 ### Management (`Authorization: Bearer <site key>`)
 

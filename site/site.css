@@ -203,9 +203,54 @@ h1 em {
   text-align: center;
 }
 
+.demo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.25rem;
+}
+
+.demo-head .demo-label {
+  margin: 0;
+}
+
 .demo-label {
   margin: 0 0 1rem;
   font-weight: 600;
+}
+
+.reset {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.reset:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.demo-status {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.demo-status.error {
+  color: var(--accent);
 }
 
 .demo-hint {

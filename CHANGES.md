@@ -3,6 +3,34 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-23 — Burst at 100%, and "Reset my votes" on the landing demo
+
+- **Burst.** The click that spends a visitor's allowance throws six small
+  full-colour copies of the icon out of the button, 60° apart, over ~0.7 s.
+  Every click after that counts nothing (no request) and replays the burst.
+  A button that loads already spent stays still. Particles are parsed (not
+  cloned) for host-CSP safety and live in `::part(burst)`; reduced motion
+  hides them. New `appreciator:burst` event.
+- **A spent button stays clickable.** It is no longer `disabled`; it carries
+  `aria-disabled="true"` and an accessible name ending "all used".
+  (Playwright treats `aria-disabled` as not clickable, so the e2e specs
+  force-click it and assert the `disabled` property directly.)
+- **`refresh()`** on the element re-reads config and counts, skipping the
+  cached counts so a just-reset button doesn't flash full.
+- **`POST /v1/buttons/:publicKey/reset`**, demo button only: removes the
+  caller's clicks on every demo item and subtracts them from the totals.
+  Any other key gets the same 404 as an unknown one, so real caps can't be
+  reset. Origin-checked and rate-limited like the other public routes.
+- **Landing page.** "Reset my votes" sits next to "Try it" in the hero box,
+  hidden until the hero demo is used up (it follows the widget's
+  `appreciator:ready` / `appreciator:change` events) and hidden again after a
+  reset. It resets through the endpoint and calls `refresh()` on every demo
+  button on the page.
+- Tests: 8 reset integration tests (real MySQL), burst/refresh/aria unit
+  tests, and a landing e2e that spends the remaining allowance, sees the
+  burst and the reset button, clicks once more without a request, resets,
+  and counts again.
+
 ## 2026-09-23 — Progress fill: the icon colours in as the visitor clicks
 
 - Every single-icon button now shows progress toward the per-visitor cap: a

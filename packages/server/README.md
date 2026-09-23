@@ -107,6 +107,15 @@ button's origin allowlist and a per-IP rate limit:
 | `GET`  | `/v1/buttons/:publicKey/config` | → `ButtonPublicConfig`          |
 | `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `ClickCounts`        |
 | `POST` | `/v1/buttons/:publicKey/click`  | `{ "item": … }` → `ClickCounts` |
+| `POST` | `/v1/buttons/:publicKey/reset`  | demo only → `ResetResponse`     |
+
+`reset` exists for the landing page's "Reset my votes": it removes the
+caller's clicks (same visitor identity as `/click`) from every item of the
+button and subtracts them from the totals, so the demo can be tried again
+without inflating its counters. It works on the demo button only
+(`DEMO_BUTTON`); for any other key, or with the demo off, it answers the same
+`404` as an unknown key, so a real button's per-visitor cap cannot be reset.
+It is origin-checked and rate-limited like the other public routes.
 
 The rate limit (`RATE_LIMIT_MAX` per `RATE_LIMIT_WINDOW` per IP) is checked
 before anything else, so requests that are going to be refused (an unknown
