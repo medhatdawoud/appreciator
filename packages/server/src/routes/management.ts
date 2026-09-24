@@ -53,6 +53,7 @@ const inputProperties = {
   colors: colorsSchema,
   svgSources: svgSourcesSchema,
   keepIconColors: { type: 'boolean' },
+  iconRing: { type: 'boolean' },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
 };
 
@@ -87,6 +88,7 @@ const buttonConfigSchema = {
     'colors',
     'svgSources',
     'keepIconColors',
+    'iconRing',
     'urlNormalization',
     'createdAt',
     'embedSnippet',
@@ -101,6 +103,7 @@ const buttonConfigSchema = {
     colors: colorsSchema,
     svgSources: { ...svgSourcesSchema, type: ['object', 'null'] },
     keepIconColors: { type: 'boolean' },
+    iconRing: { type: 'boolean' },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
     embedSnippet: { type: 'string' },
@@ -321,6 +324,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         colors,
         svgSources: input.svgSources ?? null,
         keepIconColors: input.keepIconColors ?? false,
+        iconRing: input.iconRing ?? false,
         urlNormalization: input.urlNormalization ?? 'pathname',
       });
 
@@ -395,6 +399,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       if (patch.keepIconColors !== undefined) {
         assignments.push(['keep_icon_colors', patch.keepIconColors]);
       }
+      if (patch.iconRing !== undefined) assignments.push(['icon_ring', patch.iconRing]);
 
       const setClause = assignments.map(([column]) => `${column} = ?`).join(', ');
       await execute(app.pool, `UPDATE buttons SET ${setClause} WHERE id = ? AND tenant_id = ?`, [

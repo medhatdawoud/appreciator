@@ -25,6 +25,7 @@ export interface ButtonRow {
   colors: unknown;
   svg_sources: unknown;
   keep_icon_colors: number | boolean;
+  icon_ring: number | boolean;
   url_normalization: UrlNormalization;
   created_at: Date;
 }
@@ -34,7 +35,7 @@ export interface ButtonRow {
  * silently start pulling extra columns into responses.
  */
 export const BUTTON_COLUMNS =
-  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, url_normalization, created_at';
+  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, url_normalization, created_at';
 
 /**
  * mysql2 usually hands back JSON columns already parsed, but returns a string
@@ -115,6 +116,7 @@ export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonCon
     svgSources: toSvgSources(row.svg_sources),
     // TINYINT(1) comes back as a number.
     keepIconColors: Boolean(row.keep_icon_colors),
+    iconRing: Boolean(row.icon_ring),
     urlNormalization: row.url_normalization,
     createdAt: row.created_at.toISOString(),
     embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key),
@@ -172,6 +174,8 @@ export interface NewButton {
   svgSources: ButtonSvgSources | null;
   /** Defaults to false: the icon is painted with the button's colours. */
   keepIconColors?: boolean;
+  /** Defaults to false. */
+  iconRing?: boolean;
   urlNormalization: UrlNormalization;
 }
 
@@ -186,8 +190,8 @@ export async function insertButton(
     executor,
     `INSERT INTO buttons
        (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
-        svg_sources, keep_icon_colors, url_normalization)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        svg_sources, keep_icon_colors, icon_ring, url_normalization)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       button.tenantId,
@@ -199,6 +203,7 @@ export async function insertButton(
       JSON.stringify(button.colors),
       button.svgSources === null ? null : JSON.stringify(button.svgSources),
       button.keepIconColors === true,
+      button.iconRing === true,
       button.urlNormalization,
     ],
   );

@@ -243,7 +243,14 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['maxClicks', 'svgSource', 'colors', 'keepIconColors', 'urlNormalization'],
+            required: [
+              'maxClicks',
+              'svgSource',
+              'colors',
+              'keepIconColors',
+              'iconRing',
+              'urlNormalization',
+            ],
             properties: {
               maxClicks: { type: 'integer' },
               svgSource: { type: 'string' },
@@ -252,6 +259,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               // no per-state icons.
               svgSources: svgSourcesSchema,
               keepIconColors: { type: 'boolean' },
+              iconRing: { type: 'boolean' },
               urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
             },
           },
@@ -260,8 +268,15 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply): Promise<ButtonPublicConfig> => {
       const button = buttonOf(request);
-      const { maxClicks, svgSource, colors, svgSources, keepIconColors, urlNormalization } =
-        toButtonConfig(button, app.appConfig.publicBaseUrl);
+      const {
+        maxClicks,
+        svgSource,
+        colors,
+        svgSources,
+        keepIconColors,
+        iconRing,
+        urlNormalization,
+      } = toButtonConfig(button, app.appConfig.publicBaseUrl);
 
       void reply.header('cache-control', CONFIG_CACHE_CONTROL);
       return {
@@ -270,6 +285,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         colors,
         ...(svgSources === null ? {} : { svgSources }),
         keepIconColors,
+        iconRing,
         urlNormalization,
       };
     },

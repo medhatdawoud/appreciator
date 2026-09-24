@@ -1,3 +1,5 @@
+import type { ButtonColors } from './button-config.js';
+
 /** A dashboard user, signed in with GitHub. */
 export interface Account {
   id: string;
@@ -44,6 +46,12 @@ export interface WebConfig {
   repoUrl: string;
   /** Whether GET /v1/leaderboard is served. */
   leaderboardEnabled: boolean;
+  /**
+   * The icon and colours a button gets without its own, so the dashboard can
+   * preview it. Only the server's copy carries it: the dashboard is served by
+   * the server alone, and the GitHub Pages copy has no use for it.
+   */
+  defaultIcon?: { svgSource: string; colors: ButtonColors };
 }
 
 /** One site on the public leaderboard. */

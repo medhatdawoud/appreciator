@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
 import { closeTestContext, createTestContext, type TestContext } from './helpers.js';
 
 const CSP =
@@ -116,6 +117,7 @@ describe('web pages', () => {
       signInEnabled: true,
       repoUrl: 'https://github.com/medhatdawoud/appreciator',
       leaderboardEnabled: false,
+      defaultIcon: { svgSource: DEFAULT_SVG_SOURCE, colors: DEFAULT_COLORS },
     });
   });
 });

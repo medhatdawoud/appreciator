@@ -210,6 +210,7 @@ describe('public routes', () => {
         svgSource: SVG,
         colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
         keepIconColors: false,
+        iconRing: false,
         urlNormalization: 'pathname',
       });
     });
@@ -218,6 +219,12 @@ describe('public routes', () => {
       const own = await createButton(buttonInput({ keepIconColors: true }));
 
       expect((await config(own.publicKey)).json().keepIconColors).toBe(true);
+    });
+
+    it('says whether to draw a ring around the icon', async () => {
+      const ringed = await createButton(buttonInput({ iconRing: true }));
+
+      expect((await config(ringed.publicKey)).json().iconRing).toBe(true);
     });
 
     it('exposes no private field', async () => {
@@ -233,6 +240,7 @@ describe('public routes', () => {
 
       expect(Object.keys(body).sort()).toEqual([
         'colors',
+        'iconRing',
         'keepIconColors',
         'maxClicks',
         'svgSource',

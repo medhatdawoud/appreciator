@@ -606,6 +606,37 @@ describe('management routes', () => {
     });
   });
 
+  describe('the ring around the icon', () => {
+    it('is off unless asked for, and round-trips when it is', async () => {
+      await createButton();
+      const ringed = await createButton(validInput({ iconRing: true }));
+
+      const buttons = await listButtons();
+
+      // Both are created within the same second, so the list order is not theirs.
+      expect(buttons.map((button) => button.id === ringed.buttonId)).toEqual(
+        buttons.map((button) => button.iconRing),
+      );
+      expect(buttons.filter((button) => button.iconRing)).toHaveLength(1);
+    });
+
+    it('can be switched on and off with a PATCH', async () => {
+      const created = await createButton();
+
+      const on = await patchButton(created.buttonId, { iconRing: true });
+      expect(on.json().iconRing).toBe(true);
+
+      const off = await patchButton(created.buttonId, { iconRing: false });
+      expect(off.json().iconRing).toBe(false);
+    });
+
+    it('refuses anything but a boolean', async () => {
+      const response = await postButton(validInput({ iconRing: 'yes' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('PATCH /v1/buttons/:id', () => {
     it('applies a partial update and returns the full config', async () => {
       const created = await createButton();

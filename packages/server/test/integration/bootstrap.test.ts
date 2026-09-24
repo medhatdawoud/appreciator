@@ -8,7 +8,7 @@ import {
   ensureDemoButton,
   ensureManagementTenant,
 } from '../../src/lib/bootstrap.js';
-import { DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
+import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
 import {
   SIGN_IN_CONFIG,
   closeTestContext,
@@ -246,6 +246,7 @@ describe('GET /web/config.json', () => {
       signInEnabled: true,
       repoUrl: 'https://github.com/medhatdawoud/appreciator',
       leaderboardEnabled: true,
+      defaultIcon: { svgSource: DEFAULT_SVG_SOURCE, colors: DEFAULT_COLORS },
     });
   });
 

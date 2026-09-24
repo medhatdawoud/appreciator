@@ -29,6 +29,8 @@ export interface ButtonConfig {
    * instead of painting it with `colors`. Ignored with `svgSources`.
    */
   keepIconColors: boolean;
+  /** Draw a thin circle around the icon, coloured like the icon's current state. */
+  iconRing: boolean;
   urlNormalization: UrlNormalization;
   createdAt: string;
   /** The one-tag embed for this button, the same one `CreateButtonResponse` returns. */
@@ -55,6 +57,8 @@ export interface ButtonConfigInput {
    * instead of painting it with `colors`. Ignored with `svgSources`.
    */
   keepIconColors?: boolean;
+  /** Draw a thin circle around the icon, coloured like the icon's current state. */
+  iconRing?: boolean;
   urlNormalization?: UrlNormalization;
 }
 
@@ -76,6 +80,8 @@ export interface ButtonPublicConfig {
    * instead of painting it with `colors`. Ignored with `svgSources`.
    */
   keepIconColors: boolean;
+  /** Draw a thin circle around the icon, coloured like the icon's current state. */
+  iconRing: boolean;
   urlNormalization: UrlNormalization;
 }
 
