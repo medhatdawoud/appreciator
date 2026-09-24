@@ -61,7 +61,7 @@ button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 0.35em;
+  gap: 0.5em;
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -70,8 +70,8 @@ button {
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }
 :host([data-count="left"]) button { flex-direction: row-reverse; }
-:host([data-count="top"]) button { flex-direction: column-reverse; gap: 0.15em; }
-:host([data-count="bottom"]) button { flex-direction: column; gap: 0.15em; }
+:host([data-count="top"]) button { flex-direction: column-reverse; gap: 0.25em; }
+:host([data-count="bottom"]) button { flex-direction: column; gap: 0.25em; }
 [part="count"] {
   display: inline-grid;
   overflow: hidden;

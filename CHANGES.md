@@ -3,6 +3,12 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — A little more room between the icon and the count
+
+- The gap between icon and count grows from `0.35em` to `0.5em` side by side
+  (`right`, `left`) and from `0.15em` to `0.25em` stacked (`top`, `bottom`).
+  It scales with the host page's font size, as before.
+
 ## 2026-09-24 — Build: stop nesting migrations in dist
 
 - `npm run build -w @appreciator/server` copied migrations with
