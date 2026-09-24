@@ -243,7 +243,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: ['maxClicks', 'svgSource', 'colors', 'urlNormalization'],
+            required: ['maxClicks', 'svgSource', 'colors', 'keepIconColors', 'urlNormalization'],
             properties: {
               maxClicks: { type: 'integer' },
               svgSource: { type: 'string' },
@@ -251,6 +251,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               // Not required: absent, rather than null, when the button has
               // no per-state icons.
               svgSources: svgSourcesSchema,
+              keepIconColors: { type: 'boolean' },
               urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
             },
           },
@@ -259,10 +260,8 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply): Promise<ButtonPublicConfig> => {
       const button = buttonOf(request);
-      const { maxClicks, svgSource, colors, svgSources, urlNormalization } = toButtonConfig(
-        button,
-        app.appConfig.publicBaseUrl,
-      );
+      const { maxClicks, svgSource, colors, svgSources, keepIconColors, urlNormalization } =
+        toButtonConfig(button, app.appConfig.publicBaseUrl);
 
       void reply.header('cache-control', CONFIG_CACHE_CONTROL);
       return {
@@ -270,6 +269,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         svgSource,
         colors,
         ...(svgSources === null ? {} : { svgSources }),
+        keepIconColors,
         urlNormalization,
       };
     },

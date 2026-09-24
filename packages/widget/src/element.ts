@@ -41,6 +41,12 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * The base is also run through `grayscale()`, so an icon that ignores the
  * colour variables still starts gray.
  *
+ * Unless the button keeps the icon's own colours (`data-own-colors`), every
+ * drawn element of a single icon is painted with those variables, overriding
+ * whatever colours the file itself carries: an uploaded SVG does not have to
+ * be prepared with svg-gen to take the button's colours. Definitions (masks,
+ * clips, gradients, symbols) are left alone so they keep working.
+ *
  * With `data-icons="states"` the icon span holds one complete drawing per
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
@@ -124,6 +130,11 @@ svg[data-layer="fill"] {
   --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
 }
 :host([data-icons="states"]) [part="icon"] > svg { display: none; }
+:host([data-icons="single"]:not([data-own-colors])) svg[data-layer] :not(defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *),
+:host([data-icons="single"]:not([data-own-colors])) [part="burst"] svg :not(defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *) {
+  fill: var(--appr-fill) !important;
+  stroke: var(--appr-stroke) !important;
+}
 :host([data-icons="states"][data-state="default"]) svg[data-for="default"],
 :host([data-icons="states"][data-state="clicked"]) svg[data-for="clicked"],
 :host([data-icons="states"][data-state="full"]) svg[data-for="full"] {
@@ -455,6 +466,10 @@ export class AppreciatorButton extends HTMLElement {
     this.icon.replaceChildren(...icons, burst);
     this.bounds = null;
     this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
+    this.toggleAttribute(
+      'data-own-colors',
+      config.svgSources === undefined && config.keepIconColors === true,
+    );
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }

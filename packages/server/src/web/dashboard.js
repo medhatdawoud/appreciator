@@ -300,7 +300,17 @@
     for (const block of form.querySelectorAll('[data-icon-mode]')) {
       block.hidden = block.dataset.iconMode !== iconMode();
     }
+    updateColorPickers();
     renderPreview();
+  }
+
+  // With the SVG's own colours kept, the pickers would change nothing.
+  function updateColorPickers() {
+    const keep = form.elements.keepIconColors.checked;
+    for (const input of $('[data-color-pickers]').querySelectorAll('input')) input.disabled = keep;
+    $('[data-colors-hint]').textContent = keep
+      ? 'The SVG keeps its own colours: grayscale at first, then its real colours as it fills. The colours below are not used.'
+      : 'Your SVG is painted with these colours: a gray silhouette, filled with “full” as visitors click.';
   }
 
   function svgDataUrl(svg) {
@@ -357,6 +367,7 @@
     } else {
       form.elements.iconMode.value = 'single';
       form.elements.svgSource.value = button.svgSource;
+      form.elements.keepIconColors.checked = button.keepIconColors === true;
       for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
     }
     updateIconMode();
@@ -379,6 +390,7 @@
     if (iconMode() === 'single') {
       input.svgSource = form.elements.svgSource.value;
       input.colors = Object.fromEntries(STATES.map((s) => [s, form.elements[`color-${s}`].value]));
+      input.keepIconColors = form.elements.keepIconColors.checked;
     } else if (iconMode() === 'states') {
       input.svgSources = Object.fromEntries(
         STATES.map((s) => [s, form.elements[`svg-${s}`].value]),

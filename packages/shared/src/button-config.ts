@@ -24,6 +24,11 @@ export interface ButtonConfig {
   svgSource: string;
   colors: ButtonColors;
   svgSources: ButtonSvgSources | null;
+  /**
+   * Draw `svgSource` in its own colours (a multi-colour mascot or logo)
+   * instead of painting it with `colors`. Ignored with `svgSources`.
+   */
+  keepIconColors: boolean;
   urlNormalization: UrlNormalization;
   createdAt: string;
   /** The one-tag embed for this button, the same one `CreateButtonResponse` returns. */
@@ -45,6 +50,11 @@ export interface ButtonConfigInput {
   colors?: ButtonColors;
   /** Mutually exclusive with `svgSource` in one request. */
   svgSources?: ButtonSvgSources;
+  /**
+   * Draw `svgSource` in its own colours (a multi-colour mascot or logo)
+   * instead of painting it with `colors`. Ignored with `svgSources`.
+   */
+  keepIconColors?: boolean;
   urlNormalization?: UrlNormalization;
 }
 
@@ -61,6 +71,11 @@ export interface ButtonPublicConfig {
   colors: ButtonColors;
   /** Present only when the button has per-state icons; render these instead of `svgSource`. */
   svgSources?: ButtonSvgSources;
+  /**
+   * Draw `svgSource` in its own colours (a multi-colour mascot or logo)
+   * instead of painting it with `colors`. Ignored with `svgSources`.
+   */
+  keepIconColors: boolean;
   urlNormalization: UrlNormalization;
 }
 

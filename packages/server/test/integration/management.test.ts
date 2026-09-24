@@ -579,6 +579,33 @@ describe('management routes', () => {
     });
   });
 
+  describe("keeping the icon's own colours", () => {
+    it('is off unless asked for, and round-trips when it is', async () => {
+      await createButton();
+      await createButton(validInput({ keepIconColors: true }));
+
+      const buttons = await listButtons();
+
+      expect(buttons.map((button) => button.keepIconColors)).toEqual([false, true]);
+    });
+
+    it('can be switched on and off with a PATCH', async () => {
+      const created = await createButton();
+
+      const on = await patchButton(created.buttonId, { keepIconColors: true });
+      expect(on.json().keepIconColors).toBe(true);
+
+      const off = await patchButton(created.buttonId, { keepIconColors: false });
+      expect(off.json().keepIconColors).toBe(false);
+    });
+
+    it('refuses anything but a boolean', async () => {
+      const response = await postButton(validInput({ keepIconColors: 'yes' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('PATCH /v1/buttons/:id', () => {
     it('applies a partial update and returns the full config', async () => {
       const created = await createButton();

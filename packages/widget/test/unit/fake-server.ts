@@ -21,6 +21,7 @@ export function sampleConfig(overrides: Partial<ButtonPublicConfig> = {}): Butto
     maxClicks: 3,
     svgSource: SAMPLE_SVG,
     colors: { default: '#111111', hover: '#222222', clicked: '#333333', full: '#444444' },
+    keepIconColors: false,
     urlNormalization: 'pathname',
     ...overrides,
   };

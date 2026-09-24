@@ -52,6 +52,7 @@ const inputProperties = {
   svgSource: svgSourceSchema,
   colors: colorsSchema,
   svgSources: svgSourcesSchema,
+  keepIconColors: { type: 'boolean' },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
 };
 
@@ -85,6 +86,7 @@ const buttonConfigSchema = {
     'svgSource',
     'colors',
     'svgSources',
+    'keepIconColors',
     'urlNormalization',
     'createdAt',
     'embedSnippet',
@@ -98,6 +100,7 @@ const buttonConfigSchema = {
     svgSource: { type: 'string' },
     colors: colorsSchema,
     svgSources: { ...svgSourcesSchema, type: ['object', 'null'] },
+    keepIconColors: { type: 'boolean' },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
     embedSnippet: { type: 'string' },
@@ -317,6 +320,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         svgSource,
         colors,
         svgSources: input.svgSources ?? null,
+        keepIconColors: input.keepIconColors ?? false,
         urlNormalization: input.urlNormalization ?? 'pathname',
       });
 
@@ -387,6 +391,9 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       if (patch.colors !== undefined) assignments.push(['colors', JSON.stringify(patch.colors)]);
       if (patch.urlNormalization !== undefined) {
         assignments.push(['url_normalization', patch.urlNormalization]);
+      }
+      if (patch.keepIconColors !== undefined) {
+        assignments.push(['keep_icon_colors', patch.keepIconColors]);
       }
 
       const setClause = assignments.map(([column]) => `${column} = ?`).join(', ');

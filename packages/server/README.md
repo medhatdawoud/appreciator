@@ -161,8 +161,13 @@ pages.
 
 A button's icon takes one of two shapes:
 
-- **One recoloured icon**: `svgSource` plus `colors`, as above. The widget
-  repaints the same SVG for each state.
+- **One icon**: `svgSource` plus `colors`, as above. The widget draws the
+  same SVG for every state and, unless `keepIconColors` is true, paints all of
+  its shapes with `colors` whatever colours the file carries. With
+  `keepIconColors: true` it keeps the file's own colours (grayscale until
+  filled), for multi-colour mascots and logos. `keepIconColors` defaults to
+  `false`, is returned in every `ButtonConfig` and by `/config`, and is
+  ignored for per-state icons.
 - **Per-state icons**: `svgSources`, an object with exactly the four keys
   `default`, `hover`, `clicked` and `full`, each a complete SVG document of at
   most 64 KiB. Each one goes through the same safety checks as `svgSource`,

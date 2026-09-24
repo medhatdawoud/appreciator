@@ -220,3 +220,16 @@ button.link {
 .table .num {
   text-align: right;
 }
+
+.form .check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.form [data-colors-hint] {
+  display: block;
+  margin-bottom: 0.5rem;
+}

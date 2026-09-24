@@ -1,0 +1,1 @@
+ALTER TABLE buttons ADD COLUMN keep_icon_colors TINYINT(1) NOT NULL DEFAULT 0

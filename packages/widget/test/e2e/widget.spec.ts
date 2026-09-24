@@ -228,6 +228,32 @@ test('the count rolls up to the new number on a counted click', async ({ page })
   await expect(ui.count).toHaveText('2');
 });
 
+test('a raw uploaded SVG takes the button colours, unless it keeps its own', async ({ page }) => {
+  async function openKey(key: string): Promise<Widget> {
+    const params = new URLSearchParams({ api: fixture.api, key, item: `e2e-${randomUUID()}` });
+    await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+    const ui = widget(page);
+    await expect(ui.host).toHaveAttribute('data-state', 'default');
+    return ui;
+  }
+
+  const raw = await openKey(fixture.rawKey);
+  await expect(raw.host).not.toHaveAttribute('data-own-colors', /.*/);
+  // The path's own fill="#000000" is overridden on both layers.
+  await expect(raw.base.locator('path')).toHaveCSS('fill', rgb(fixture.colors.default));
+  await expect(raw.fill.locator('path')).toHaveCSS('fill', rgb(fixture.colors.full));
+  await raw.button.click();
+  await expect(raw.fill.locator('path')).toHaveCSS('fill', rgb(fixture.colors.clicked));
+  await expect(raw.fill.locator('path')).toHaveCSS('fill', rgb(fixture.colors.full));
+
+  const own = await openKey(fixture.ownKey);
+  await expect(own.host).toHaveAttribute('data-own-colors', '');
+  await expect(own.fill.locator('path')).toHaveCSS('fill', 'rgb(0, 0, 0)');
+  await expect(own.base.locator('path')).toHaveCSS('fill', 'rgb(0, 0, 0)');
+  // Still starts gray: the base layer is desaturated rather than recoloured.
+  await expect(own.base).toHaveCSS('filter', 'grayscale(1)');
+});
+
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {
   await page.goto(pageUrl(`e2e-${randomUUID()}`, 'localhost'));
   const ui = widget(page);

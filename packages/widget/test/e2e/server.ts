@@ -126,7 +126,19 @@ async function createButton(secret: string, input: ButtonConfigInput): Promise<s
   return ((await response.json()) as CreateButtonResponse).publicKey;
 }
 
-/** One button with the example's recolourable icon, one with its four explicit star drawings. */
+/**
+ * An SVG as someone would upload it straight from a design tool: a hard-coded
+ * fill and none of the colour variables svg-gen would add.
+ */
+const RAW_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+  '<path fill="#000000" d="M12 2 22 21H2z"/></svg>';
+
+/**
+ * One button with the example's recolourable icon, one with its four explicit
+ * star drawings, and two with a raw uploaded SVG: painted with the button's
+ * colours, and keeping its own.
+ */
 async function registerButtons(
   secret: string,
 ): Promise<Omit<E2eFixture, 'siteName' | 'demoKey' | 'session'>> {
@@ -148,6 +160,21 @@ async function registerButtons(
       maxClicks,
       allowedOrigins,
       svgSources,
+    }),
+    rawKey: await createButton(secret, {
+      name: 'Raw SVG',
+      maxClicks,
+      allowedOrigins,
+      svgSource: RAW_SVG,
+      colors,
+    }),
+    ownKey: await createButton(secret, {
+      name: 'Raw SVG, own colours',
+      maxClicks,
+      allowedOrigins,
+      svgSource: RAW_SVG,
+      colors,
+      keepIconColors: true,
     }),
     maxClicks,
     colors,

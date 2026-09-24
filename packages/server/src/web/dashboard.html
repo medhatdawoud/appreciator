@@ -158,17 +158,22 @@
             <label
               ><input type="radio" name="iconMode" value="default" checked /> Built-in heart</label
             >
-            <label
-              ><input type="radio" name="iconMode" value="single" /> One SVG, recoloured per
-              state</label
-            >
+            <label><input type="radio" name="iconMode" value="single" /> One SVG</label>
             <label
               ><input type="radio" name="iconMode" value="states" /> Four SVGs, one per state</label
             >
             <div data-icon-mode="single" hidden>
               <label>SVG <textarea name="svgSource" rows="4"></textarea></label>
               <input type="file" accept=".svg,image/svg+xml" data-file-for="svgSource" />
-              <div class="row colors">
+              <label class="check"
+                ><input type="checkbox" name="keepIconColors" /> Keep the SVG's own colours (for
+                multi-colour logos and mascots)</label
+              >
+              <small data-colors-hint
+                >Your SVG is painted with these colours: gray silhouette, then filled with
+                <em>full</em>.</small
+              >
+              <div class="row colors" data-color-pickers>
                 <label>default <input type="color" name="color-default" value="#6b7280" /></label>
                 <label>hover <input type="color" name="color-hover" value="#374151" /></label>
                 <label>clicked <input type="color" name="color-clicked" value="#f43f5e" /></label>

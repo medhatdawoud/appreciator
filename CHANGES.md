@@ -3,6 +3,29 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Uploaded SVGs take the button's colours; keep-own-colours switch
+
+- **Bug.** An SVG uploaded as-is rendered black and ignored the button's
+  colours: the widget paints through `--appr-fill` / `--appr-stroke`, which
+  only an `svg-gen`-prepared file references, so a raw file fell back to SVG's
+  default black fill.
+- The widget now paints every drawn element of a single icon (both layers
+  and the burst) with the button's colours, overriding the file's own
+  (`!important` beats presentation attributes and inline styles). Masks,
+  clip paths, gradients, markers and symbols are left alone. `svg-gen` output
+  looks exactly as before; `svg-gen` is now optional.
+- New per-button `keepIconColors` (migration `009`, API, `/config`,
+  dashboard checkbox "Keep the SVG's own colours"): draws the file as
+  designed, grayscale until it fills, for multi-colour mascots and logos. The
+  widget marks such buttons `data-own-colors`. Four-SVG buttons are
+  untouched.
+- The dashboard's "One SVG, recoloured per state" mode is now "One SVG", with
+  a hint explaining which colours apply.
+- Tests: `keepIconColors` round-trip, PATCH and validation (integration), the
+  `/config` field, `data-own-colors` unit tests, and an e2e with a raw
+  `fill="#000"` SVG proving it takes the default/full/clicked colours, and
+  stays black with grayscale when keeping its own.
+
 ## 2026-09-24 — A little more room between the icon and the count
 
 - The gap between icon and count grows from `0.35em` to `0.5em` side by side

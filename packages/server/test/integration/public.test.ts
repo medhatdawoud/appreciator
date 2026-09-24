@@ -209,8 +209,15 @@ describe('public routes', () => {
         maxClicks: 10,
         svgSource: SVG,
         colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
+        keepIconColors: false,
         urlNormalization: 'pathname',
       });
+    });
+
+    it('says whether the icon keeps its own colours', async () => {
+      const own = await createButton(buttonInput({ keepIconColors: true }));
+
+      expect((await config(own.publicKey)).json().keepIconColors).toBe(true);
     });
 
     it('exposes no private field', async () => {
@@ -226,6 +233,7 @@ describe('public routes', () => {
 
       expect(Object.keys(body).sort()).toEqual([
         'colors',
+        'keepIconColors',
         'maxClicks',
         'svgSource',
         'urlNormalization',

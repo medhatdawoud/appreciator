@@ -533,16 +533,25 @@ up to three times before the widget gives up.
 
 ## Icons
 
-**One recolourable SVG** (any single-colour outline icon):
+**One SVG, any SVG.** Upload it as-is in the dashboard's "One SVG" mode (or
+post it as `svgSource`). By default the widget paints every shape in it with
+the button's colours, whatever colours the file carries: a gray silhouette in
+`default` (`hover` while hovered) that fills with `full` (`clicked` during the
+pulse). Outlines become solid shapes and gradients become flat, so this suits
+icons: hearts, stars, claps, logos-as-glyphs.
+
+**Keep its own colours** (`keepIconColors: true`, or the dashboard checkbox)
+for multi-colour mascots and logos: the SVG is drawn as designed, grayscale at
+first, filling into its real colours as visitors click. The four colours are
+then unused.
+
+`svg-gen` is optional; it only pre-bakes the same recolouring into the file and
+writes a `colors.json` to go with it:
 
 ```bash
 npx tsx packages/svg-gen/src/cli.ts generate my-icon.svg --out ./my-button \
   --default "#9ca3af" --hover "#374151" --clicked "#f59e0b" --full "#d97706"
 ```
-
-writes `icon.svg` (colours replaced by CSS variables) and `colors.json`; paste
-them into the dashboard's "One SVG" mode, or post them as `svgSource` and
-`colors`.
 
 **Four SVGs, one per state** (multi-colour icons, or shapes that change):
 

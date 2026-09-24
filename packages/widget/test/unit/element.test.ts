@@ -542,6 +542,35 @@ describe('AppreciatorButton', () => {
     });
   });
 
+  describe('icon colours', () => {
+    it('paints the icon with the button colours unless it keeps its own', async () => {
+      const element = await mountReady();
+      expect(element.hasAttribute('data-own-colors')).toBe(false);
+
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ keepIconColors: true }));
+      element.dataset.item = 'own-colours';
+      await element.whenReady();
+      expect(element.hasAttribute('data-own-colors')).toBe(true);
+
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ keepIconColors: false }));
+      element.dataset.item = 'button-colours';
+      await element.whenReady();
+      expect(element.hasAttribute('data-own-colors')).toBe(false);
+    });
+
+    it('never marks a four-SVG button, which carries its own drawings', async () => {
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ svgSources: sampleSvgSources(), keepIconColors: true }));
+
+      const element = await mountReady();
+
+      expect(element.getAttribute('data-icons')).toBe('states');
+      expect(element.hasAttribute('data-own-colors')).toBe(false);
+    });
+  });
+
   describe('count roll', () => {
     function spans(element: AppreciatorButton): { text: string | null; roll: string }[] {
       return Array.from(shadow(element).querySelectorAll('[part="count"] > span'), (span) => ({
