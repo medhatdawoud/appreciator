@@ -20,24 +20,42 @@
     return td;
   }
 
+  /** The URL if it is a plain http(s) address, else null. */
+  function httpUrl(value) {
+    if (typeof value !== 'string') return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
-   * The site name, linked to its most-clicked origin when there is one. The
-   * URL comes from counters any allowed page can create, so it is checked to
-   * be plain http(s) and marked as user-generated rather than endorsed.
+   * The site name and, under it, the address of its most-clicked page, both
+   * one link to that page. The URL comes from counters any allowed page can
+   * create, so it is checked to be plain http(s) and marked as user-generated
+   * rather than endorsed.
    */
   function siteCell(entry) {
     const td = document.createElement('td');
-    if (typeof entry.url === 'string' && /^https?:\/\/[^/]+$/i.test(entry.url)) {
-      const link = document.createElement('a');
-      link.href = entry.url;
-      link.textContent = entry.siteName;
-      link.rel = 'nofollow ugc noopener noreferrer';
-      link.target = '_blank';
-      link.title = entry.url;
-      td.append(link);
-    } else {
+    const url = httpUrl(entry.url);
+    if (url === null) {
       td.textContent = entry.siteName;
+      return td;
     }
+    const link = document.createElement('a');
+    link.className = 'site-link';
+    link.href = url.href;
+    link.rel = 'nofollow ugc noopener noreferrer';
+    link.target = '_blank';
+    const name = document.createElement('span');
+    name.textContent = entry.siteName;
+    const page = document.createElement('span');
+    page.className = 'site-page';
+    page.textContent = entry.url.replace(/^https?:\/\//i, '');
+    link.append(name, page);
+    td.append(link);
     return td;
   }
 

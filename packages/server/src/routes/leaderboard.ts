@@ -11,6 +11,13 @@ const LEADERBOARD_SIZE = 100;
 /** Short, like /config: a click should show up within a minute. */
 const LEADERBOARD_CACHE_CONTROL = 'public, max-age=60';
 
+/**
+ * Most-clicked pages read per site when choosing its link. Loopback pages are
+ * skipped after reading, so a site whose top pages are all local tests has no
+ * link until a public page overtakes them.
+ */
+const LINK_CANDIDATES = 25;
+
 interface LeaderboardRow {
   tenant_id: string;
   site_name: string;
@@ -18,23 +25,17 @@ interface LeaderboardRow {
   total_count: number | string;
 }
 
-interface OriginRow {
+interface PageRow {
   tenant_id: string;
-  origin: string;
-  clicks: number | string;
+  item_key: string;
 }
 
 /**
  * Hosts that only ever mean "the machine you are on". A site tested locally
  * must not end up linking every leaderboard visitor to their own localhost.
  */
-function isLoopbackOrigin(origin: string): boolean {
-  let hostname: string;
-  try {
-    hostname = new URL(origin).hostname;
-  } catch {
-    return true;
-  }
+function isLoopback(url: URL): boolean {
+  const { hostname } = url;
   return (
     hostname === 'localhost' ||
     hostname.endsWith('.localhost') ||
@@ -45,24 +46,34 @@ function isLoopbackOrigin(origin: string): boolean {
 }
 
 /**
- * Picks each tenant's link: the non-loopback origin with the most clicks,
- * ties broken alphabetically so the choice is stable between requests.
+ * A page counter's key as a public link: origin and path only. Keys counted
+ * by full URL keep their query and fragment, which on someone else's page
+ * can carry a session or a token, so neither is published. Null for a key
+ * that is not a public http(s) page.
  */
-function topOrigins(rows: OriginRow[]): Map<string, string> {
-  const best = new Map<string, { origin: string; clicks: number }>();
-  for (const row of rows) {
-    if (isLoopbackOrigin(row.origin)) continue;
-    const clicks = Number(row.clicks);
-    const current = best.get(row.tenant_id);
-    if (
-      current === undefined ||
-      clicks > current.clicks ||
-      (clicks === current.clicks && row.origin < current.origin)
-    ) {
-      best.set(row.tenant_id, { origin: row.origin, clicks });
-    }
+function publicPageUrl(itemKey: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(itemKey);
+  } catch {
+    return null;
   }
-  return new Map([...best].map(([tenantId, { origin }]) => [tenantId, origin]));
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || isLoopback(url)) return null;
+  return url.origin + (url.pathname === '/' ? '' : url.pathname);
+}
+
+/**
+ * Picks each tenant's link: its first public page in `rows`, which come
+ * ranked by clicks, ties broken by key so the choice is stable.
+ */
+function topPages(rows: PageRow[]): Map<string, string> {
+  const links = new Map<string, string>();
+  for (const row of rows) {
+    if (links.has(row.tenant_id)) continue;
+    const url = publicPageUrl(row.item_key);
+    if (url !== null) links.set(row.tenant_id, url);
+  }
+  return links;
 }
 
 /**
@@ -132,26 +143,32 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
         [DEMO_TENANT_NAME, LEADERBOARD_SIZE],
       );
 
-      // Page counters are keyed origin + path, so the first three
-      // '/'-separated parts of an http(s) key are its origin. Opaque item ids
-      // never look like URLs and are skipped by the LIKE filters.
-      const originRows =
+      // Each site's most-clicked pages, summed over its buttons, since two
+      // buttons can count the same page. Opaque item ids never look like URLs
+      // and are skipped by the LIKE filters.
+      const pageRows =
         rows.length === 0
           ? []
-          : await queryRows<OriginRow>(
+          : await queryRows<PageRow>(
               app.pool,
-              `SELECT b.tenant_id AS tenant_id,
-                      SUBSTRING_INDEX(i.item_key, '/', 3) AS origin,
-                      SUM(i.total_count) AS clicks
-                 FROM items i
-                 JOIN buttons b ON b.id = i.button_id
-                WHERE b.tenant_id IN (${rows.map(() => '?').join(', ')})
-                  AND i.total_count > 0
-                  AND (i.item_key LIKE 'https://%' OR i.item_key LIKE 'http://%')
-                GROUP BY b.tenant_id, origin`,
-              rows.map((row) => row.tenant_id),
+              `SELECT tenant_id, item_key
+                 FROM (SELECT b.tenant_id AS tenant_id,
+                              i.item_key AS item_key,
+                              ROW_NUMBER() OVER (
+                                PARTITION BY b.tenant_id
+                                ORDER BY SUM(i.total_count) DESC, i.item_key ASC
+                              ) AS place
+                         FROM items i
+                         JOIN buttons b ON b.id = i.button_id
+                        WHERE b.tenant_id IN (${rows.map(() => '?').join(', ')})
+                          AND i.total_count > 0
+                          AND (i.item_key LIKE 'https://%' OR i.item_key LIKE 'http://%')
+                        GROUP BY b.tenant_id, i.item_key) ranked
+                WHERE place <= ?
+                ORDER BY tenant_id, place`,
+              [...rows.map((row) => row.tenant_id), LINK_CANDIDATES],
             );
-      const urls = topOrigins(originRows);
+      const urls = topPages(pageRows);
 
       void reply
         .header('access-control-allow-origin', '*')

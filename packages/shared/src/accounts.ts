@@ -58,8 +58,8 @@ export interface WebConfig {
 export interface LeaderboardEntry {
   siteName: string;
   /**
-   * The origin with the most clicks among the site's page counters, or null
-   * when none is usable (only opaque item ids, or only loopback hosts).
+   * The site's most-clicked page, as origin and path (no query or fragment),
+   * or null when none is usable (only opaque item ids, or only loopback hosts).
    */
   url: string | null;
   buttonCount: number;

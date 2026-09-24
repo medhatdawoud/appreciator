@@ -54,13 +54,14 @@ test('lists the e2e site with every click counted, and never the demo', async ({
   await expect(page.getByRole('cell', { name: 'demo', exact: true })).toHaveCount(0);
 });
 
-test('links a site to its most-clicked public origin', async ({ page }) => {
+test('links a site to its most-clicked public page, shown under its name', async ({ page }) => {
   // The widget counts an http(s) data-item as a page URL, so this records
-  // clicks for https://blog.example.test without that host existing.
+  // clicks for a blog.example.test page without that host existing.
+  const pageUrl = `https://blog.example.test/${randomUUID()}`;
   const params = new URLSearchParams({
     api: fixture.api,
     key: fixture.publicKey,
-    item: `https://blog.example.test/${randomUUID()}`,
+    item: pageUrl,
   });
   await page.goto(`${PAGE_ORIGIN}/?${params.toString()}`);
   const widget = page.locator('appreciator-button');
@@ -76,8 +77,10 @@ test('links a site to its most-clicked public origin', async ({ page }) => {
 
   await page.goto(`${API_ORIGIN}/leaderboard`);
 
-  const link = page.getByRole('link', { name: fixture.siteName, exact: true });
-  await expect(link).toHaveAttribute('href', 'https://blog.example.test');
+  const link = page.locator(`[data-board-body] a[href="${pageUrl}"]`);
+  await expect(link).toHaveCount(1);
+  await expect(link.locator('span').first()).toHaveText(fixture.siteName);
+  await expect(link.locator('.site-page')).toHaveText(pageUrl.replace('https://', ''));
   await expect(link).toHaveAttribute('rel', 'nofollow ugc noopener noreferrer');
   await expect(link).toHaveAttribute('target', '_blank');
 });

@@ -506,3 +506,24 @@ pre code {
 .board-table tbody tr:first-child td {
   font-weight: 700;
 }
+
+.site-link {
+  display: grid;
+  gap: 0.1rem;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.site-link > span:first-child {
+  text-decoration: underline;
+}
+
+/* The page's address, on its own line, wrapping anywhere rather than
+   widening the table. */
+.site-page {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  max-width: 32rem;
+}

@@ -526,18 +526,28 @@ all their buttons:
 ```json
 {
   "sites": [
-    { "siteName": "My blog", "url": "https://myblog.com", "buttonCount": 3, "totalCount": 1204 },
+    {
+      "siteName": "My blog",
+      "url": "https://myblog.com/posts/hello",
+      "buttonCount": 3,
+      "totalCount": 1204
+    },
     { "siteName": "Docs", "url": null, "buttonCount": 1, "totalCount": 87 }
   ]
 }
 ```
 
-`url` is derived, not configured: the origin whose pages collected the most
-clicks across all of the tenant's buttons (ties go to the alphabetically first
-origin). Opaque item ids and loopback origins (`localhost`, `*.localhost`,
-`127.x.x.x`, `[::1]`, `0.0.0.0`) never count, so a site with nothing else has
-`url: null` and the page shows its name as plain text. Because any allowed page
-can create counters, the leaderboard page renders the link with
+`url` is derived, not configured: the page that collected the most clicks
+across all of the tenant's buttons, summed where two buttons count the same
+page (ties go to the alphabetically first). Only its origin and path are
+published: a page counted by full URL may carry a session or token in its
+query or fragment. Opaque item ids and loopback pages (`localhost`,
+`*.localhost`, `127.x.x.x`, `[::1]`, `0.0.0.0`) never count, so a site with
+nothing else has `url: null` and the page shows its name as plain text. Only a
+site's 25 most-clicked pages are considered, so one whose top pages are all
+local tests has no link until a public page overtakes them. The leaderboard
+page shows the name with the page's address under it, both one link, and
+because any allowed page can create counters it renders the link with
 `rel="nofollow ugc noopener noreferrer"`.
 
 `totalCount` is the sum of every item's total over every one of the tenant's

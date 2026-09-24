@@ -93,9 +93,9 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, gamma.id, [7, 7, 6]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'Gamma', url: 'https://example.com', buttonCount: 1, totalCount: 20 },
-      { siteName: 'Alpha', url: 'https://example.com', buttonCount: 3, totalCount: 10 },
-      { siteName: 'Beta', url: 'https://example.com', buttonCount: 1, totalCount: 10 },
+      { siteName: 'Gamma', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 20 },
+      { siteName: 'Alpha', url: 'https://example.com/post-0', buttonCount: 3, totalCount: 10 },
+      { siteName: 'Beta', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 10 },
     ]);
   });
 
@@ -132,11 +132,11 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, siteId, [4]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'demo', url: 'https://example.com', buttonCount: 1, totalCount: 4 },
+      { siteName: 'demo', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 4 },
     ]);
   });
 
-  it('links each site to its most-clicked origin across all its buttons', async () => {
+  it('links each site to its most-clicked page across all its buttons', async () => {
     const { app, pool } = await context();
     const tenant = await seedTenant(pool, 'Multi');
     await seedItems(pool, tenant.id, [
@@ -145,7 +145,7 @@ describe('GET /v1/leaderboard', () => {
       ['post-1', 100],
     ]);
     await seedItems(pool, tenant.id, [
-      ['https://b.example', 2],
+      ['https://b.example/one', 2],
       ['https://b.example/two', 1],
       ['http://localhost:5173/draft', 50],
       ['https://c.example/unclicked', 0],
@@ -153,14 +153,30 @@ describe('GET /v1/leaderboard', () => {
 
     const [site] = (await leaderboard(app)).sites;
 
-    // b.example totals 5 over three counters, beating a.example's 3; the
-    // opaque id and the loopback origin never compete, however many clicks.
+    // b.example/one totals 4 over its two buttons, beating a.example/one's 3;
+    // the opaque id and the loopback page never compete, however many clicks.
     expect(site).toEqual({
       siteName: 'Multi',
-      url: 'https://b.example',
+      url: 'https://b.example/one',
       buttonCount: 2,
       totalCount: 158,
     });
+  });
+
+  it("publishes a page's origin and path, never its query or fragment", async () => {
+    const { app, pool } = await context();
+    const tenant = await seedTenant(pool, 'Full');
+    await seedItems(pool, tenant.id, [['https://q.example/post?session=secret#top', 5]]);
+
+    expect((await leaderboard(app)).sites[0]?.url).toBe('https://q.example/post');
+  });
+
+  it('links a site root without a trailing slash, as the counter stores it', async () => {
+    const { app, pool } = await context();
+    const tenant = await seedTenant(pool, 'Root');
+    await seedItems(pool, tenant.id, [['https://root.example', 5]]);
+
+    expect((await leaderboard(app)).sites[0]?.url).toBe('https://root.example');
   });
 
   it('has no link when every counter is an opaque id or a loopback origin', async () => {
@@ -178,7 +194,7 @@ describe('GET /v1/leaderboard', () => {
     ]);
   });
 
-  it('breaks a tie between origins alphabetically, and keeps ports', async () => {
+  it('breaks a tie between pages alphabetically, and keeps ports', async () => {
     const { app, pool } = await context();
     const tenant = await seedTenant(pool, 'Tie');
     await seedItems(pool, tenant.id, [
@@ -186,7 +202,7 @@ describe('GET /v1/leaderboard', () => {
       ['https://alpha.example:8443/x', 2],
     ]);
 
-    expect((await leaderboard(app)).sites[0]?.url).toBe('https://alpha.example:8443');
+    expect((await leaderboard(app)).sites[0]?.url).toBe('https://alpha.example:8443/x');
   });
 
   it('lists at most 100 sites', async () => {
@@ -201,7 +217,7 @@ describe('GET /v1/leaderboard', () => {
     expect(sites).toHaveLength(100);
     expect(sites[0]).toEqual({
       siteName: 'Site 100',
-      url: 'https://example.com',
+      url: 'https://example.com/post-0',
       buttonCount: 1,
       totalCount: 101,
     });
