@@ -3,6 +3,18 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Full count in the full colour; count a step below the icon
+
+- When a visitor's allowance is spent, the count takes the `full` colour
+  (`--appreciator-full` overrides it, like the icon), fading in over 300 ms.
+- The count is now 55% of `--appreciator-size` (was two thirds), so it reads
+  as a step below the icon rather than matching it: a 3rem icon gets a
+  1.65rem count. With no size set that is about 0.83× the page font (was
+  1×). `::part(count)` still overrides it.
+- Tests: e2e checks the count is not in the full colour before the cap and is
+  at it, and the new size ratio (60px → 33px, 40px → 22px, unset → 0.825×
+  the page font).
+
 ## 2026-09-24 — The burst plays on every click, from around the icon
 
 - Every click now bursts, not only the one that spends the allowance and the

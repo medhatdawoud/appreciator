@@ -55,8 +55,9 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
  *
- * The count and the gap scale with `--appreciator-size`; at the default size
- * they are exactly the host's font size and half of it.
+ * The count and the gap scale with `--appreciator-size`: the count is 55% of
+ * it, a step below the icon so the two do not compete, and the gap a third.
+ * Once the allowance is spent the count takes the `full` colour too.
  *
  * `[part="count"]` holds the number in a one-line, clipped grid cell. When a
  * click raises it, the old number rolls up and out (`.roll-out`) while the new
@@ -93,12 +94,14 @@ button:disabled { cursor: default; }
   gap: calc(var(--appreciator-size, 1.5em) / 6);
 }
 [part="count"] {
-  font-size: calc(var(--appreciator-size, 1.5em) / 1.5);
+  font-size: calc(var(--appreciator-size, 1.5em) * 0.55);
+  transition: color 300ms ease;
   display: inline-grid;
   overflow: hidden;
   justify-items: start;
 }
 :host([data-count="left"]) [part="count"] { justify-items: end; }
+:host([data-state="full"]) [part="count"] { color: var(--appreciator-full, var(--_c-full)); }
 :host([data-count="top"]) [part="count"],
 :host([data-count="bottom"]) [part="count"] { justify-items: center; }
 [part="count"] > span { grid-area: 1 / 1; }

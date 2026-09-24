@@ -66,7 +66,7 @@ The element reflects `data-state` on itself so the host page can style around it
 
 - `default` — clickable.
 - `clicked` — held for 350 ms after each click; the icon pulses and its filled part takes the `clicked` colour, and the count rolls up to its new number: the old one slides up and out while the new one slides in from below, clipped to the count's line (about 0.3 s). Only a counted click rolls it; loading, server corrections, a reset and clicks on a spent button change it without animating. Reduced motion swaps it instantly.
-- `full` — this visitor has used their allowance; the icon is fully coloured.
+- `full` — this visitor has used their allowance; the icon is fully coloured, and the count takes the `full` colour too.
   The button stays clickable: every further click counts nothing and replays
   the burst (below). It carries `aria-disabled="true"` and an accessible name
   ending in "all used", so assistive tech still reports it as finished.
@@ -120,9 +120,10 @@ If loading fails the element gets `data-error` (e.g. `network_error`,
 
 Colours come from the button's server-side config. A page can override them,
 and the size, with CSS custom properties on the element. `--appreciator-size`
-sizes the whole button: the count is two thirds of it and the gap a third
-(half that when stacked), so with no size set they match the page's font as
-before. Size the count on its own with `::part(count) { font-size: … }`:
+sizes the whole button: the count is 55% of it, a step below the icon, and
+the gap a third (half that when stacked). With no size set the icon is
+`1.5em`, so the count is about 0.83× the page's font. Size the count on its
+own with `::part(count) { font-size: … }`:
 
 ```css
 appreciator-button {

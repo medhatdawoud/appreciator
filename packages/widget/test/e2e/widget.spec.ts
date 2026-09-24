@@ -76,6 +76,7 @@ test('starts as a gray silhouette with nothing filled', async ({ page }) => {
   await expect(ui.count).toHaveText('0');
   await expect(ui.host).toHaveAttribute('data-icons', 'single');
   await expect(ui.host).toHaveAttribute('data-progress', '0');
+  await expect(ui.count).not.toHaveCSS('color', rgb(fixture.colors.full));
   await expect(ui.svg).toHaveCount(2);
   await expect(ui.base).toHaveCSS('fill', rgb(fixture.colors.default));
   await expect(ui.base).toHaveCSS('filter', 'grayscale(1)');
@@ -131,6 +132,8 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
   await expect(ui.host).toHaveAttribute('data-progress', '100');
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
+  // Full: the count takes the full colour too.
+  await expect(ui.count).toHaveCSS('color', rgb(fixture.colors.full));
   // Full: exactly the drawing is revealed, so the inset is the empty space
   // above the heart, not 0.
   const atCap = await settledInsetTop(ui.fill);
@@ -265,19 +268,21 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
     return { fontSize, gap: countBox.x - (iconBox.x + iconBox.width) };
   };
 
-  // With no size set (the example page sets one, so unset it), the count is
-  // the page's own font size, as it always was.
+  // The count is 55% of the size: a step below the icon. With no size set
+  // (the example page sets one, so unset it), that is 55% of 1.5em.
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', 'initial'));
-  const pageFont = await ui.host.evaluate((element) => getComputedStyle(element).fontSize);
-  expect((await measure()).fontSize).toBe(pageFont);
+  const pageFont = await ui.host.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  expect(Number.parseFloat((await measure()).fontSize)).toBeCloseTo(pageFont * 0.825, 1);
 
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '60px'));
   const sized = await measure();
-  expect(sized.fontSize).toBe('40px');
+  expect(sized.fontSize).toBe('33px');
   expect(Math.round(sized.gap)).toBe(20);
 
-  await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '30px'));
-  expect((await measure()).fontSize).toBe('20px');
+  await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '40px'));
+  expect((await measure()).fontSize).toBe('22px');
 });
 
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {
