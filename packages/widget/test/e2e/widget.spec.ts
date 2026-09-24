@@ -279,7 +279,7 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '60px'));
   const sized = await measure();
   expect(sized.fontSize).toBe('33px');
-  expect(Math.round(sized.gap)).toBe(20);
+  expect(Math.round(sized.gap)).toBe(30);
 
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '40px'));
   expect((await measure()).fontSize).toBe('22px');

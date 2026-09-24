@@ -56,7 +56,7 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * stays a CSS-only state in both modes.
  *
  * The count and the gap scale with `--appreciator-size`: the count is 55% of
- * it, a step below the icon so the two do not compete, and the gap a third.
+ * it, a step below the icon so the two do not compete, and the gap half of it.
  * Once the allowance is spent the count takes the `full` colour too.
  *
  * `[part="count"]` holds the number in a one-line, clipped grid cell. When a
@@ -76,7 +76,7 @@ button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--appreciator-size, 1.5em) / 3);
+  gap: calc(var(--appreciator-size, 1.5em) / 2);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -87,11 +87,11 @@ button:disabled { cursor: default; }
 :host([data-count="left"]) button { flex-direction: row-reverse; }
 :host([data-count="top"]) button {
   flex-direction: column-reverse;
-  gap: calc(var(--appreciator-size, 1.5em) / 6);
+  gap: calc(var(--appreciator-size, 1.5em) / 4);
 }
 :host([data-count="bottom"]) button {
   flex-direction: column;
-  gap: calc(var(--appreciator-size, 1.5em) / 6);
+  gap: calc(var(--appreciator-size, 1.5em) / 4);
 }
 [part="count"] {
   font-size: calc(var(--appreciator-size, 1.5em) * 0.55);
