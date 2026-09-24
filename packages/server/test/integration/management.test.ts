@@ -582,11 +582,15 @@ describe('management routes', () => {
   describe("keeping the icon's own colours", () => {
     it('is off unless asked for, and round-trips when it is', async () => {
       await createButton();
-      await createButton(validInput({ keepIconColors: true }));
+      const own = await createButton(validInput({ keepIconColors: true }));
 
       const buttons = await listButtons();
 
-      expect(buttons.map((button) => button.keepIconColors)).toEqual([false, true]);
+      // Both are created within the same second, so the list order is not theirs.
+      expect(buttons.map((button) => button.id === own.buttonId)).toEqual(
+        buttons.map((button) => button.keepIconColors),
+      );
+      expect(buttons.filter((button) => button.keepIconColors)).toHaveLength(1);
     });
 
     it('can be switched on and off with a PATCH', async () => {
