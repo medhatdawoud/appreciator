@@ -15,8 +15,8 @@ import {
 /** How long the `clicked` state is held after a click. Matches the pulse keyframes below. */
 export const PULSE_MS = 350;
 
-/** How long one burst plays. Matches the burst keyframes below, delays included. */
-export const BURST_MS = 800;
+/** How long one burst plays: the 500 ms keyframes below plus the particles' stagger. */
+export const BURST_MS = 600;
 
 /** How long the count takes to roll to its new number. Matches the roll keyframes below. */
 export const ROLL_MS = 320;
@@ -66,7 +66,7 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * `[part="burst"]` holds small full-colour copies of the icon, hidden until
  * `data-burst` is set on a click: each then appears just outside the icon's
  * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` (six
- * directions, 60 degrees apart), fading in and out.
+ * directions, 60 degrees apart) at a constant size, fading in and out.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -183,13 +183,13 @@ svg[data-layer="fill"] {
 }
 :host([data-burst]) [part="burst"] svg {
   visibility: visible;
-  animation: appreciator-burst 700ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
+  animation: appreciator-burst 500ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
 }
 @keyframes appreciator-burst {
-  0% { transform: translate(var(--sx), var(--sy)) scale(0.7); opacity: 0; }
+  0% { transform: translate(var(--sx), var(--sy)) scale(0.6); opacity: 0; }
   10% { opacity: 1; }
   65% { opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(0.45); opacity: 0; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.6); opacity: 0; }
 }
 @keyframes appreciator-roll-out {
   to { transform: translateY(-100%); opacity: 0; }

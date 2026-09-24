@@ -107,7 +107,7 @@ And `data-icons`, which says how the icon is drawn:
 
 **Burst.** Every click, counted or not, throws six small full-colour copies
 of the icon out from around it, 60° apart: each appears just outside the
-icon's edge and flies further out as it fades, over about 0.7 s
+icon's edge and flies further out at a constant size as it fades, over about 0.5 s
 (`data-burst` is set on the element meanwhile, and `appreciator:burst`
 fires). A click on a spent button still bursts but counts nothing. A button
 that loads does not burst on its own. The copies live in `::part(burst)`; `prefers-reduced-motion`

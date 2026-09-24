@@ -3,6 +3,13 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Faster burst, no zoom
+
+- The burst's copies now travel out at one constant size (scale 0.6) instead
+  of shrinking as they go, and the animation runs in 500 ms instead of
+  700 ms (`BURST_MS` 800 → 600, stagger included). Measured in Chromium:
+  scale stays 0.60 from start to end while the copy moves out and fades.
+
 ## 2026-09-24 — Full count in the full colour; count a step below the icon
 
 - When a visitor's allowance is spent, the count takes the `full` colour
