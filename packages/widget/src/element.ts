@@ -4,6 +4,7 @@ import { ApiClient, ApiError } from './api.js';
 import { clipInsetTop, drawingBounds, type DrawingBounds } from './fill.js';
 import { parseSafeSvg } from './sanitize-svg.js';
 import { canClick, fillPercent, optimisticClick, progressPercent, visualState } from './state.js';
+import { onNavigate } from './navigation.js';
 import { withRetry } from './retry.js';
 import {
   readCachedConfig,
@@ -347,6 +348,9 @@ export class AppreciatorButton extends HTMLElement {
   /** Set by preview(): the button runs on this config alone, offline, from zero. */
   private previewConfig: ButtonPublicConfig | null = null;
 
+  /** Stops listening for the page's soft navigations. */
+  private stopNavigation: (() => void) | undefined;
+
   /** The config the icon is currently drawn from, as JSON, to skip redrawing an unchanged one. */
   private painted: string | null = null;
 
@@ -430,10 +434,13 @@ export class AppreciatorButton extends HTMLElement {
   }
 
   connectedCallback(): void {
+    this.stopNavigation ??= onNavigate(() => this.handleNavigation());
     this.scheduleInitialize();
   }
 
   disconnectedCallback(): void {
+    this.stopNavigation?.();
+    this.stopNavigation = undefined;
     this.generation += 1;
     this.clearPulse();
     this.clearBurst();
@@ -455,6 +462,19 @@ export class AppreciatorButton extends HTMLElement {
       this.initScheduled = false;
       return this.initialize();
     });
+  }
+
+  /**
+   * A button counting the page it is on stays put when a single-page app
+   * swaps the rest of the page, so it reloads once the address names a
+   * different counter. One with `data-item` reloads when that changes instead.
+   */
+  private handleNavigation(): void {
+    if (this.previewConfig !== null || this.api === null || this.dataset.item?.trim()) return;
+    const mode = this.config?.urlNormalization ?? 'pathname';
+    if (counterUrl(window.location.href, mode) !== counterUrl(this.item, mode)) {
+      this.scheduleInitialize();
+    }
   }
 
   /** Drops everything the last initialisation left in flight. */
@@ -851,6 +871,21 @@ function parseParticles(config: ButtonPublicConfig): Element[] {
     particles.push(particle);
   }
   return particles;
+}
+
+/**
+ * The part of a page URL that picks its counter: origin and path in
+ * `pathname` mode, the whole URL in `full` mode. The server normalises
+ * further, so two addresses that differ here may still share a counter.
+ */
+function counterUrl(href: string, mode: ButtonPublicConfig['urlNormalization']): string {
+  if (mode === 'full') return href;
+  try {
+    const url = new URL(href);
+    return url.origin + url.pathname;
+  } catch {
+    return href;
+  }
 }
 
 function round(value: number): number {

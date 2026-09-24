@@ -286,6 +286,39 @@ test('a ring around the icon takes the colour of each state', async ({ page }) =
   await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.full));
 });
 
+test("a page's button follows a single-page app's router to each page's own count", async ({
+  page,
+}) => {
+  // No item: the button counts the page it is on, which the router changes
+  // without loading a page.
+  const params = new URLSearchParams({ api: fixture.api, key: fixture.publicKey });
+  await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+  const ui = widget(page);
+  await expect(ui.button).toBeEnabled();
+  const counted: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/state')) counted.push(url.searchParams.get('item') ?? '');
+  });
+  const first = `/soft-${randomUUID()}`;
+  const second = `/soft-${randomUUID()}`;
+  const route = (path: string) => page.evaluate((to) => history.pushState(null, '', to), path);
+
+  await route(first);
+  await expect.poll(() => counted.at(-1)).toContain(first);
+  await expect(ui.count).toHaveText('0');
+  await ui.button.click();
+  await expect(ui.count).toHaveText('1');
+
+  await route(second);
+  await expect.poll(() => counted.at(-1)).toContain(second);
+  await expect(ui.count).toHaveText('0');
+
+  await page.goBack();
+  await expect.poll(() => counted.at(-1)).toContain(first);
+  await expect(ui.count).toHaveText('1');
+});
+
 test('--appreciator-size scales the count and the gap with the icon', async ({ page }) => {
   const ui = await open(page);
   const icon = ui.host.locator('[part="icon"]');

@@ -696,6 +696,83 @@ describe('AppreciatorButton', () => {
     expect(server.requests.at(-1)?.url).toContain('item=second');
     expect(element.getAttribute('data-state')).toBe('default');
   });
+  describe('soft navigation', () => {
+    const start = window.location.href;
+
+    afterEach(() => {
+      history.replaceState(null, '', start);
+    });
+
+    function stateRequests(): string[] {
+      return server.requests.map((request) => request.url).filter((url) => url.includes('/state'));
+    }
+
+    async function mountOnPage(): Promise<AppreciatorButton> {
+      const element = mount(document.body, { api: API, key: KEY });
+      await element.whenReady();
+      return element;
+    }
+
+    it("reloads a page's button when a router moves to another page", async () => {
+      const element = await mountOnPage();
+      await clickAndSettle(element);
+
+      history.pushState(null, '', '/another-post');
+      await element.whenReady();
+
+      expect(stateRequests().at(-1)).toContain(
+        new URLSearchParams({ item: `${window.location.origin}/another-post` }).toString(),
+      );
+      expect(element.getAttribute('data-state')).toBe('default');
+    });
+
+    it('reloads on back and forward too', async () => {
+      const element = await mountOnPage();
+      history.pushState(null, '', '/elsewhere');
+      await element.whenReady();
+      const before = stateRequests().length;
+
+      history.replaceState(null, '', '/back-again');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      await element.whenReady();
+
+      expect(stateRequests().length).toBeGreaterThan(before);
+      expect(stateRequests().at(-1)).toContain('back-again');
+    });
+
+    it('stays put when only the fragment or query changes, which name the same counter', async () => {
+      const element = await mountOnPage();
+      const before = server.requests.length;
+
+      history.pushState(null, '', '#comments');
+      history.pushState(null, '', '?tab=2');
+      await element.whenReady();
+
+      expect(server.requests).toHaveLength(before);
+    });
+
+    it('leaves a button with data-item alone', async () => {
+      await mountReady('fixed-item');
+      const before = server.requests.length;
+
+      history.pushState(null, '', '/another-post');
+      await Promise.resolve();
+
+      expect(server.requests).toHaveLength(before);
+    });
+
+    it('stops listening once removed from the page', async () => {
+      const element = await mountOnPage();
+      element.remove();
+      const before = server.requests.length;
+
+      history.pushState(null, '', '/another-post');
+      await Promise.resolve();
+
+      expect(server.requests).toHaveLength(before);
+    });
+  });
+
   describe('the ring', () => {
     it('is drawn when the config asks for it', async () => {
       const element = await mountReady();
@@ -770,6 +847,17 @@ describe('AppreciatorButton', () => {
       expect(countText(element)).toBe('0');
       expect(element.currentCounts?.visitorRemaining).toBe(5);
       expect(element.getAttribute('data-state')).toBe('default');
+    });
+
+    it('does not reload on soft navigation', async () => {
+      const element = await previewed();
+      await clickAndSettle(element);
+
+      history.pushState(null, '', '/another-page');
+      await Promise.resolve();
+      history.back();
+
+      expect(countText(element)).toBe('1');
     });
   });
 });
