@@ -3,6 +3,13 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A lighter ring, further from the icon
+
+- The ring is 1px (was 2px), and set 0.3 of the icon size away from it (was
+  0.18), so it frames the icon rather than crowding it.
+- The burst reaches 1.5× further with a ring (was 1.3×) so it still starts
+  outside it. The dashboard's preview boxes grow to keep it inside them.
+
 ## 2026-09-25 — Button list: live previews and an element snippet
 
 - Each button row on a site shows the button as saved: its icon, colours,

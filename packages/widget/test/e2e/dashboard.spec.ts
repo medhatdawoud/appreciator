@@ -262,7 +262,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await page.locator('input[name="iconRing"]').check();
   await expect(preview).toHaveAttribute('data-ring', '');
   await expect(preview.locator('svg[data-layer="fill"] path')).toHaveCSS('fill', rgb('#00aa00'));
-  await expect(preview.locator('[part="icon"]')).toHaveCSS('border-top-width', '2px');
+  await expect(preview.locator('[part="icon"]')).toHaveCSS('border-top-width', '1px');
   const button = preview.locator('button');
   for (let i = 0; i < 10; i += 1) await button.click({ force: true });
   await expect(preview).toHaveAttribute('data-state', 'full');

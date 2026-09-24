@@ -86,8 +86,8 @@ button.link {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 8rem;
-  min-height: 8rem;
+  width: 9rem;
+  min-height: 9rem;
 }
 
 .row-preview appreciator-button {
@@ -209,7 +209,7 @@ button.link {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 13rem;
+  min-height: 15rem;
 }
 
 .try-stage appreciator-button {

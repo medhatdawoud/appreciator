@@ -183,7 +183,7 @@ A button's icon takes one of two shapes:
   and a rejection names the state (`svgSources.hover …`). When present,
   these win over `svgSource` and `colors`.
 
-Either shape can have `iconRing: true`, which draws a 2px circle around the
+Either shape can have `iconRing: true`, which draws a 1px circle around the
 icon in the current state's colour. It defaults to `false` and is returned in
 every `ButtonConfig` and by `/config`. `colors` still matter with per-state
 icons and kept colours: they paint the ring and the count once full.

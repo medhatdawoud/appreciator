@@ -41,7 +41,7 @@ export const REST_OPACITY = { default: 0.45, hover: 0.6 } as const;
 export const PAINT_EXEMPT = 'defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *';
 
 /** How much further out the burst reaches when a ring is drawn around the icon. */
-const RING_REACH = 1.3;
+const RING_REACH = 1.5;
 
 /**
  * Colours come from the button config as `--_c-<state>` on the inner button;
@@ -82,7 +82,7 @@ const RING_REACH = 1.3;
  * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` (six
  * directions, 60 degrees apart) at a constant size, fading in and out.
  *
- * `data-ring` draws a 2px circle around the icon, coloured like the state it
+ * `data-ring` draws a 1px circle around the icon, coloured like the state it
  * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
  */
 const STYLES = `
@@ -188,9 +188,9 @@ svg[data-layer="fill"] {
 }
 :host([data-ring]) [part="icon"] {
   --_ring: var(--appreciator-default, var(--_c-default));
-  border: 2px solid var(--_ring);
+  border: 1px solid var(--_ring);
   border-radius: 50%;
-  padding: calc(var(--appreciator-size, 1.5em) * 0.18);
+  padding: calc(var(--appreciator-size, 1.5em) * 0.3);
   transition: transform 150ms ease, border-color 300ms ease;
 }
 :host([data-ring][data-state="default"]) button:not(:disabled):hover [part="icon"] {

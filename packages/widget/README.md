@@ -89,10 +89,11 @@ uploaded as-is follows the button's colours; definitions (masks, clip paths,
 gradients, symbols) are left alone.
 
 And `data-ring` when the button draws a circle around its icon (`iconRing`):
-a 2px round border on `::part(icon)`, in the `default` colour at rest,
-`hover` under the pointer, `clicked` during the pulse and `full` once full,
-each overridable with the same `--appreciator-*` variables. The burst starts
-and ends further out so it clears the ring.
+a 1px round border on `::part(icon)`, set off from the icon by 0.3 of its
+size, in the `default` colour at rest, `hover` under the pointer, `clicked`
+during the pulse and `full` once full, each overridable with the same
+`--appreciator-*` variables. The burst starts and ends further out so it
+clears the ring.
 
 And `data-icons`, which says how the icon is drawn:
 

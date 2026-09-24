@@ -271,7 +271,7 @@ test('a ring around the icon takes the colour of each state', async ({ page }) =
   await expect(ui.host).toHaveAttribute('data-state', 'default');
   await expect(ui.host).toHaveAttribute('data-ring', '');
 
-  await expect(icon).toHaveCSS('border-top-width', '2px');
+  await expect(icon).toHaveCSS('border-top-width', '1px');
   await expect(icon).toHaveCSS('border-top-style', 'solid');
   await expect(icon).toHaveCSS('border-radius', '50%');
   await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.default));

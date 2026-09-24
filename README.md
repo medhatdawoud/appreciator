@@ -558,7 +558,7 @@ for multi-colour mascots and logos: the SVG is drawn as designed, grayscale at
 first, filling into its real colours as visitors click. The four colours then
 only paint the ring and the count once full.
 
-**A ring** (`iconRing: true`, or "Draw a circle around the icon") puts a 2px
+**A ring** (`iconRing: true`, or "Draw a circle around the icon") puts a 1px
 circle around any of these icons, in the colour of the state it is in.
 
 `svg-gen` is optional; it only pre-bakes the same recolouring into the file and
