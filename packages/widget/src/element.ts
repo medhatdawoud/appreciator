@@ -21,7 +21,11 @@ export const BURST_MS = 800;
 /** How long the count takes to roll to its new number. Matches the roll keyframes below. */
 export const ROLL_MS = 320;
 
-/** Copies of the icon thrown out when the allowance is spent, one per direction. */
+/** Where a burst copy appears and where it ends, in icon sizes from the icon's centre. */
+const BURST_START_RADIUS = 0.6;
+const BURST_END_RADIUS = 1.5;
+
+/** Copies of the icon thrown out on each click, one per direction. */
 export const BURST_PARTICLES = 6;
 
 const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'full'];
@@ -59,8 +63,9 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * one rolls in from below (`.roll-in`), like an odometer.
  *
  * `[part="burst"]` holds small full-colour copies of the icon, hidden until
- * `data-burst` is set: each then flies out along its own `--dx`/`--dy`
- * (six directions, 60 degrees apart) and fades.
+ * `data-burst` is set on a click: each then appears just outside the icon's
+ * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` (six
+ * directions, 60 degrees apart), fading in and out.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -175,12 +180,13 @@ svg[data-layer="fill"] {
 }
 :host([data-burst]) [part="burst"] svg {
   visibility: visible;
-  animation: appreciator-burst 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+  animation: appreciator-burst 700ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
 }
 @keyframes appreciator-burst {
-  0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
-  60% { opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(0.35); opacity: 0; }
+  0% { transform: translate(var(--sx), var(--sy)) scale(0.7); opacity: 0; }
+  10% { opacity: 1; }
+  65% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.45); opacity: 0; }
 }
 @keyframes appreciator-roll-out {
   to { transform: translateY(-100%); opacity: 0; }
@@ -495,8 +501,8 @@ export class AppreciatorButton extends HTMLElement {
   }
 
   /**
-   * A click with allowance left counts; a click once it is spent counts
-   * nothing and replays the burst, so a full button still answers.
+   * Every click bursts. A click with allowance left also counts; a click once
+   * it is spent counts nothing, so a full button still answers.
    */
   private handleClick(): void {
     const counts = this.displayedCounts();
@@ -508,7 +514,7 @@ export class AppreciatorButton extends HTMLElement {
     this.pending += 1;
     this.pulse();
     this.rollNext = true;
-    if (optimisticClick(counts).maxed) this.burst();
+    this.burst();
     this.render();
     this.draining ??= this.drain().finally(() => {
       this.draining = null;
@@ -734,14 +740,14 @@ function parseParticles(config: ButtonPublicConfig): Element[] {
     if (particle === null) return [];
     const angle = (i * 2 * Math.PI) / BURST_PARTICLES - Math.PI / 2;
     const style = (particle as SVGElement).style;
-    style.setProperty(
-      '--dx',
-      `calc(var(--appreciator-size, 1.5em) * ${round(Math.cos(angle) * 1.4)})`,
-    );
-    style.setProperty(
-      '--dy',
-      `calc(var(--appreciator-size, 1.5em) * ${round(Math.sin(angle) * 1.4)})`,
-    );
+    const at = (radius: number, trig: (value: number) => number): string =>
+      `calc(var(--appreciator-size, 1.5em) * ${round(trig(angle) * radius)})`;
+    // From just outside the icon's edge (the icon is one size across) to well
+    // beyond it.
+    style.setProperty('--sx', at(BURST_START_RADIUS, Math.cos));
+    style.setProperty('--sy', at(BURST_START_RADIUS, Math.sin));
+    style.setProperty('--dx', at(BURST_END_RADIUS, Math.cos));
+    style.setProperty('--dy', at(BURST_END_RADIUS, Math.sin));
     style.setProperty('--delay', `${i * 15}ms`);
     particles.push(particle);
   }

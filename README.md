@@ -51,9 +51,9 @@ the person running an instance, or deploys their own in about ten minutes.
   hosted on GitHub Pages.
 - **Progress you can see.** The icon is a gray silhouette that fills with
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
-  bottom 30%, 10 of 10 is fully coloured. Each click also pulses, and the
-  click that uses up the allowance throws six copies of the icon out of the
-  button; clicking a full button replays that burst without counting. The
+  bottom 30%, 10 of 10 is fully coloured. Each click also pulses and throws
+  six small copies of the icon out from around it; clicking a full button
+  still bursts but counts nothing. The
   count rolls up to its new number like an odometer on every counted click,
   and can sit on any side of the icon (`data-count`). Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons

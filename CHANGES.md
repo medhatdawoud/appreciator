@@ -3,6 +3,19 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — The burst plays on every click, from around the icon
+
+- Every click now bursts, not only the one that spends the allowance and the
+  ones after it. Counted clicks burst and count; clicks on a full button
+  burst and count nothing, as before. Loading never bursts.
+- The six copies appear just outside the icon's edge (0.6 sizes from its
+  centre, `--sx`/`--sy`) and fly out to 1.5 sizes (`--dx`/`--dy`), fading in
+  and out, instead of starting hidden behind the icon's centre. A softer
+  ease-out curve makes the outward travel visible, and the copies are a
+  little bigger (70% → 45% of their base size, was 60% → 35%).
+- Tests: unit tests for a burst on every counted click and for each copy
+  starting outside the icon's edge and ending further out.
+
 ## 2026-09-24 — `--appreciator-size` scales the whole button
 
 - `--appreciator-size` used to size only the icon; the count followed the

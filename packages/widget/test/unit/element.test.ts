@@ -418,22 +418,40 @@ describe('AppreciatorButton', () => {
       expect(element.hasAttribute('data-burst')).toBe(false);
     });
 
-    it('plays on the click that spends the allowance, then stops', async () => {
+    it('plays on every counted click, then stops', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const element = await mountReady();
       const bursts = recordEvents(element, 'appreciator:burst');
 
       innerButton(element).click();
-      innerButton(element).click();
-      expect(element.hasAttribute('data-burst')).toBe(false);
-
-      innerButton(element).click();
       expect(element.hasAttribute('data-burst')).toBe(true);
-      expect(bursts).toHaveLength(1);
+      innerButton(element).click();
+      innerButton(element).click();
+      expect(bursts).toHaveLength(3);
 
       await element.whenIdle();
       await vi.advanceTimersByTimeAsync(BURST_MS);
       expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+
+    it('starts each copy just outside the icon and sends it further out', async () => {
+      const element = await mountReady();
+      const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
+
+      for (const particle of particles(element)) {
+        const style = (particle as SVGElement).style;
+        const start = Math.hypot(
+          size(style.getPropertyValue('--sx')),
+          size(style.getPropertyValue('--sy')),
+        );
+        const end = Math.hypot(
+          size(style.getPropertyValue('--dx')),
+          size(style.getPropertyValue('--dy')),
+        );
+        // The icon is one size across, so its edge is half a size out.
+        expect(start).toBeGreaterThan(0.5);
+        expect(end).toBeGreaterThan(start);
+      }
     });
 
     it('replays on every click once spent, counting nothing', async () => {
