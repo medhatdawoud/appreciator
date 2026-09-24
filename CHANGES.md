@@ -3,6 +3,18 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — `--appreciator-size` scales the whole button
+
+- `--appreciator-size` used to size only the icon; the count followed the
+  host page's font and the gap the button's `em`, so a bigger icon kept a
+  small count. The count is now `size / 1.5` and the gap `size / 3` (`/ 6`
+  stacked). With no size set these equal the previous `1em`, `0.5em` and
+  `0.25em`, so default buttons look the same. `::part(count)` still sizes the
+  count on its own.
+- The landing page drops the `font-size` it paired with every size.
+- Tests: an e2e that unsets the size (count equals the page font), then sets
+  60px (count 40px, gap 20px) and 30px (count 20px).
+
 ## 2026-09-24 — Uploaded SVGs take the button's colours; keep-own-colours switch
 
 - **Bug.** An SVG uploaded as-is rendered black and ignored the button's

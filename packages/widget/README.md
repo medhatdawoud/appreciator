@@ -118,7 +118,10 @@ If loading fails the element gets `data-error` (e.g. `network_error`,
 ### Theming
 
 Colours come from the button's server-side config. A page can override them,
-and the icon size, with CSS custom properties on the element:
+and the size, with CSS custom properties on the element. `--appreciator-size`
+sizes the whole button: the count is two thirds of it and the gap a third
+(half that when stacked), so with no size set they match the page's font as
+before. Size the count on its own with `::part(count) { font-size: … }`:
 
 ```css
 appreciator-button {

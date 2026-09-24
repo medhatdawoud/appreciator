@@ -493,12 +493,11 @@ The package is not published to npm yet; use a git dependency or copy
 
 ```css
 appreciator-button {
-  --appreciator-size: 2rem; /* icon size, default 1.5em */
+  --appreciator-size: 2rem; /* icon size, default 1.5em; the count and gap scale with it */
   --appreciator-default: #9ca3af; /* the gray silhouette */
   --appreciator-hover: #374151; /* the silhouette while hovered */
   --appreciator-clicked: #f43f5e; /* the filled part during the pulse */
   --appreciator-full: #e11d48; /* the filled part */
-  font-size: 1.25rem; /* the count inherits the page font */
 }
 appreciator-button::part(count) {
   font-weight: 600;

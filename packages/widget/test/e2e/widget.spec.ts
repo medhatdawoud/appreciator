@@ -254,6 +254,32 @@ test('a raw uploaded SVG takes the button colours, unless it keeps its own', asy
   await expect(own.base).toHaveCSS('filter', 'grayscale(1)');
 });
 
+test('--appreciator-size scales the count and the gap with the icon', async ({ page }) => {
+  const ui = await open(page);
+  const icon = ui.host.locator('[part="icon"]');
+  const measure = async () => {
+    const iconBox = await icon.boundingBox();
+    const countBox = await ui.count.boundingBox();
+    const fontSize = await ui.count.evaluate((element) => getComputedStyle(element).fontSize);
+    if (iconBox === null || countBox === null) throw new Error('expected laid-out parts');
+    return { fontSize, gap: countBox.x - (iconBox.x + iconBox.width) };
+  };
+
+  // With no size set (the example page sets one, so unset it), the count is
+  // the page's own font size, as it always was.
+  await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', 'initial'));
+  const pageFont = await ui.host.evaluate((element) => getComputedStyle(element).fontSize);
+  expect((await measure()).fontSize).toBe(pageFont);
+
+  await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '60px'));
+  const sized = await measure();
+  expect(sized.fontSize).toBe('40px');
+  expect(Math.round(sized.gap)).toBe(20);
+
+  await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '30px'));
+  expect((await measure()).fontSize).toBe('20px');
+});
+
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {
   await page.goto(pageUrl(`e2e-${randomUUID()}`, 'localhost'));
   const ui = widget(page);

@@ -51,6 +51,9 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
  *
+ * The count and the gap scale with `--appreciator-size`; at the default size
+ * they are exactly the host's font size and half of it.
+ *
  * `[part="count"]` holds the number in a one-line, clipped grid cell. When a
  * click raises it, the old number rolls up and out (`.roll-out`) while the new
  * one rolls in from below (`.roll-in`), like an odometer.
@@ -67,7 +70,7 @@ button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 0.5em;
+  gap: calc(var(--appreciator-size, 1.5em) / 3);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -76,9 +79,16 @@ button {
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }
 :host([data-count="left"]) button { flex-direction: row-reverse; }
-:host([data-count="top"]) button { flex-direction: column-reverse; gap: 0.25em; }
-:host([data-count="bottom"]) button { flex-direction: column; gap: 0.25em; }
+:host([data-count="top"]) button {
+  flex-direction: column-reverse;
+  gap: calc(var(--appreciator-size, 1.5em) / 6);
+}
+:host([data-count="bottom"]) button {
+  flex-direction: column;
+  gap: calc(var(--appreciator-size, 1.5em) / 6);
+}
 [part="count"] {
+  font-size: calc(var(--appreciator-size, 1.5em) / 1.5);
   display: inline-grid;
   overflow: hidden;
   justify-items: start;
