@@ -77,7 +77,7 @@ const RING_REACH = 1.5;
  * state, tagged `data-for`, and these rules show exactly one of them. Hover
  * stays a CSS-only state in both modes.
  *
- * The count and the gap scale with `--appreciator-size`: the count is 55% of
+ * The count and the gap scale with `--appreciator-size`: the count is 65% of
  * it, a step below the icon so the two do not compete, and the gap half of it
  * (three quarters with a ring, so the count stands clear of it).
  * Once the allowance is spent the count takes the `full` colour too.
@@ -126,7 +126,7 @@ button:disabled { cursor: default; }
   gap: calc(var(--appreciator-size, 1.5em) / 2);
 }
 [part="count"] {
-  font-size: calc(var(--appreciator-size, 1.5em) * 0.55);
+  font-size: calc(var(--appreciator-size, 1.5em) * 0.65);
   transition: color 300ms ease;
   display: inline-grid;
   overflow: hidden;

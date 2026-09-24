@@ -3,6 +3,14 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A larger count
+
+- The count is 65% of `--appreciator-size` (was 55%): a 3rem icon gets a
+  1.95rem count, and with no size set it is about 0.98× the page font.
+  `::part(count)` still overrides it.
+- Tests: the e2e size ratios (60px → 39px, 40px → 26px, unset → 0.975× the
+  page font).
+
 ## 2026-09-25 — The burst is a pentagon aimed away from the count
 
 - Five copies instead of six, flying to the corners of a regular pentagon

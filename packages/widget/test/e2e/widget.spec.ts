@@ -334,21 +334,21 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
     return { fontSize, gap: countBox.x - (iconBox.x + iconBox.width) };
   };
 
-  // The count is 55% of the size: a step below the icon. With no size set
-  // (the example page sets one, so unset it), that is 55% of 1.5em.
+  // The count is 65% of the size: a step below the icon. With no size set
+  // (the example page sets one, so unset it), that is 65% of 1.5em.
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', 'initial'));
   const pageFont = await ui.host.evaluate((element) =>
     Number.parseFloat(getComputedStyle(element).fontSize),
   );
-  expect(Number.parseFloat((await measure()).fontSize)).toBeCloseTo(pageFont * 0.825, 1);
+  expect(Number.parseFloat((await measure()).fontSize)).toBeCloseTo(pageFont * 0.975, 1);
 
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '60px'));
   const sized = await measure();
-  expect(sized.fontSize).toBe('33px');
+  expect(sized.fontSize).toBe('39px');
   expect(Math.round(sized.gap)).toBe(30);
 
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '40px'));
-  expect((await measure()).fontSize).toBe('22px');
+  expect((await measure()).fontSize).toBe('26px');
 });
 
 test('the burst never crosses the count, wherever it sits, with or without a ring', async ({

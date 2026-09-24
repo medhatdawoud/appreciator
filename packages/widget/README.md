@@ -129,10 +129,10 @@ If loading fails the element gets `data-error` (e.g. `network_error`,
 
 Colours come from the button's server-side config. A page can override them,
 and the size, with CSS custom properties on the element. `--appreciator-size`
-sizes the whole button: the count is 55% of it, a step below the icon, and
+sizes the whole button: the count is 65% of it, a step below the icon, and
 the gap half of it (a quarter when stacked), or with a ring three quarters (a
 half when stacked). With no size set the icon is `1.5em`, so the count is
-about 0.83× the page's font. Size the count on its own with
+about 0.98× the page's font. Size the count on its own with
 `::part(count) { font-size: … }`:
 
 ```css
