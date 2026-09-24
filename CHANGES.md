@@ -3,6 +3,13 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — More room between a ring and the count
+
+- With a ring, the gap between the icon and the count is three quarters of
+  `--appreciator-size` (a half when stacked), instead of a half (a quarter),
+  so the count stands clear of the circle.
+- Tests: the ring e2e measures the gap from the ring's edge to the count.
+
 ## 2026-09-25 — Choose the count position in the dashboard
 
 - The create and edit form has a "Count position" picker (right, left,

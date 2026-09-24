@@ -277,6 +277,10 @@ test('a ring around the icon takes the colour of each state', async ({ page }) =
   await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.default));
   const box = await icon.boundingBox();
   expect(box?.width).toBeCloseTo(box?.height ?? 0, 0);
+  // The count stands further off than without a ring: three quarters of the
+  // 32px size the example page sets, from the ring's outer edge.
+  const countBox = await ui.count.boundingBox();
+  expect((countBox?.x ?? 0) - ((box?.x ?? 0) + (box?.width ?? 0))).toBeCloseTo(24, 0);
 
   await ui.button.hover();
   await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.hover));
