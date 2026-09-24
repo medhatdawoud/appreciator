@@ -318,7 +318,8 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   expect(fits).toEqual({ page: true, blocks: [true, true] });
   await page.setViewportSize({ width: 1280, height: 720 });
 
-  // Each snippet fills the row beside the preview.
+  // Each snippet fills the row beside the preview, and shows its scrollbar
+  // only under the pointer.
   const snippet = row.locator('pre').first();
   const [previewBox, snippetBox, rowBox] = await Promise.all([
     row.locator('.row-preview').boundingBox(),
@@ -329,6 +330,10 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   expect(
     (rowBox?.x ?? 0) + (rowBox?.width ?? 0) - ((snippetBox?.x ?? 0) + (snippetBox?.width ?? 0)),
   ).toBeLessThan(24);
+  await page.mouse.move(0, 0);
+  await expect(snippet).toHaveCSS('scrollbar-color', 'rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+  await snippet.hover();
+  await expect(snippet).not.toHaveCSS('scrollbar-color', 'rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
 
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await row.locator('[data-copy-element]').click();

@@ -3,6 +3,13 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Snippet scrollbars show only on hover
+
+- A code block's scrollbar keeps its room but is transparent until the
+  pointer is over the block, so it neither clutters the snippets nor shifts
+  them when it appears. Trackpad and keyboard scrolling work as before.
+- Tests: the dashboard e2e checks the scrollbar colour at rest and on hover.
+
 ## 2026-09-25 — Button rows: snippets use the full width beside the preview
 
 - Counts, Edit and Delete sit on the name's line instead of in a column of
