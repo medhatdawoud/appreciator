@@ -510,6 +510,31 @@
 
   let itemsContext = null;
 
+  /**
+   * A page counter links to its page; an opaque item id stays text. Keys are
+   * created by visitors' pages, so only plain http(s) becomes a link.
+   */
+  function itemCell(itemKey) {
+    const td = document.createElement('td');
+    let url = null;
+    try {
+      url = new URL(itemKey);
+    } catch {
+      url = null;
+    }
+    if (url === null || (url.protocol !== 'https:' && url.protocol !== 'http:')) {
+      td.textContent = itemKey;
+      return td;
+    }
+    const link = document.createElement('a');
+    link.href = url.href;
+    link.textContent = itemKey;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    td.append(link);
+    return td;
+  }
+
   async function loadItems(reset) {
     const { siteId, buttonId } = itemsContext;
     const params = new URLSearchParams({ limit: '50' });
@@ -521,8 +546,8 @@
     if (reset) body.replaceChildren();
     for (const item of page.items) {
       const tr = document.createElement('tr');
+      tr.append(itemCell(item.itemKey));
       for (const [text, className] of [
-        [item.itemKey, ''],
         [String(item.totalCount), 'num'],
         [new Date(item.updatedAt).toLocaleString(), ''],
       ]) {

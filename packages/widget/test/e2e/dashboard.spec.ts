@@ -154,6 +154,9 @@ test('walks a new account from its first site to a counted click and back to not
   const items = page.locator('[data-items-body] tr');
   await expect(items).toHaveCount(1);
   await expect(items.first().locator('td').nth(0)).toHaveText(`${PAGE_ORIGIN}/`);
+  const pageLink = items.first().locator('td').nth(0).getByRole('link');
+  await expect(pageLink).toHaveAttribute('href', `${PAGE_ORIGIN}/`);
+  await expect(pageLink).toHaveAttribute('target', '_blank');
   await expect(items.first().locator('td').nth(1)).toHaveText('1');
   const filter = page.locator('[data-form="items-filter"]');
   await filter.locator('input[name="origin"]').fill('https://nope.test');

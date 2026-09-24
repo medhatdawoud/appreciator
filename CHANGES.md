@@ -3,6 +3,21 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Leaderboard and counts link to the pages themselves
+
+- The leaderboard links each site to its most-clicked page instead of its
+  most-clicked origin, and shows that page's address under the name, both
+  one link. Clicks on the same page from two buttons are summed. Only the
+  origin and path are published, never a full-URL counter's query or
+  fragment, which on someone else's page can carry a session or token. A
+  site's 25 most-clicked pages are considered, loopback ones skipped.
+- In the dashboard's counts, a page counter is a link to the page (new tab);
+  an opaque item id stays text.
+- Tests: integration tests for the page choice across buttons, loopback and
+  opaque keys, stripping the query and fragment, a root without a trailing
+  slash, and ties. The e2e checks the leaderboard link and its address, and
+  the link in the counts table.
+
 ## 2026-09-25 — Snippet scrollbars show only on hover
 
 - A code block's scrollbar keeps its room but is transparent until the

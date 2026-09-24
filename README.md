@@ -94,7 +94,8 @@ the person running an instance, or deploys their own in about ten minutes.
 6. Come back to the dashboard for counts per page (filterable by origin), to
    change the icon, colours or cap, to add origins, or to rotate the key.
    Visit `/leaderboard` to see which of your sites is the most appreciated;
-   each name links to the site origin that collected the most clicks.
+   each name links to the site's most-clicked page, whose address shows under
+   it. In the dashboard's counts, each page is a link to that page.
 
 ## Architecture
 
