@@ -315,11 +315,20 @@
           <appreciator-button data-button-row-preview></appreciator-button>
         </div>
         <div class="row-main">
-          <strong data-button-row-name></strong>
-          <span class="muted"
-            ><code data-button-row-key></code> · <span data-button-row-cap></span> clicks ·
-            <span data-button-row-origins></span
-          ></span>
+          <div class="row-head">
+            <div class="row-title">
+              <strong data-button-row-name></strong>
+              <span class="muted"
+                ><code data-button-row-key></code> · <span data-button-row-cap></span> clicks ·
+                <span data-button-row-origins></span
+              ></span>
+            </div>
+            <div class="actions">
+              <a class="btn btn-secondary" data-button-row-items href="#">Counts</a>
+              <a class="btn btn-secondary" data-button-row-edit href="#">Edit</a>
+              <button type="button" class="btn btn-danger" data-button-row-delete>Delete</button>
+            </div>
+          </div>
           <small class="muted">One tag: the button appears where you paste it.</small>
           <div class="code-block small">
             <pre><code data-button-row-snippet></code></pre>
@@ -333,11 +342,6 @@
             <pre><code data-button-row-element></code></pre>
             <button class="copy" type="button" data-copy-element>Copy</button>
           </div>
-        </div>
-        <div class="actions">
-          <a class="btn btn-secondary" data-button-row-items href="#">Counts</a>
-          <a class="btn btn-secondary" data-button-row-edit href="#">Edit</a>
-          <button type="button" class="btn btn-danger" data-button-row-delete>Delete</button>
         </div>
       </li>
     </template>

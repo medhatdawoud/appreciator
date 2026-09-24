@@ -3,6 +3,15 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Button rows: snippets use the full width beside the preview
+
+- Counts, Edit and Delete sit on the name's line instead of in a column of
+  their own, so the snippets below span the whole row next to the preview.
+  On a narrow screen the preview stacks above, and the snippets take the
+  full width.
+- Tests: the dashboard e2e checks that a snippet starts beside the preview
+  and ends at the row's edge.
+
 ## 2026-09-25 — Snippets scroll inside their block
 
 - **Bug.** On a site's button list, a long snippet widened its row and gave

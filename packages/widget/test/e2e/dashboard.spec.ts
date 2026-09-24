@@ -318,6 +318,18 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   expect(fits).toEqual({ page: true, blocks: [true, true] });
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  // Each snippet fills the row beside the preview.
+  const snippet = row.locator('pre').first();
+  const [previewBox, snippetBox, rowBox] = await Promise.all([
+    row.locator('.row-preview').boundingBox(),
+    snippet.boundingBox(),
+    row.boundingBox(),
+  ]);
+  expect((snippetBox?.x ?? 0) - ((previewBox?.x ?? 0) + (previewBox?.width ?? 0))).toBeLessThan(24);
+  expect(
+    (rowBox?.x ?? 0) + (rowBox?.width ?? 0) - ((snippetBox?.x ?? 0) + (snippetBox?.width ?? 0)),
+  ).toBeLessThan(24);
+
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await row.locator('[data-copy-element]').click();
   await expect(row.locator('[data-copy-element]')).toHaveText('Copied');
