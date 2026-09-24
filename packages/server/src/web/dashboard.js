@@ -253,7 +253,10 @@
     buttons.forEach(({ svgSources, ...button }, index) => {
       // The widget reads a single icon from an absent svgSources, not a null one.
       const config = svgSources ? { ...button, svgSources } : button;
-      $('[data-button-row-preview]', list.children[index])?.preview?.(config);
+      const preview = $('[data-button-row-preview]', list.children[index]);
+      if (!preview) return;
+      preview.dataset.count = button.countPosition;
+      preview.preview?.(config);
     });
 
     const created = state.justCreatedButtonId;
@@ -386,6 +389,7 @@
     const ready = config !== null && typeof tryButton.preview === 'function';
     tryButton.hidden = !ready;
     $('[data-preview-empty]').hidden = ready;
+    tryButton.dataset.count = form.elements.countPosition.value;
     if (ready) tryButton.preview(config);
   }
 
@@ -418,6 +422,7 @@
     form.elements.maxClicks.value = String(button.maxClicks);
     form.elements.urlNormalization.value = button.urlNormalization;
     form.elements.iconRing.checked = button.iconRing === true;
+    form.elements.countPosition.value = button.countPosition ?? 'right';
     for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
     if (button.svgSources) {
       form.elements.iconMode.value = 'states';
@@ -447,6 +452,7 @@
       urlNormalization: form.elements.urlNormalization.value,
       colors: readColors(),
       iconRing: form.elements.iconRing.checked,
+      countPosition: form.elements.countPosition.value,
     };
     if (iconMode() === 'single') {
       input.svgSource = form.elements.svgSource.value;

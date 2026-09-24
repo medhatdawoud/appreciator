@@ -216,6 +216,12 @@ button.link {
   --appreciator-size: 3rem;
 }
 
+.count-position {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 22rem;
+}
+
 .try-foot {
   display: flex;
   align-items: center;

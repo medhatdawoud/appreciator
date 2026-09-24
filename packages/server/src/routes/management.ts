@@ -55,6 +55,7 @@ const inputProperties = {
   svgSources: svgSourcesSchema,
   keepIconColors: { type: 'boolean' },
   iconRing: { type: 'boolean' },
+  countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
 };
 
@@ -90,6 +91,7 @@ const buttonConfigSchema = {
     'svgSources',
     'keepIconColors',
     'iconRing',
+    'countPosition',
     'urlNormalization',
     'createdAt',
     'embedSnippet',
@@ -106,6 +108,7 @@ const buttonConfigSchema = {
     svgSources: { ...svgSourcesSchema, type: ['object', 'null'] },
     keepIconColors: { type: 'boolean' },
     iconRing: { type: 'boolean' },
+    countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
     embedSnippet: { type: 'string' },
@@ -318,6 +321,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       // a PATCH leaves something to render.
       const svgSource = input.svgSource ?? DEFAULT_SVG_SOURCE;
       const colors = input.colors ?? DEFAULT_COLORS;
+      const countPosition = input.countPosition ?? 'right';
 
       const { id, publicKey } = await insertButton(app.pool, {
         tenantId,
@@ -329,6 +333,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         svgSources: input.svgSources ?? null,
         keepIconColors: input.keepIconColors ?? false,
         iconRing: input.iconRing ?? false,
+        countPosition,
         urlNormalization: input.urlNormalization ?? 'pathname',
       });
 
@@ -337,8 +342,8 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       return {
         buttonId: id,
         publicKey,
-        embedSnippet: buildEmbedSnippet(app.appConfig.publicBaseUrl, publicKey),
-        elementSnippet: buildElementSnippet(app.appConfig.publicBaseUrl, publicKey),
+        embedSnippet: buildEmbedSnippet(app.appConfig.publicBaseUrl, publicKey, countPosition),
+        elementSnippet: buildElementSnippet(app.appConfig.publicBaseUrl, publicKey, countPosition),
       };
     },
   );
@@ -405,6 +410,9 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         assignments.push(['keep_icon_colors', patch.keepIconColors]);
       }
       if (patch.iconRing !== undefined) assignments.push(['icon_ring', patch.iconRing]);
+      if (patch.countPosition !== undefined) {
+        assignments.push(['count_position', patch.countPosition]);
+      }
 
       const setClause = assignments.map(([column]) => `${column} = ?`).join(', ');
       await execute(app.pool, `UPDATE buttons SET ${setClause} WHERE id = ? AND tenant_id = ?`, [

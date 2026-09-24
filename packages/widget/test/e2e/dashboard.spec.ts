@@ -274,6 +274,13 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(preview.locator('[part="count"]')).toHaveText('0');
   await expect(preview).toHaveAttribute('data-state', 'default');
 
+  // The count moves to the left of the icon, in the preview first.
+  await page.locator('select[name="countPosition"]').selectOption('left');
+  await expect(preview).toHaveAttribute('data-count', 'left');
+  const countBox = await preview.locator('[part="count"]').boundingBox();
+  const iconBox = await preview.locator('[part="icon"]').boundingBox();
+  expect((countBox?.x ?? 0) + (countBox?.width ?? 0)).toBeLessThanOrEqual(iconBox?.x ?? 0);
+
   await page.locator('[data-submit]').click();
   await expect(view(page, 'site')).toBeVisible();
 
@@ -282,21 +289,25 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   const rowPreview = row.locator('[data-button-row-preview]');
   await expect(rowPreview).toHaveAttribute('data-ring', '');
   await expect(rowPreview).toHaveAttribute('data-icons', 'single');
+  await expect(rowPreview).toHaveAttribute('data-count', 'left');
   await expect(rowPreview.locator('svg[data-layer="fill"] path')).toHaveCSS('fill', rgb('#00aa00'));
   await rowPreview.locator('button').click();
   await expect(rowPreview.locator('[part="count"]')).toHaveText('1');
 
   // Beside the one-tag embed, the script and element to place it anywhere.
   const publicKey = (await row.locator('[data-button-row-key]').textContent()) ?? '';
+  await expect(row.locator('[data-button-row-snippet]')).toHaveText(
+    `<script src="${API_ORIGIN}/widget.js" data-key="${publicKey}" data-count="left" async></script>`,
+  );
   await expect(row.locator('[data-button-row-element]')).toHaveText(
     `<script src="${API_ORIGIN}/widget.js" async></script>\n` +
-      `<appreciator-button data-key="${publicKey}"></appreciator-button>`,
+      `<appreciator-button data-key="${publicKey}" data-count="left"></appreciator-button>`,
   );
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await row.locator('[data-copy-element]').click();
   await expect(row.locator('[data-copy-element]')).toHaveText('Copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
-    `<appreciator-button data-key="${publicKey}">`,
+    `<appreciator-button data-key="${publicKey}" data-count="left">`,
   );
   expect(counted).toEqual([]);
   const { buttons } = await dashboardApi<{
@@ -313,6 +324,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await page.locator('[data-button-row-edit]').click();
   await expect(page.locator('input[name="iconMode"][value="single"]')).toBeChecked();
   await expect(page.locator('input[name="iconRing"]')).toBeChecked();
+  await expect(page.locator('select[name="countPosition"]')).toHaveValue('left');
   await expect(page.locator('input[name="color-full"]')).toHaveValue('#00aa00');
   await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
 

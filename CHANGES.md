@@ -3,6 +3,21 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Choose the count position in the dashboard
+
+- The create and edit form has a "Count position" picker (right, left,
+  above, below). "Try it" moves the count as it changes, and each button
+  row's preview shows the saved position.
+- It is saved on the button as `countPosition` (migration 011, default
+  `right`) and written into both snippets as `data-count`, left out for
+  `right`. The widget is unchanged: `data-count` already placed the count.
+  A page already embedding a button keeps its snippet's position until the
+  snippet is pasted again.
+- Tests: integration tests for the default, both snippets, PATCH and an
+  unknown position. The dashboard e2e picks "left", checks the preview puts
+  the count left of the icon, and checks the saved snippets, the row preview
+  and the edit form.
+
 ## 2026-09-25 — A lighter ring, further from the icon
 
 - The ring is 1px (was 2px), and set 0.3 of the icon size away from it (was

@@ -5,6 +5,7 @@ import type {
   ButtonConfig,
   ButtonState,
   ButtonSvgSources,
+  CountPosition,
   UrlNormalization,
 } from '@appreciator/shared';
 
@@ -26,6 +27,7 @@ export interface ButtonRow {
   svg_sources: unknown;
   keep_icon_colors: number | boolean;
   icon_ring: number | boolean;
+  count_position: CountPosition;
   url_normalization: UrlNormalization;
   created_at: Date;
 }
@@ -35,7 +37,7 @@ export interface ButtonRow {
  * silently start pulling extra columns into responses.
  */
 export const BUTTON_COLUMNS =
-  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, url_normalization, created_at';
+  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, count_position, url_normalization, created_at';
 
 /**
  * mysql2 usually hands back JSON columns already parsed, but returns a string
@@ -92,22 +94,35 @@ function toSvgSources(value: unknown): ButtonSvgSources | null {
   return sources as ButtonSvgSources;
 }
 
+/** `data-count`, left out for the widget's own default so snippets stay short. */
+function countAttribute(countPosition: CountPosition): string {
+  return countPosition === 'right' ? '' : ` data-count="${countPosition}"`;
+}
+
 /**
  * One tag: the bundle reads its own `src` to find the server and its `data-*`
  * attributes to render the button where the tag sits.
  */
-export function buildEmbedSnippet(baseUrl: string, publicKey: string): string {
-  return `<script src="${baseUrl}/widget.js" data-key="${publicKey}" async></script>`;
+export function buildEmbedSnippet(
+  baseUrl: string,
+  publicKey: string,
+  countPosition: CountPosition,
+): string {
+  return `<script src="${baseUrl}/widget.js" data-key="${publicKey}"${countAttribute(countPosition)} async></script>`;
 }
 
 /**
  * The script, loaded once per page, and the element wherever the button
  * should appear: for pages that place it themselves or show several.
  */
-export function buildElementSnippet(baseUrl: string, publicKey: string): string {
+export function buildElementSnippet(
+  baseUrl: string,
+  publicKey: string,
+  countPosition: CountPosition,
+): string {
   return (
     `<script src="${baseUrl}/widget.js" async></script>\n` +
-    `<appreciator-button data-key="${publicKey}"></appreciator-button>`
+    `<appreciator-button data-key="${publicKey}"${countAttribute(countPosition)}></appreciator-button>`
   );
 }
 
@@ -128,10 +143,11 @@ export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonCon
     // TINYINT(1) comes back as a number.
     keepIconColors: Boolean(row.keep_icon_colors),
     iconRing: Boolean(row.icon_ring),
+    countPosition: row.count_position,
     urlNormalization: row.url_normalization,
     createdAt: row.created_at.toISOString(),
-    embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key),
-    elementSnippet: buildElementSnippet(publicBaseUrl, row.public_key),
+    embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key, row.count_position),
+    elementSnippet: buildElementSnippet(publicBaseUrl, row.public_key, row.count_position),
   };
 }
 
@@ -188,6 +204,8 @@ export interface NewButton {
   keepIconColors?: boolean;
   /** Defaults to false. */
   iconRing?: boolean;
+  /** Defaults to `right`. */
+  countPosition?: CountPosition;
   urlNormalization: UrlNormalization;
 }
 
@@ -202,8 +220,8 @@ export async function insertButton(
     executor,
     `INSERT INTO buttons
        (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
-        svg_sources, keep_icon_colors, icon_ring, url_normalization)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        svg_sources, keep_icon_colors, icon_ring, count_position, url_normalization)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       button.tenantId,
@@ -216,6 +234,7 @@ export async function insertButton(
       button.svgSources === null ? null : JSON.stringify(button.svgSources),
       button.keepIconColors === true,
       button.iconRing === true,
+      button.countPosition ?? 'right',
       button.urlNormalization,
     ],
   );

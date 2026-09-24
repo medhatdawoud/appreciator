@@ -620,6 +620,51 @@ describe('management routes', () => {
     });
   });
 
+  describe('the count position', () => {
+    it('defaults to the right, which the snippets leave to the widget', async () => {
+      const created = await createButton();
+
+      const [listed] = await listButtons();
+
+      expect(listed?.countPosition).toBe('right');
+      expect(created.embedSnippet).not.toContain('data-count');
+      expect(created.elementSnippet).not.toContain('data-count');
+    });
+
+    it('is written into both snippets', async () => {
+      const created = await createButton(validInput({ countPosition: 'left' }));
+
+      expect(created.embedSnippet).toContain(
+        `data-key="${created.publicKey}" data-count="left" async>`,
+      );
+      expect(created.elementSnippet).toContain(
+        `<appreciator-button data-key="${created.publicKey}" data-count="left">`,
+      );
+      const [listed] = await listButtons();
+      expect(listed).toMatchObject({
+        countPosition: 'left',
+        embedSnippet: created.embedSnippet,
+        elementSnippet: created.elementSnippet,
+      });
+    });
+
+    it('can be changed with a PATCH, which rewrites the snippets', async () => {
+      const created = await createButton();
+
+      const response = await patchButton(created.buttonId, { countPosition: 'bottom' });
+
+      expect(response.json()).toMatchObject({ countPosition: 'bottom' });
+      expect(response.json().embedSnippet).toContain('data-count="bottom"');
+      expect(response.json().elementSnippet).toContain('data-count="bottom"');
+    });
+
+    it('refuses a position the widget does not know', async () => {
+      const response = await postButton(validInput({ countPosition: 'middle' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('the ring around the icon', () => {
     it('is off unless asked for, and round-trips when it is', async () => {
       await createButton();

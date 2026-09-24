@@ -163,6 +163,12 @@ Every `ButtonConfig` — each entry of `GET /v1/buttons` and the `PATCH`
 response — carries the same `embedSnippet` and `elementSnippet`, so they can
 be fetched again later.
 
+`countPosition` (`right`, the default, `left`, `top` or `bottom`) is where the
+count sits beside the icon. It is saved on the button and written into both
+snippets as the widget's `data-count` attribute, left out for `right`. It is
+not served by `/config`: a page's own `data-count` decides, so changing it
+reaches a page only through a freshly pasted snippet.
+
 `name` is an optional label, up to 255 characters, for telling buttons apart
 in the management API. It is trimmed, and an empty or blank name is stored as
 `null`, which is also how a `PATCH` clears it. It is never served to embedding

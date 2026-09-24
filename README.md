@@ -442,9 +442,12 @@ in `GITHUB_ALLOWED_LOGINS`).
   SVGs (one per state), pasted or picked from files. A table shows the four
   colours (default, hover, clicked, full), each with the icon drawn as it
   looks in that state. Under it, "Draw a circle around the icon" adds a ring
-  that follows the state colours. "Try it" at the end of the form is the real
-  button built from the form: click it through its whole allowance to see the
-  fill, pulse, count and burst before saving. Test clicks are never sent or
+  that follows the state colours, and "Count position" puts the count right,
+  left, above or below the icon. The position is written into the button's
+  snippets as `data-count`, so a page already embedding the button keeps its
+  old position until its snippet is pasted again. "Try it" at the end of the
+  form is the real button built from the form: click it through its whole
+  allowance to see the fill, pulse, count and burst before saving. Test clicks are never sent or
   counted, and "Reset preview" starts it over.
 - **The button list.** Each row shows its button as saved, clickable in the
   same way (nothing counted), and two snippets with Copy buttons: the one tag

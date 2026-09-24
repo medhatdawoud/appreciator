@@ -13,6 +13,9 @@ export type ButtonSvgSources = Record<ButtonState, string>;
 /** How a button derives its per-item counter key from the embedding page. */
 export type UrlNormalization = 'pathname' | 'full';
 
+/** Where the count sits relative to the icon: the widget's `data-count`. */
+export type CountPosition = 'right' | 'left' | 'top' | 'bottom';
+
 /** Persisted configuration for one button, as returned by the management API. */
 export interface ButtonConfig {
   id: string;
@@ -31,6 +34,8 @@ export interface ButtonConfig {
   keepIconColors: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing: boolean;
+  /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
+  countPosition: CountPosition;
   urlNormalization: UrlNormalization;
   createdAt: string;
   /** The one-tag embed for this button, the same one `CreateButtonResponse` returns. */
@@ -61,6 +66,8 @@ export interface ButtonConfigInput {
   keepIconColors?: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing?: boolean;
+  /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
+  countPosition?: CountPosition;
   urlNormalization?: UrlNormalization;
 }
 
