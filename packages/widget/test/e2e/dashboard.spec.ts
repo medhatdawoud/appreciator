@@ -303,6 +303,21 @@ test('designs a button from its own SVG, tries it without counting, and saves it
     `<script src="${API_ORIGIN}/widget.js" async></script>\n` +
       `<appreciator-button data-key="${publicKey}" data-count="left"></appreciator-button>`,
   );
+  // On a narrow screen each snippet scrolls inside its block rather than
+  // widening the row or the page.
+  await page.setViewportSize({ width: 700, height: 900 });
+  const fits = await row.evaluate((element) => {
+    const edge = element.getBoundingClientRect().right;
+    return {
+      page: document.documentElement.scrollWidth <= window.innerWidth,
+      blocks: Array.from(element.querySelectorAll('pre')).map(
+        (pre) => pre.getBoundingClientRect().right <= edge && pre.scrollWidth > pre.clientWidth,
+      ),
+    };
+  });
+  expect(fits).toEqual({ page: true, blocks: [true, true] });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await row.locator('[data-copy-element]').click();
   await expect(row.locator('[data-copy-element]')).toHaveText('Copied');

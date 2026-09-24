@@ -300,6 +300,11 @@ h1 em {
   margin: 1.25rem 0;
 }
 
+/* Room at the end of each line, so the last characters scroll clear of Copy. */
+.code-block pre {
+  padding-right: 4.5rem;
+}
+
 pre {
   margin: 0;
   padding: 1rem 1.25rem;

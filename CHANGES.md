@@ -3,6 +3,19 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Snippets scroll inside their block
+
+- **Bug.** On a site's button list, a long snippet widened its row and gave
+  the whole page a horizontal scrollbar. The row's text column is a grid
+  track sized automatically, which cannot shrink below its content's
+  smallest width, and for a `<pre>` that is the whole unbroken line. The
+  column may now shrink (`minmax(0, 1fr)`), so each snippet scrolls
+  horizontally inside its own block.
+- Code blocks with a Copy button get room at the end of each line, so the
+  last characters scroll clear of the button, on the landing page too.
+- Tests: the dashboard e2e narrows the window to 700px and checks that both
+  snippets stay inside the row and scroll, and that the page does not.
+
 ## 2026-09-25 — A larger count
 
 - The count is 65% of `--appreciator-size` (was 55%): a 3rem icon gets a
