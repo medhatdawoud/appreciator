@@ -82,6 +82,12 @@ fills to 19%, 28%, 37% … 100%, and a first click is visible even on icons
 with an empty bottom edge. Each rise eases in over 0.8 s (instant with
 `prefers-reduced-motion`).
 
+And `data-own-colors` when the button keeps its icon's own colours
+(`keepIconColors`). Without it, every shape of a single icon is painted with
+the colour variables below, overriding the colours in the file, so an SVG
+uploaded as-is follows the button's colours; definitions (masks, clip paths,
+gradients, symbols) are left alone.
+
 And `data-icons`, which says how the icon is drawn:
 
 - `single` — one SVG drawn twice inside `::part(icon)`: a gray silhouette
