@@ -253,6 +253,7 @@ describe('management routes', () => {
       for (const created of [first, second]) {
         const listed = buttons.find((button) => button.id === created.buttonId);
         expect(listed?.embedSnippet).toBe(created.embedSnippet);
+        expect(listed?.elementSnippet).toBe(created.elementSnippet);
       }
     });
 
@@ -282,6 +283,15 @@ describe('management routes', () => {
       expect(created.publicKey).toMatch(/^pk_[0-9a-f]{32}$/);
       expect(created.embedSnippet).toBe(
         `<script src="${context.config.publicBaseUrl}/widget.js" data-key="${created.publicKey}" async></script>`,
+      );
+    });
+
+    it('also returns the script and element to place the button anywhere', async () => {
+      const created = await createButton();
+
+      expect(created.elementSnippet).toBe(
+        `<script src="${context.config.publicBaseUrl}/widget.js" async></script>\n` +
+          `<appreciator-button data-key="${created.publicKey}"></appreciator-button>`,
       );
     });
 

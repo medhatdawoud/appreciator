@@ -276,6 +276,28 @@ test('designs a button from its own SVG, tries it without counting, and saves it
 
   await page.locator('[data-submit]').click();
   await expect(view(page, 'site')).toBeVisible();
+
+  // The list shows the saved button, drawn and clickable, still counting nothing.
+  const row = page.locator('[data-buttons-list] .list-row');
+  const rowPreview = row.locator('[data-button-row-preview]');
+  await expect(rowPreview).toHaveAttribute('data-ring', '');
+  await expect(rowPreview).toHaveAttribute('data-icons', 'single');
+  await expect(rowPreview.locator('svg[data-layer="fill"] path')).toHaveCSS('fill', rgb('#00aa00'));
+  await rowPreview.locator('button').click();
+  await expect(rowPreview.locator('[part="count"]')).toHaveText('1');
+
+  // Beside the one-tag embed, the script and element to place it anywhere.
+  const publicKey = (await row.locator('[data-button-row-key]').textContent()) ?? '';
+  await expect(row.locator('[data-button-row-element]')).toHaveText(
+    `<script src="${API_ORIGIN}/widget.js" async></script>\n` +
+      `<appreciator-button data-key="${publicKey}"></appreciator-button>`,
+  );
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await row.locator('[data-copy-element]').click();
+  await expect(row.locator('[data-copy-element]')).toHaveText('Copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    `<appreciator-button data-key="${publicKey}">`,
+  );
   expect(counted).toEqual([]);
   const { buttons } = await dashboardApi<{
     buttons: Array<{ id: string; iconRing: boolean; svgSource: string; colors: { full: string } }>;

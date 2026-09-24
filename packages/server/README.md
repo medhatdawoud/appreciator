@@ -151,8 +151,17 @@ to `DEFAULT_MAX_CLICKS`. The response's `embedSnippet` is the one-tag embed:
 <script src="https://appreciator.example.com/widget.js" data-key="pk_…" async></script>
 ```
 
+Its `elementSnippet` is the same button as a script, loaded once per page,
+plus an element to place wherever the button should appear:
+
+```html
+<script src="https://appreciator.example.com/widget.js" async></script>
+<appreciator-button data-key="pk_…"></appreciator-button>
+```
+
 Every `ButtonConfig` — each entry of `GET /v1/buttons` and the `PATCH`
-response — carries the same `embedSnippet`, so it can be fetched again later.
+response — carries the same `embedSnippet` and `elementSnippet`, so they can
+be fetched again later.
 
 `name` is an optional label, up to 255 characters, for telling buttons apart
 in the management API. It is trimmed, and an empty or blank name is stored as

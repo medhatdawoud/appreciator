@@ -230,9 +230,11 @@
         $('[data-button-row-cap]', row).textContent = String(button.maxClicks);
         $('[data-button-row-origins]', row).textContent = button.allowedOrigins.join(', ');
         $('[data-button-row-snippet]', row).textContent = button.embedSnippet;
+        $('[data-button-row-element]', row).textContent = button.elementSnippet;
         $('[data-button-row-items]', row).href = `#/sites/${siteId}/buttons/${button.id}/items`;
         $('[data-button-row-edit]', row).href = `#/sites/${siteId}/buttons/${button.id}/edit`;
         wireCopy($('[data-copy-snippet]', row), () => button.embedSnippet);
+        wireCopy($('[data-copy-element]', row), () => button.elementSnippet);
         $('[data-button-row-delete]', row).addEventListener('click', async () => {
           if (!confirm(`Delete "${button.name || button.publicKey}"? Its counts are lost.`)) return;
           try {
@@ -246,6 +248,13 @@
       }),
     );
     $('[data-buttons-empty]').hidden = buttons.length > 0;
+    // Each row's button, drawn as saved and clickable offline. Upgraded only
+    // once in the page, so started after the rows are.
+    buttons.forEach(({ svgSources, ...button }, index) => {
+      // The widget reads a single icon from an absent svgSources, not a null one.
+      const config = svgSources ? { ...button, svgSources } : button;
+      $('[data-button-row-preview]', list.children[index])?.preview?.(config);
+    });
 
     const created = state.justCreatedButtonId;
     state.justCreatedButtonId = null;

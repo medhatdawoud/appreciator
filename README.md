@@ -445,8 +445,11 @@ in `GITHUB_ALLOWED_LOGINS`).
   that follows the state colours. "Try it" at the end of the form is the real
   button built from the form: click it through its whole allowance to see the
   fill, pulse, count and burst before saving. Test clicks are never sent or
-  counted, and "Reset preview" starts it over. Each button row shows its
-  snippet with a Copy button.
+  counted, and "Reset preview" starts it over.
+- **The button list.** Each row shows its button as saved, clickable in the
+  same way (nothing counted), and two snippets with Copy buttons: the one tag
+  that renders the button where it is pasted, and the script plus an
+  `<appreciator-button data-key="…">` element to place anywhere.
 - **Counts.** Per page (or item id), with an origin filter and paging.
 - **Sign out** clears the session cookie.
 
@@ -600,13 +603,13 @@ Every error has the same JSON shape:
 
 ### Management (`Authorization: Bearer <site key>`)
 
-| Method   | Path                    |                                                                                                                                                                    |
-| -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST`   | `/v1/buttons`           | `{ allowedOrigins, name?, maxClicks?, svgSource?, colors?, svgSources?, keepIconColors?, iconRing?, urlNormalization? }` → `{ buttonId, publicKey, embedSnippet }` |
-| `GET`    | `/v1/buttons`           | `{ buttons: ButtonConfig[] }` — each with its `embedSnippet`                                                                                                       |
-| `PATCH`  | `/v1/buttons/:id`       | any subset of the create fields → `ButtonConfig`                                                                                                                   |
-| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                                                          |
-| `DELETE` | `/v1/buttons/:id`       | `204`                                                                                                                                                              |
+| Method   | Path                    |                                                                                                                                                                                    |
+| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/v1/buttons`           | `{ allowedOrigins, name?, maxClicks?, svgSource?, colors?, svgSources?, keepIconColors?, iconRing?, urlNormalization? }` → `{ buttonId, publicKey, embedSnippet, elementSnippet }` |
+| `GET`    | `/v1/buttons`           | `{ buttons: ButtonConfig[] }` — each with its `embedSnippet` and `elementSnippet`                                                                                                  |
+| `PATCH`  | `/v1/buttons/:id`       | any subset of the create fields → `ButtonConfig`                                                                                                                                   |
+| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                                                                          |
+| `DELETE` | `/v1/buttons/:id`       | `204`                                                                                                                                                                              |
 
 The same five routes exist under `/v1/sites/:siteId/buttons…` for the
 dashboard, authenticated by the session cookie instead of a bearer key.

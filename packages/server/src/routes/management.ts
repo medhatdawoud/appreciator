@@ -8,6 +8,7 @@ import type {
 import type { FastifyInstance, FastifyRequest, onRequestHookHandler } from 'fastify';
 
 import {
+  buildElementSnippet,
   buildEmbedSnippet,
   findButtonForTenant,
   insertButton,
@@ -92,6 +93,7 @@ const buttonConfigSchema = {
     'urlNormalization',
     'createdAt',
     'embedSnippet',
+    'elementSnippet',
   ],
   properties: {
     id: { type: 'string' },
@@ -107,6 +109,7 @@ const buttonConfigSchema = {
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
     embedSnippet: { type: 'string' },
+    elementSnippet: { type: 'string' },
   },
 };
 
@@ -295,11 +298,12 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
           201: {
             type: 'object',
             additionalProperties: false,
-            required: ['buttonId', 'publicKey', 'embedSnippet'],
+            required: ['buttonId', 'publicKey', 'embedSnippet', 'elementSnippet'],
             properties: {
               buttonId: { type: 'string' },
               publicKey: { type: 'string' },
               embedSnippet: { type: 'string' },
+              elementSnippet: { type: 'string' },
             },
           },
         },
@@ -334,6 +338,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         buttonId: id,
         publicKey,
         embedSnippet: buildEmbedSnippet(app.appConfig.publicBaseUrl, publicKey),
+        elementSnippet: buildElementSnippet(app.appConfig.publicBaseUrl, publicKey),
       };
     },
   );

@@ -296,15 +296,27 @@
 
     <template data-template="button-row">
       <li class="list-row">
+        <div class="row-preview" title="Try it: clicks here are not saved or counted">
+          <appreciator-button data-button-row-preview></appreciator-button>
+        </div>
         <div class="row-main">
           <strong data-button-row-name></strong>
           <span class="muted"
             ><code data-button-row-key></code> · <span data-button-row-cap></span> clicks ·
             <span data-button-row-origins></span
           ></span>
+          <small class="muted">One tag: the button appears where you paste it.</small>
           <div class="code-block small">
             <pre><code data-button-row-snippet></code></pre>
             <button class="copy" type="button" data-copy-snippet>Copy</button>
+          </div>
+          <small class="muted"
+            >Or the element, to place it anywhere: the script once per page, the element where the
+            button goes.</small
+          >
+          <div class="code-block small">
+            <pre><code data-button-row-element></code></pre>
+            <button class="copy" type="button" data-copy-element>Copy</button>
           </div>
         </div>
         <div class="actions">

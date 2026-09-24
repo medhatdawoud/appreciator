@@ -81,6 +81,19 @@ button.link {
   min-width: 0;
 }
 
+/* Wide enough for the burst to stay inside the row. */
+.row-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 8rem;
+  min-height: 8rem;
+}
+
+.row-preview appreciator-button {
+  --appreciator-size: 1.75rem;
+}
+
 .code-block.small pre {
   font-size: 0.78rem;
   padding: 0.6rem 0.9rem;

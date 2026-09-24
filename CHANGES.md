@@ -3,6 +3,20 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Button list: live previews and an element snippet
+
+- Each button row on a site shows the button as saved: its icon, colours,
+  ring and cap, clickable through `preview()` with nothing sent or counted.
+- Beside the one-tag embed, each row offers the script plus an
+  `<appreciator-button data-key="…">` element, for pages that place the
+  button themselves or show several, with its own Copy button.
+- The API returns that as `elementSnippet` wherever it returns
+  `embedSnippet`: the create response and every `ButtonConfig`.
+- Tests: an integration test for `elementSnippet` on create and list, and
+  e2e checks that the saved button's row preview is drawn with its ring and
+  colour and counts a click locally, and that the element snippet is shown
+  and copied.
+
 ## 2026-09-25 — Dashboard: colour table, icon ring, and a button to try
 
 - **Colour table.** The four colours sit in a table (Default, Hover,

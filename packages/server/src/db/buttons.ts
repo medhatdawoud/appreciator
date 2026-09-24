@@ -101,8 +101,19 @@ export function buildEmbedSnippet(baseUrl: string, publicKey: string): string {
 }
 
 /**
+ * The script, loaded once per page, and the element wherever the button
+ * should appear: for pages that place it themselves or show several.
+ */
+export function buildElementSnippet(baseUrl: string, publicKey: string): string {
+  return (
+    `<script src="${baseUrl}/widget.js" async></script>\n` +
+    `<appreciator-button data-key="${publicKey}"></appreciator-button>`
+  );
+}
+
+/**
  * Maps a row to the public `ButtonConfig` contract. `tenant_id` is never exposed.
- * `publicBaseUrl` is only needed for the embed snippet.
+ * `publicBaseUrl` is only needed for the snippets.
  */
 export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonConfig {
   return {
@@ -120,6 +131,7 @@ export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonCon
     urlNormalization: row.url_normalization,
     createdAt: row.created_at.toISOString(),
     embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key),
+    elementSnippet: buildElementSnippet(publicBaseUrl, row.public_key),
   };
 }
 
