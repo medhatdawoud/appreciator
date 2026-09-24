@@ -405,16 +405,16 @@ describe('AppreciatorButton', () => {
       return server.requests.filter((request) => request.method === 'POST').length;
     }
 
-    it('keeps six copies of the icon ready, one per direction', async () => {
+    it('keeps five copies of the icon ready, one per direction', async () => {
       const element = await mountReady();
 
       const all = particles(element);
-      expect(all).toHaveLength(6);
+      expect(all).toHaveLength(5);
       const offsets = all.map((particle) => [
         (particle as SVGElement).style.getPropertyValue('--dx'),
         (particle as SVGElement).style.getPropertyValue('--dy'),
       ]);
-      expect(new Set(offsets.map((pair) => pair.join())).size).toBe(6);
+      expect(new Set(offsets.map((pair) => pair.join())).size).toBe(5);
       expect(element.hasAttribute('data-burst')).toBe(false);
     });
 
@@ -451,6 +451,34 @@ describe('AppreciatorButton', () => {
         // The icon is one size across, so its edge is half a size out.
         expect(start).toBeGreaterThan(0.5);
         expect(end).toBeGreaterThan(start);
+      }
+    });
+
+    it('flies as a pentagon pointing away from the count, wherever the count is', async () => {
+      const element = await mountReady();
+      const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
+      const toward = { right: 0, bottom: 90, left: 180, top: -90 };
+
+      for (const [position, countAngle] of Object.entries(toward)) {
+        element.dataset.count = position;
+        innerButton(element).click();
+
+        const angles = particles(element).map((particle) => {
+          const style = (particle as SVGElement).style;
+          const degrees =
+            (Math.atan2(
+              size(style.getPropertyValue('--dy')),
+              size(style.getPropertyValue('--dx')),
+            ) *
+              180) /
+            Math.PI;
+          // Signed distance from the count's direction, in (-180, 180].
+          return ((((degrees - countAngle) % 360) + 540) % 360) - 180;
+        });
+        const clearance = Math.min(...angles.map((angle) => Math.abs(angle)));
+        // One copy points straight away, and none comes within 36 degrees of the count.
+        expect(angles.some((angle) => Math.abs(Math.abs(angle) - 180) < 0.5)).toBe(true);
+        expect(clearance).toBeCloseTo(36, 0);
       }
     });
 

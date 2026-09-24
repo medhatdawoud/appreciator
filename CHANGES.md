@@ -3,6 +3,20 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — The burst is a pentagon aimed away from the count
+
+- Five copies instead of six, flying to the corners of a regular pentagon
+  with one corner pointing straight away from the count. The count sits in
+  the middle of the widest gap, 36° from the nearest copy, whether it is
+  right, left, above or below. With six copies 60° apart, one flew straight
+  at a count placed above the icon.
+- The copies are aimed on every burst, so a page (or the dashboard preview)
+  that moves the count gets a burst that avoids it.
+- Tests: a unit test checks, for each position, that one copy points
+  straight away and none comes within 36°. An e2e samples every frame of a
+  burst in Chromium, with and without a ring, and requires no copy's
+  on-screen box ever to meet the count's.
+
 ## 2026-09-25 — More room between a ring and the count
 
 - With a ring, the gap between the icon and the count is three quarters of

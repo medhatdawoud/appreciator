@@ -26,8 +26,16 @@ export const ROLL_MS = 320;
 const BURST_START_RADIUS = 0.6;
 const BURST_END_RADIUS = 1.5;
 
-/** Copies of the icon thrown out on each click, one per direction. */
-export const BURST_PARTICLES = 6;
+/** Copies of the icon thrown out on each click, one per corner of a pentagon. */
+export const BURST_PARTICLES = 5;
+
+/** The direction of the count from the icon for each `data-count`, in radians; y points down. */
+const COUNT_ANGLE: Readonly<Record<string, number>> = {
+  right: 0,
+  bottom: Math.PI / 2,
+  left: Math.PI,
+  top: -Math.PI / 2,
+};
 
 const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'full'];
 
@@ -80,8 +88,9 @@ const RING_REACH = 1.5;
  *
  * `[part="burst"]` holds small full-colour copies of the icon, hidden until
  * `data-burst` is set on a click: each then appears just outside the icon's
- * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` (six
- * directions, 60 degrees apart) at a constant size, fading in and out.
+ * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` at a constant
+ * size, fading in and out. The five copies fly to the corners of a pentagon
+ * with one corner pointing away from the count (see `aimParticles`).
  *
  * `data-ring` draws a 1px circle around the icon, coloured like the state it
  * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
@@ -595,6 +604,7 @@ export class AppreciatorButton extends HTMLElement {
 
     this.icon.replaceChildren(...icons);
     this.burstLayer.replaceChildren(...parseParticles(config));
+    aimParticles(this.burstLayer.children, this.dataset.count);
     this.bounds = null;
     this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
     this.toggleAttribute(
@@ -725,6 +735,8 @@ export class AppreciatorButton extends HTMLElement {
     // Same restart trick as the pulse: a click during a running burst starts
     // it again from the centre.
     this.removeAttribute('data-burst');
+    // Aimed on every burst: the page may have moved the count since.
+    aimParticles(this.burstLayer.children, this.dataset.count);
     void this.button.offsetWidth;
     this.setAttribute('data-burst', '');
     this.burstTimer = setTimeout(() => {
@@ -863,7 +875,23 @@ function parseParticles(config: ButtonPublicConfig): Element[] {
   for (let i = 0; i < BURST_PARTICLES; i += 1) {
     const particle = parseSafeSvg(source);
     if (particle === null) return [];
-    const angle = (i * 2 * Math.PI) / BURST_PARTICLES - Math.PI / 2;
+    (particle as SVGElement).style.setProperty('--delay', `${i * 15}ms`);
+    particles.push(particle);
+  }
+  return particles;
+}
+
+/**
+ * Sends the burst's copies to the corners of a regular pentagon with one
+ * corner pointing straight away from the count. The count then sits in the
+ * middle of the widest gap, 36 degrees from the nearest copy, on whichever
+ * side `countPosition` puts it. An unknown position is the default, right.
+ */
+function aimParticles(particles: Iterable<Element>, countPosition: string | undefined): void {
+  const away = (COUNT_ANGLE[countPosition ?? 'right'] ?? 0) + Math.PI;
+  let i = 0;
+  for (const particle of particles) {
+    const angle = away + (i * 2 * Math.PI) / BURST_PARTICLES;
     const style = (particle as SVGElement).style;
     const at = (radius: number, trig: (value: number) => number): string =>
       `calc(var(--appreciator-size, 1.5em) * var(--_reach, 1) * ${round(trig(angle) * radius)})`;
@@ -873,10 +901,8 @@ function parseParticles(config: ButtonPublicConfig): Element[] {
     style.setProperty('--sy', at(BURST_START_RADIUS, Math.sin));
     style.setProperty('--dx', at(BURST_END_RADIUS, Math.cos));
     style.setProperty('--dy', at(BURST_END_RADIUS, Math.sin));
-    style.setProperty('--delay', `${i * 15}ms`);
-    particles.push(particle);
+    i += 1;
   }
-  return particles;
 }
 
 /**

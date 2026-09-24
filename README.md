@@ -52,7 +52,8 @@ the person running an instance, or deploys their own in about ten minutes.
 - **Progress you can see.** The icon is a gray silhouette that fills with
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
   bottom 30%, 10 of 10 is fully coloured. Each click also pulses and throws
-  six small copies of the icon out from around it; clicking a full button
+  five small copies of the icon out from around it, in a pentagon aimed away
+  from the count so none crosses it; clicking a full button
   still bursts but counts nothing. The
   count rolls up to its new number like an odometer on every counted click,
   and can sit on any side of the icon (`data-count`). Works with

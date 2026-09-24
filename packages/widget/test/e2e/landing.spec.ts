@@ -109,7 +109,7 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
   }
   const full = totalCount + visitorRemaining;
   await expect(hero).toHaveAttribute('data-burst', '');
-  await expect(particles).toHaveCount(6);
+  await expect(particles).toHaveCount(5);
   await expect(particles.first()).toBeVisible();
   await expect(count).toHaveText(String(full));
   await expect(hero).toHaveAttribute('data-state', 'full');

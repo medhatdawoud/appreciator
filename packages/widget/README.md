@@ -112,13 +112,15 @@ And `data-icons`, which says how the icon is drawn:
   an enabled button, and `clicked` and `full` follow `data-state`. Hover is
   still pure CSS. These buttons do not show progress.
 
-**Burst.** Every click, counted or not, throws six small full-colour copies
-of the icon out from around it, 60° apart: each appears just outside the
-icon's edge and flies further out at a constant size as it fades, over about 0.5 s
-(`data-burst` is set on the element meanwhile, and `appreciator:burst`
-fires). A click on a spent button still bursts but counts nothing. A button
-that loads does not burst on its own. The copies live in `::part(burst)`; `prefers-reduced-motion`
-hides them.
+**Burst.** Every click, counted or not, throws five small full-colour copies
+of the icon out from around it, to the corners of a pentagon with one corner
+pointing straight away from the count, so the count sits in the widest gap
+between copies on whichever side `data-count` puts it. Each copy appears just
+outside the icon's edge and flies further out at a constant size as it fades,
+over about 0.5 s (`data-burst` is set on the element meanwhile, and
+`appreciator:burst` fires). A click on a spent button still bursts but counts
+nothing. A button that loads does not burst on its own. The copies live in
+`::part(burst)`; `prefers-reduced-motion` hides them.
 
 If loading fails the element gets `data-error` (e.g. `network_error`,
 `origin_not_allowed`, `invalid_svg`, `missing_attributes`) and stays disabled.

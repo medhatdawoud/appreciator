@@ -149,7 +149,7 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   // Forced, because Playwright treats aria-disabled as not clickable.
   await ui.button.click({ force: true });
   await expect(ui.host).toHaveAttribute('data-burst', '');
-  await expect(ui.host.locator('[part="burst"] > svg')).toHaveCount(6);
+  await expect(ui.host.locator('[part="burst"] > svg')).toHaveCount(5);
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
 
   await page.reload();
@@ -349,6 +349,49 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
 
   await ui.host.evaluate((element) => element.style.setProperty('--appreciator-size', '40px'));
   expect((await measure()).fontSize).toBe('22px');
+});
+
+test('the burst never crosses the count, wherever it sits, with or without a ring', async ({
+  page,
+}) => {
+  for (const key of [fixture.publicKey, fixture.ringKey]) {
+    const params = new URLSearchParams({ api: fixture.api, key, item: `e2e-${randomUUID()}` });
+    await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+    const ui = widget(page);
+    await expect(ui.button).toBeEnabled();
+
+    for (const position of ['right', 'left', 'top', 'bottom']) {
+      await ui.host.evaluate(
+        (element, value) => element.setAttribute('data-count', value),
+        position,
+      );
+      // Samples every frame of one burst, in the page, and reports any copy
+      // whose on-screen box meets the count's.
+      const overlaps = await ui.host.evaluate(async (element) => {
+        const root = element.shadowRoot as ShadowRoot;
+        const count = (root.querySelector('[part="count"]') as Element).getBoundingClientRect();
+        const copies = Array.from(root.querySelectorAll('[part="burst"] > svg'));
+        (root.querySelector('button') as HTMLButtonElement).click();
+        const hits: number[] = [];
+        const start = performance.now();
+        while (performance.now() - start < 650) {
+          await new Promise((done) => requestAnimationFrame(done));
+          for (const copy of copies) {
+            if (Number(getComputedStyle(copy).opacity) < 0.05) continue;
+            const box = copy.getBoundingClientRect();
+            const apart =
+              box.right <= count.left ||
+              box.left >= count.right ||
+              box.bottom <= count.top ||
+              box.top >= count.bottom;
+            if (!apart) hits.push(Math.round(performance.now() - start));
+          }
+        }
+        return hits;
+      });
+      expect(overlaps, `${position}, ${key === fixture.ringKey ? 'ring' : 'no ring'}`).toEqual([]);
+    }
+  }
 });
 
 test('the burst copies keep one on-screen size while the icon pulses', async ({ page }) => {
