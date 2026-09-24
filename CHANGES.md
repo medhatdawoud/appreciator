@@ -3,6 +3,17 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Build: stop nesting migrations in dist
+
+- `npm run build -w @appreciator/server` copied migrations with
+  `cp -R src/db/migrations dist/db/migrations`. When the target already
+  existed, a repeat build nested the folder (`dist/db/migrations/migrations`),
+  so a locally built server kept migrating from the first build's stale copy:
+  a fresh schema got 4 of the 8 migrations. It now copies the folder's
+  contents (`src/db/migrations/.`). Verified by building twice and migrating a
+  fresh schema from `dist`: all 8 applied. Docker and Coolify build from
+  clean, so they were never affected.
+
 ## 2026-09-24 — The widget retries loads and never loses its icon
 
 The other half of the disappearing-icons fix: a failed load no longer leaves
