@@ -136,8 +136,8 @@ const RAW_SVG =
 
 /**
  * One button with the example's recolourable icon, one with its four explicit
- * star drawings, and two with a raw uploaded SVG: painted with the button's
- * colours, and keeping its own.
+ * star drawings, and three with a raw uploaded SVG: painted with the button's
+ * colours, keeping its own, and painted with a ring around it.
  */
 async function registerButtons(
   secret: string,
@@ -175,6 +175,14 @@ async function registerButtons(
       svgSource: RAW_SVG,
       colors,
       keepIconColors: true,
+    }),
+    ringKey: await createButton(secret, {
+      name: 'Raw SVG, ringed',
+      maxClicks,
+      allowedOrigins,
+      svgSource: RAW_SVG,
+      colors,
+      iconRing: true,
     }),
     maxClicks,
     colors,

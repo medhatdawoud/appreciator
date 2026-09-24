@@ -27,6 +27,8 @@ export interface E2eFixture {
   rawKey: string;
   /** The same raw SVG with `keepIconColors`: it stays black. */
   ownKey: string;
+  /** The raw SVG painted with `colors`, with a ring drawn around it. */
+  ringKey: string;
   maxClicks: number;
   colors: Record<'default' | 'hover' | 'clicked' | 'full', string>;
   /** Name of the tenant that owns `publicKey`, as the leaderboard lists it. */

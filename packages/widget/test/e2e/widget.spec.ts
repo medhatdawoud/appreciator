@@ -79,7 +79,8 @@ test('starts as a gray silhouette with nothing filled', async ({ page }) => {
   await expect(ui.count).not.toHaveCSS('color', rgb(fixture.colors.full));
   await expect(ui.svg).toHaveCount(2);
   await expect(ui.base).toHaveCSS('fill', rgb(fixture.colors.default));
-  await expect(ui.base).toHaveCSS('filter', 'grayscale(1)');
+  // The default colour as chosen: only an icon keeping its own colours is grayed.
+  await expect(ui.base).toHaveCSS('filter', 'none');
   await expect(ui.fill).toHaveCSS('fill', rgb(fixture.colors.full));
   await expect(ui.fill).toHaveCSS('clip-path', 'inset(100% 0px 0px)');
   await expect(ui.host).not.toHaveAttribute('data-error', /./);
@@ -244,6 +245,7 @@ test('a raw uploaded SVG takes the button colours, unless it keeps its own', asy
   await expect(raw.host).not.toHaveAttribute('data-own-colors', /.*/);
   // The path's own fill="#000000" is overridden on both layers.
   await expect(raw.base.locator('path')).toHaveCSS('fill', rgb(fixture.colors.default));
+  await expect(raw.base).toHaveCSS('filter', 'none');
   await expect(raw.fill.locator('path')).toHaveCSS('fill', rgb(fixture.colors.full));
   await raw.button.click();
   await expect(raw.fill.locator('path')).toHaveCSS('fill', rgb(fixture.colors.clicked));
@@ -255,6 +257,33 @@ test('a raw uploaded SVG takes the button colours, unless it keeps its own', asy
   await expect(own.base.locator('path')).toHaveCSS('fill', 'rgb(0, 0, 0)');
   // Still starts gray: the base layer is desaturated rather than recoloured.
   await expect(own.base).toHaveCSS('filter', 'grayscale(1)');
+});
+
+test('a ring around the icon takes the colour of each state', async ({ page }) => {
+  const params = new URLSearchParams({
+    api: fixture.api,
+    key: fixture.ringKey,
+    item: `e2e-${randomUUID()}`,
+  });
+  await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+  const ui = widget(page);
+  const icon = ui.host.locator('[part="icon"]');
+  await expect(ui.host).toHaveAttribute('data-state', 'default');
+  await expect(ui.host).toHaveAttribute('data-ring', '');
+
+  await expect(icon).toHaveCSS('border-top-width', '2px');
+  await expect(icon).toHaveCSS('border-top-style', 'solid');
+  await expect(icon).toHaveCSS('border-radius', '50%');
+  await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.default));
+  const box = await icon.boundingBox();
+  expect(box?.width).toBeCloseTo(box?.height ?? 0, 0);
+
+  await ui.button.hover();
+  await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.hover));
+
+  for (let i = 0; i < fixture.maxClicks; i += 1) await ui.button.click({ force: true });
+  await expect(ui.host).toHaveAttribute('data-state', 'full');
+  await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.full));
 });
 
 test('--appreciator-size scales the count and the gap with the icon', async ({ page }) => {

@@ -696,4 +696,80 @@ describe('AppreciatorButton', () => {
     expect(server.requests.at(-1)?.url).toContain('item=second');
     expect(element.getAttribute('data-state')).toBe('default');
   });
+  describe('the ring', () => {
+    it('is drawn when the config asks for it', async () => {
+      const element = await mountReady();
+      expect(element.hasAttribute('data-ring')).toBe(false);
+
+      vi.unstubAllGlobals();
+      installFakeServer(sampleConfig({ iconRing: true }));
+      element.dataset.item = 'ringed';
+      await element.whenReady();
+
+      expect(element.hasAttribute('data-ring')).toBe(true);
+    });
+
+    it('sends the burst out past it', async () => {
+      const element = await mountReady();
+
+      const particle = shadow(element).querySelector<SVGElement>('[part="burst"] > svg');
+
+      expect(particle?.style.getPropertyValue('--dx')).toContain('var(--_reach, 1)');
+    });
+  });
+
+  describe('preview()', () => {
+    async function previewed(
+      overrides: Parameters<typeof sampleConfig>[0] = {},
+    ): Promise<AppreciatorButton> {
+      const element = document.createElement('appreciator-button') as AppreciatorButton;
+      document.body.append(element);
+      await element.preview(sampleConfig(overrides));
+      return element;
+    }
+
+    it('draws the button from the config alone, with no key and no requests', async () => {
+      const ready = [] as unknown[];
+      document.body.addEventListener('appreciator:ready', (event) =>
+        ready.push((event as CustomEvent).detail),
+      );
+
+      const element = await previewed({ iconRing: true });
+
+      expect(server.requests).toHaveLength(0);
+      expect(element.hasAttribute('data-error')).toBe(false);
+      expect(element.hasAttribute('data-ring')).toBe(true);
+      expect(countText(element)).toBe('0');
+      expect(innerButton(element).disabled).toBe(false);
+      expect(ready).toEqual([expect.objectContaining({ totalCount: 0, visitorRemaining: 3 })]);
+    });
+
+    it('settles clicks locally up to the cap, then only bursts', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const element = await previewed();
+      const maxed = recordEvents(element, 'appreciator:maxed');
+      const bursts = recordEvents(element, 'appreciator:burst');
+
+      await clickAndSettle(element, 5);
+      await vi.advanceTimersByTimeAsync(PULSE_MS);
+
+      expect(countText(element)).toBe('3');
+      expect(element.getAttribute('data-state')).toBe('full');
+      expect(maxed).toHaveLength(1);
+      expect(bursts).toHaveLength(5);
+      expect(server.requests).toHaveLength(0);
+      expect(localStorage.length).toBe(0);
+    });
+
+    it('starts over, with the new config, when called again', async () => {
+      const element = await previewed();
+      await clickAndSettle(element, 3);
+
+      await element.preview(sampleConfig({ maxClicks: 5 }));
+
+      expect(countText(element)).toBe('0');
+      expect(element.currentCounts?.visitorRemaining).toBe(5);
+      expect(element.getAttribute('data-state')).toBe('default');
+    });
+  });
 });

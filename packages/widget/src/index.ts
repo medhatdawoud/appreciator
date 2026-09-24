@@ -12,6 +12,8 @@ export {
   setDefaultApi,
 } from './element.js';
 export { apiBaseFromScriptSrc, autoMount } from './embed.js';
+export { stateIcon } from './preview.js';
+export type { StateIconConfig } from './preview.js';
 export type { ErrorDetail, MountOptions } from './element.js';
 export type { VisualState } from './state.js';
 

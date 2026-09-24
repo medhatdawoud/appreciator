@@ -30,6 +30,18 @@ export const BURST_PARTICLES = 6;
 
 const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'full'];
 
+/** How strongly the unfilled icon shows, at rest and hovered. */
+export const REST_OPACITY = { default: 0.45, hover: 0.6 } as const;
+
+/**
+ * The parts of an SVG that define rather than draw (masks, clips, gradients,
+ * symbols): forced paint skips them so they keep working.
+ */
+export const PAINT_EXEMPT = 'defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *';
+
+/** How much further out the burst reaches when a ring is drawn around the icon. */
+const RING_REACH = 1.3;
+
 /**
  * Colours come from the button config as `--_c-<state>` on the inner button;
  * a host page can override any of them with `--appreciator-<state>` on the
@@ -42,8 +54,9 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * `fillPercent`), easing into place rather than jumping. The reveal is set on
  * the fill layer through the CSSOM, mapped onto the drawing's measured
  * extent (see `fill.ts`) rather than onto the whole box.
- * The base is also run through `grayscale()`, so an icon that ignores the
- * colour variables still starts gray.
+ * When the icon keeps its own colours, the base is also run through
+ * `grayscale()`, so it still starts gray; otherwise the base shows the chosen
+ * `default` and `hover` colours as they are.
  *
  * Unless the button keeps the icon's own colours (`data-own-colors`), every
  * drawn element of a single icon is painted with those variables, overriding
@@ -67,6 +80,9 @@ const COLOR_STATES: readonly ButtonState[] = ['default', 'hover', 'clicked', 'fu
  * `data-burst` is set on a click: each then appears just outside the icon's
  * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` (six
  * directions, 60 degrees apart) at a constant size, fading in and out.
+ *
+ * `data-ring` draws a 2px circle around the icon, coloured like the state it
+ * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; }
@@ -133,14 +149,14 @@ button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
 svg[data-layer="base"] {
   --appr-fill: var(--appreciator-default, var(--_c-default));
   --appr-stroke: var(--appreciator-default, var(--_c-default));
-  filter: grayscale(1);
-  opacity: 0.45;
+  opacity: ${REST_OPACITY.default};
   transition: opacity 150ms ease;
 }
+:host([data-own-colors]) svg[data-layer="base"] { filter: grayscale(1); }
 button:not(:disabled):hover svg[data-layer="base"] {
   --appr-fill: var(--appreciator-hover, var(--_c-hover));
   --appr-stroke: var(--appreciator-hover, var(--_c-hover));
-  opacity: 0.6;
+  opacity: ${REST_OPACITY.hover};
 }
 svg[data-layer="fill"] {
   --appr-fill: var(--appreciator-full, var(--_c-full));
@@ -153,8 +169,8 @@ svg[data-layer="fill"] {
   --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
 }
 :host([data-icons="states"]) [part="icon"] > svg { display: none; }
-:host([data-icons="single"]:not([data-own-colors])) svg[data-layer] :not(defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *),
-:host([data-icons="single"]:not([data-own-colors])) [part="burst"] svg :not(defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *) {
+:host([data-icons="single"]:not([data-own-colors])) svg[data-layer] :not(${PAINT_EXEMPT}),
+:host([data-icons="single"]:not([data-own-colors])) [part="burst"] svg :not(${PAINT_EXEMPT}) {
   fill: var(--appr-fill) !important;
   stroke: var(--appr-stroke) !important;
 }
@@ -169,11 +185,28 @@ svg[data-layer="fill"] {
 :host([data-icons="states"][data-state="default"]) button:not(:disabled):hover svg[data-for="hover"] {
   display: block;
 }
+:host([data-ring]) [part="icon"] {
+  --_ring: var(--appreciator-default, var(--_c-default));
+  border: 2px solid var(--_ring);
+  border-radius: 50%;
+  padding: calc(var(--appreciator-size, 1.5em) * 0.18);
+  transition: transform 150ms ease, border-color 300ms ease;
+}
+:host([data-ring][data-state="default"]) button:not(:disabled):hover [part="icon"] {
+  --_ring: var(--appreciator-hover, var(--_c-hover));
+}
+:host([data-ring][data-state="clicked"]) [part="icon"] {
+  --_ring: var(--appreciator-clicked, var(--_c-clicked));
+}
+:host([data-ring][data-state="full"]) [part="icon"] {
+  --_ring: var(--appreciator-full, var(--_c-full));
+}
 [part="burst"] {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
+:host([data-ring]) [part="burst"] { --_reach: ${RING_REACH}; }
 [part="burst"] svg {
   --appr-fill: var(--appreciator-full, var(--_c-full));
   --appr-stroke: var(--appreciator-full, var(--_c-full));
@@ -282,7 +315,7 @@ export interface ErrorDetail {
  * should talk to; otherwise the element uses the URL the bundle came from.
  *
  * Reflects `data-state` (`default` | `clicked` | `full`), `data-icons`
- * (`single` | `states`) and `data-error` on itself, and dispatches `appreciator:ready`, `appreciator:change`,
+ * (`single` | `states`), `data-ring` and `data-error` on itself, and dispatches `appreciator:ready`, `appreciator:change`,
  * `appreciator:maxed` (detail: ClickCounts) and `appreciator:error`
  * (detail: ErrorDetail). All events bubble and cross the shadow boundary.
  */
@@ -310,6 +343,9 @@ export class AppreciatorButton extends HTMLElement {
 
   /** Set by refresh(): the next initialisation ignores the localStorage cache. */
   private skipCache = false;
+
+  /** Set by preview(): the button runs on this config alone, offline, from zero. */
+  private previewConfig: ButtonPublicConfig | null = null;
 
   /** The config the icon is currently drawn from, as JSON, to skip redrawing an unchanged one. */
   private painted: string | null = null;
@@ -375,6 +411,19 @@ export class AppreciatorButton extends HTMLElement {
     return this.ready;
   }
 
+  /**
+   * Shows the button as `config` would draw it, without a server: no key, no
+   * requests, nothing stored. Counts start at zero and each click settles
+   * locally as the server would settle it, so the fill, pulse, count and
+   * burst all play as they do live. Calling it again starts over. Resolves
+   * once drawn.
+   */
+  preview(config: ButtonPublicConfig): Promise<void> {
+    this.previewConfig = config;
+    this.scheduleInitialize();
+    return this.ready;
+  }
+
   /** Counts as currently displayed, including clicks not yet confirmed. */
   get currentCounts(): ClickCounts | null {
     return this.displayedCounts();
@@ -408,8 +457,21 @@ export class AppreciatorButton extends HTMLElement {
     });
   }
 
+  /** Drops everything the last initialisation left in flight. */
+  private reset(): void {
+    this.config = null;
+    this.pending = 0;
+    this.clearPulse();
+    this.clearBurst();
+    this.removeAttribute('data-error');
+  }
+
   private async initialize(): Promise<void> {
     const generation = ++this.generation;
+    if (this.previewConfig !== null) {
+      this.startPreview(this.previewConfig);
+      return;
+    }
     const { key, item } = this.dataset;
     const api = this.dataset.api || defaultApi;
     if (!api || !key) {
@@ -424,13 +486,9 @@ export class AppreciatorButton extends HTMLElement {
     this.item = item?.trim() || window.location.href;
     const client = new ApiClient(api, key);
     this.api = client;
-    this.config = null;
-    this.pending = 0;
-    this.clearPulse();
-    this.clearBurst();
+    this.reset();
     this.counts = this.skipCache ? null : readCachedCounts(key, this.item);
     this.skipCache = false;
-    this.removeAttribute('data-error');
     // Draw the last known icon straight away; the button stays disabled until
     // the server has answered.
     const cached = readCachedConfig(key);
@@ -479,6 +537,25 @@ export class AppreciatorButton extends HTMLElement {
     this.emit('appreciator:ready', counts);
   }
 
+  private startPreview(config: ButtonPublicConfig): void {
+    this.api = null;
+    this.reset();
+    if (!this.applyConfig(config)) {
+      this.fail('invalid_svg', 'The button icon could not be parsed');
+      return;
+    }
+    this.config = config;
+    this.counts = {
+      totalCount: 0,
+      maxClicks: config.maxClicks,
+      visitorCount: 0,
+      visitorRemaining: config.maxClicks,
+      maxed: config.maxClicks <= 0,
+    };
+    this.render();
+    this.emit('appreciator:ready', this.counts);
+  }
+
   /**
    * Draws the icon(s), burst particles and colours for `config`. Skipped when
    * the same config is already drawn, so a fresh copy of a cached config does
@@ -498,6 +575,7 @@ export class AppreciatorButton extends HTMLElement {
       'data-own-colors',
       config.svgSources === undefined && config.keepIconColors === true,
     );
+    this.toggleAttribute('data-ring', config.iconRing === true);
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }
@@ -537,24 +615,33 @@ export class AppreciatorButton extends HTMLElement {
    * Sends accepted clicks one at a time. The server's response to each is
    * authoritative, so sequential requests keep the local counts monotonic
    * without any merging; the still-pending clicks are shown optimistically.
+   * A preview has no server, so each click settles as the server would
+   * settle it.
    */
   private async drain(): Promise<void> {
     const { api, generation } = this;
-    if (api === null) return;
+    if (api === null && this.previewConfig === null) return;
 
     while (this.pending > 0 && generation === this.generation) {
       const before = this.counts;
       let settled: ClickCounts;
-      try {
-        settled = await api.click(this.item);
-      } catch (error) {
-        if (generation !== this.generation) return;
-        this.pending = 0;
-        this.emit('appreciator:error', {
-          code: errorCode(error),
-          message: errorMessage(error),
-        } satisfies ErrorDetail);
-        settled = await this.resync(api, before);
+      if (api === null) {
+        if (before === null) return;
+        // A turn later, as a response would come, so clicks made meanwhile
+        // join this drain instead of waiting for one that has already ended.
+        settled = await Promise.resolve(optimisticClick(before));
+      } else {
+        try {
+          settled = await api.click(this.item);
+        } catch (error) {
+          if (generation !== this.generation) return;
+          this.pending = 0;
+          this.emit('appreciator:error', {
+            code: errorCode(error),
+            message: errorMessage(error),
+          } satisfies ErrorDetail);
+          settled = await this.resync(api, before);
+        }
       }
       if (generation !== this.generation) return;
 
@@ -562,7 +649,7 @@ export class AppreciatorButton extends HTMLElement {
       // The click stays in `pending` until its response is adopted, so the
       // optimistic display never dips while a request is in flight.
       this.pending = settled.maxed ? 0 : Math.max(this.pending - 1, 0);
-      writeCachedCounts(this.key, this.item, settled);
+      if (api !== null) writeCachedCounts(this.key, this.item, settled);
       this.render();
       this.emit('appreciator:change', settled);
       if (settled.maxed && before?.maxed !== true) this.emit('appreciator:maxed', settled);
@@ -753,7 +840,7 @@ function parseParticles(config: ButtonPublicConfig): Element[] {
     const angle = (i * 2 * Math.PI) / BURST_PARTICLES - Math.PI / 2;
     const style = (particle as SVGElement).style;
     const at = (radius: number, trig: (value: number) => number): string =>
-      `calc(var(--appreciator-size, 1.5em) * ${round(trig(angle) * radius)})`;
+      `calc(var(--appreciator-size, 1.5em) * var(--_reach, 1) * ${round(trig(angle) * radius)})`;
     // From just outside the icon's edge (the icon is one size across) to well
     // beyond it.
     style.setProperty('--sx', at(BURST_START_RADIUS, Math.cos));
