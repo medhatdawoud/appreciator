@@ -111,9 +111,14 @@ button:disabled { cursor: default; }
 [part="count"] > .roll-in {
   animation: appreciator-roll-in ${ROLL_MS}ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-[part="icon"] {
+/* Holds the icon and, beside it rather than inside, the burst: the icon's
+   pulse and hover scale must not carry the flying copies with them. */
+.stage {
   display: inline-grid;
   position: relative;
+}
+[part="icon"] {
+  display: inline-grid;
   transition: transform 150ms ease;
 }
 button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
@@ -286,6 +291,7 @@ export class AppreciatorButton extends HTMLElement {
 
   private readonly button: HTMLButtonElement;
   private readonly icon: HTMLSpanElement;
+  private readonly burstLayer: HTMLSpanElement;
   private readonly countLabel: HTMLSpanElement;
 
   private api: ApiClient | null = null;
@@ -335,10 +341,15 @@ export class AppreciatorButton extends HTMLElement {
     this.button.setAttribute('part', 'button');
     this.icon = document.createElement('span');
     this.icon.setAttribute('part', 'icon');
+    this.burstLayer = document.createElement('span');
+    this.burstLayer.setAttribute('part', 'burst');
+    const stage = document.createElement('span');
+    stage.className = 'stage';
+    stage.append(this.icon, this.burstLayer);
     this.countLabel = document.createElement('span');
     this.countLabel.setAttribute('part', 'count');
 
-    this.button.append(this.icon, this.countLabel);
+    this.button.append(stage, this.countLabel);
     root.append(this.button);
     this.button.addEventListener('click', () => this.handleClick());
   }
@@ -479,10 +490,8 @@ export class AppreciatorButton extends HTMLElement {
     const icons = parseIcons(config);
     if (icons === null) return false;
 
-    const burst = document.createElement('span');
-    burst.setAttribute('part', 'burst');
-    burst.append(...parseParticles(config));
-    this.icon.replaceChildren(...icons, burst);
+    this.icon.replaceChildren(...icons);
+    this.burstLayer.replaceChildren(...parseParticles(config));
     this.bounds = null;
     this.setAttribute('data-icons', config.svgSources === undefined ? 'single' : 'states');
     this.toggleAttribute(

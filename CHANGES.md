@@ -3,6 +3,19 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Burst copies no longer zoom with the icon's pulse
+
+- **Bug.** The burst copies lived inside `[part="icon"]`, which carries the
+  click pulse (scale 1 → 1.3 → 1) and the hover grow, so every copy zoomed
+  with the main icon. The previous check measured the copy's own transform,
+  which excludes its parent's, and so missed it. Measured on screen, a copy's
+  width went 17.6 → 20.4 → 15.8 px during a click.
+- The burst layer now sits beside the icon in a shared positioning box
+  (`.stage`), still centred on it but outside its transforms. On screen, a
+  copy stays 15.8 px throughout.
+- Tests: an e2e that hovers, clicks and samples a copy's on-screen width,
+  requiring it to stay within 2%.
+
 ## 2026-09-24 — Faster burst, no zoom
 
 - The burst's copies now travel out at one constant size (scale 0.6) instead

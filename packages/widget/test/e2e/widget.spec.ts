@@ -285,6 +285,29 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
   expect((await measure()).fontSize).toBe('22px');
 });
 
+test('the burst copies keep one on-screen size while the icon pulses', async ({ page }) => {
+  const ui = await open(page);
+  // Hovering scales the icon too; the copies must not follow that either.
+  await ui.button.hover();
+
+  const widths = await ui.host.evaluate(async (host) => {
+    const root = host.shadowRoot;
+    const particle = root?.querySelector('[part="burst"] svg');
+    const button = root?.querySelector('button');
+    if (!particle || !button) throw new Error('expected a burst particle and a button');
+    const seen: number[] = [];
+    button.click();
+    for (let i = 0; i < 10; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      seen.push(particle.getBoundingClientRect().width);
+    }
+    return seen;
+  });
+
+  // The icon pulses up to 1.3x meanwhile; a copy carried by it would too.
+  expect(Math.max(...widths) / Math.min(...widths)).toBeLessThan(1.02);
+});
+
 test('a page on an origin outside the allowlist cannot load the button', async ({ page }) => {
   await page.goto(pageUrl(`e2e-${randomUUID()}`, 'localhost'));
   const ui = widget(page);
