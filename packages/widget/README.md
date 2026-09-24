@@ -150,9 +150,23 @@ All bubble and cross the shadow boundary, with the counts (or an error) in `deta
 
 ## How it behaves
 
-On connect it reads any cached counts from `localStorage` for an instant
-render, then fetches the button config and the current counts in parallel; the
-server is the source of truth and overwrites the cache. Each click is shown
+On connect it draws the last known icon and counts from `localStorage` for an
+instant render (the button stays disabled until the server answers), then
+fetches the button config and the current counts in parallel; the server is
+the source of truth and overwrites both caches.
+
+Loads survive a bad moment. If the server is throttling (429), unreachable or
+failing (5xx), each load is retried up to three times, waiting what the
+server's `Retry-After` asks (0.5–10 s) or else 1 s, 2 s, 4 s with jitter. The
+icon is drawn as soon as a config is known, cached or fresh, so a load that
+still fails leaves the icon in place with `data-error` set (`rate_limited`,
+`network_error`, …) and the button disabled, never an empty space with only a
+count. Clicks are not retried, so nothing is ever counted twice. A page on an
+origin outside the button's allowlist looks offline to the widget (the
+browser blocks the answer), so it reports `network_error` after its retries,
+about 7 s.
+
+Each click is shown
 immediately and sent one at a time, so the server's answer to each is
 authoritative and rapid clicks stay consistent. When the server reports the
 visitor is maxed, the button locks into `full`.

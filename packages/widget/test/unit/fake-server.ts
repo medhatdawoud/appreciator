@@ -45,6 +45,8 @@ export interface FakeServer {
   hold(): () => void;
   /** Forget this visitor's clicks, as the demo reset endpoint does. */
   resetVisitor(): void;
+  /** Answer the next `times` requests whose path ends with `suffix` with `status`. */
+  failNext(suffix: string, status: number, times: number, retryAfter?: number): void;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -59,6 +61,7 @@ export function installFakeServer(config: ButtonPublicConfig = sampleConfig()): 
   let totalCount = 0;
   let failStatus: number | null = null;
   let gate: Promise<void> | null = null;
+  const failures: { suffix: string; status: number; left: number; retryAfter?: number }[] = [];
 
   const counts = (): ClickCounts => ({
     totalCount,
@@ -84,6 +87,9 @@ export function installFakeServer(config: ButtonPublicConfig = sampleConfig()): 
       });
       return release;
     },
+    failNext(suffix, status, times, retryAfter) {
+      failures.push({ suffix, status, left: times, retryAfter });
+    },
     resetVisitor() {
       totalCount -= visitorCount;
       visitorCount = 0;
@@ -97,6 +103,23 @@ export function installFakeServer(config: ButtonPublicConfig = sampleConfig()): 
     if (gate !== null) await gate;
 
     const path = new URL(input).pathname;
+    const failure = failures.find((entry) => entry.left > 0 && path.endsWith(entry.suffix));
+    if (failure !== undefined) {
+      failure.left -= 1;
+      const code = failure.status === 429 ? 'rate_limited' : 'failed';
+      return new Response(
+        JSON.stringify({ statusCode: failure.status, error: code, message: 'Failed' }),
+        {
+          status: failure.status,
+          headers: {
+            'content-type': 'application/json',
+            ...(failure.retryAfter === undefined
+              ? {}
+              : { 'retry-after': String(failure.retryAfter) }),
+          },
+        },
+      );
+    }
     if (path.endsWith('/config')) return json(config);
     if (path.endsWith('/state')) return json(counts());
     if (path.endsWith('/click')) {

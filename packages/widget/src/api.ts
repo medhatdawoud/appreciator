@@ -3,13 +3,21 @@ import type { ButtonPublicConfig, ClickCounts } from '@appreciator/shared';
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Seconds the server asked us to wait (Retry-After), when it said and we could read it. */
+  readonly retryAfter: number | undefined;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfter?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const value = Number(response.headers.get('retry-after'));
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 interface ErrorBody {
@@ -67,6 +75,7 @@ export class ApiClient {
         typeof body.message === 'string'
           ? body.message
           : `Request failed with status ${response.status}`,
+        retryAfterSeconds(response),
       );
     }
 

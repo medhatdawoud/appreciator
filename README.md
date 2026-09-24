@@ -524,9 +524,12 @@ an origin outside the allowlist), `origin_not_allowed`, `not_found`,
 
 ### What the widget stores
 
-One `localStorage` key per button and item with the last `ClickCounts`. It is
-a render cache: every load overwrites it, and deleting it changes nothing
-about the visitor's allowance.
+Two kinds of `localStorage` key: one per button with its last config (icon,
+colours, cap), and one per button and item with the last `ClickCounts`. Both
+are render caches: every load overwrites them, and deleting them changes
+nothing about the visitor's allowance. The config cache is what keeps a
+button's icon on screen when a load is throttled or offline; loads are retried
+up to three times before the widget gives up.
 
 ## Icons
 

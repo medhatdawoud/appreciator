@@ -9,7 +9,7 @@ import {
   mount,
   setDefaultApi,
 } from '../../src/index.js';
-import { writeCachedCounts } from '../../src/storage.js';
+import { writeCachedConfig, writeCachedCounts } from '../../src/storage.js';
 import {
   installFakeServer,
   sampleConfig,
@@ -249,16 +249,19 @@ describe('AppreciatorButton', () => {
     expect(server.requests[0]?.url).toBe(`${API}/v1/buttons/${KEY}/config`);
   });
 
-  it('reports a server that cannot be reached', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
-    );
+  it('reports a server that cannot be reached, after retrying', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const fetchMock = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+    vi.stubGlobal('fetch', fetchMock);
 
-    const element = await mountReady();
+    const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await element.whenReady();
 
     expect(element.getAttribute('data-error')).toBe('network_error');
     expect(innerButton(element).disabled).toBe(true);
+    // A first try and three retries, for each of config and state.
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it('refuses an icon that is not an SVG', async () => {
@@ -461,6 +464,81 @@ describe('AppreciatorButton', () => {
 
       expect(element.getAttribute('data-state')).toBe('full');
       expect(element.hasAttribute('data-burst')).toBe(false);
+    });
+  });
+
+  describe('loading through throttling', () => {
+    function iconCount(element: AppreciatorButton): number {
+      return shadow(element).querySelectorAll('[part="icon"] > svg').length;
+    }
+
+    it('retries a throttled load after Retry-After, and loads', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      server.failNext('/state', 429, 2, 1);
+
+      const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(element.hasAttribute('data-error')).toBe(false);
+      await vi.advanceTimersByTimeAsync(2_500);
+      await element.whenReady();
+
+      expect(element.hasAttribute('data-error')).toBe(false);
+      expect(iconCount(element)).toBe(2);
+      expect(innerButton(element).disabled).toBe(false);
+      expect(server.requests.filter((request) => request.url.includes('/state'))).toHaveLength(3);
+    });
+
+    it('keeps the icon when the counts never come, and says why', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      server.failNext('/state', 429, 10, 1);
+
+      const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+      await vi.advanceTimersByTimeAsync(20_000);
+      await element.whenReady();
+
+      expect(element.getAttribute('data-error')).toBe('rate_limited');
+      expect(iconCount(element)).toBe(2);
+      expect(innerButton(element).disabled).toBe(true);
+    });
+
+    it('draws the cached icon before the server answers, and when it cannot', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      await mountReady();
+      document.body.innerHTML = '';
+      server.failNext('/config', 429, 10, 1);
+      server.failNext('/state', 429, 10, 1);
+
+      const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(iconCount(element)).toBe(2);
+      expect(innerButton(element).disabled).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(20_000);
+      await element.whenReady();
+      expect(element.getAttribute('data-error')).toBe('rate_limited');
+      expect(iconCount(element)).toBe(2);
+    });
+
+    it('redraws when the fresh config differs from the cached one', async () => {
+      writeCachedConfig(KEY, sampleConfig({ svgSources: sampleSvgSources() }));
+
+      const element = mount(document.body, { api: API, key: KEY, item: 'article-1' });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(element.getAttribute('data-icons')).toBe('states');
+
+      await element.whenReady();
+      expect(element.getAttribute('data-icons')).toBe('single');
+      expect(iconCount(element)).toBe(2);
+    });
+
+    it('does not retry what waiting cannot fix', async () => {
+      server.failNext('/config', 404, 1);
+
+      const element = await mountReady();
+
+      expect(element.hasAttribute('data-error')).toBe(true);
+      expect(server.requests.filter((request) => request.url.endsWith('/config'))).toHaveLength(1);
     });
   });
 

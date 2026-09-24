@@ -3,6 +3,28 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — The widget retries loads and never loses its icon
+
+The other half of the disappearing-icons fix: a failed load no longer leaves
+an empty space.
+
+- Loads (config and counts) retry up to 3 times on 429, network failure or
+  5xx, waiting `Retry-After` (0.5–10 s) or 1 s → 2 s → 4 s with ±20% jitter.
+  Stale loads are abandoned on re-initialisation. Clicks are never retried.
+- The config is cached per button in `localStorage` and drawn immediately on
+  load, so the icon appears before the server answers and stays when it
+  cannot. A fresh config only redraws when it differs.
+- The config is awaited before the counts, so if only the counts fail the
+  icon is still drawn; the widget reports `data-error` and stays disabled.
+- Verified against production-default limits: 6 rounds of load, max and reset
+  (225 reads) lost no icons, where before the fix all ten were gone by load 7.
+  With reads forced below one page load, all ten icons came from the cache
+  and the throttled buttons recovered on retry. Chrome coalesces a page's
+  identical `/config` requests, so a load costs about 11 reads, not 20.
+- Tests: retry, cached-icon and no-retry-on-404 unit tests with fake timers,
+  retry timing rules, the config cache, and the allowlist e2e now waiting out
+  the retry window (a blocked origin looks offline from inside the page).
+
 ## 2026-09-24 — Separate read and write rate limits; readable 429s
 
 Fixes icons disappearing after a few reloads and a reset.

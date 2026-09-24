@@ -232,6 +232,9 @@ test('a page on an origin outside the allowlist cannot load the button', async (
   await page.goto(pageUrl(`e2e-${randomUUID()}`, 'localhost'));
   const ui = widget(page);
 
-  await expect(ui.host).toHaveAttribute('data-error', /./);
+  // The browser blocks the response, which the widget cannot tell apart from
+  // being offline, so it only gives up after its retries (about 7 s).
+  await expect(ui.host).toHaveAttribute('data-error', 'network_error', { timeout: 15_000 });
   await expect(ui.button).toBeDisabled();
+  await expect(ui.svg).toHaveCount(0);
 });

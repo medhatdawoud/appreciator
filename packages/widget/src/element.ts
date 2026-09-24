@@ -4,7 +4,13 @@ import { ApiClient, ApiError } from './api.js';
 import { clipInsetTop, drawingBounds, type DrawingBounds } from './fill.js';
 import { parseSafeSvg } from './sanitize-svg.js';
 import { canClick, fillPercent, optimisticClick, progressPercent, visualState } from './state.js';
-import { readCachedCounts, writeCachedCounts } from './storage.js';
+import { withRetry } from './retry.js';
+import {
+  readCachedConfig,
+  readCachedCounts,
+  writeCachedConfig,
+  writeCachedCounts,
+} from './storage.js';
 
 /** How long the `clicked` state is held after a click. Matches the pulse keyframes below. */
 export const PULSE_MS = 350;
@@ -269,6 +275,9 @@ export class AppreciatorButton extends HTMLElement {
   /** Set by refresh(): the next initialisation ignores the localStorage cache. */
   private skipCache = false;
 
+  /** The config the icon is currently drawn from, as JSON, to skip redrawing an unchanged one. */
+  private painted: string | null = null;
+
   /** The number the count currently shows, to tell a rise from a correction. */
   private shownTotal: number | null = null;
   /** Set by a counted click so the next render rolls the count rather than swapping it. */
@@ -372,7 +381,8 @@ export class AppreciatorButton extends HTMLElement {
 
     this.key = key;
     this.item = item?.trim() || window.location.href;
-    this.api = new ApiClient(api, key);
+    const client = new ApiClient(api, key);
+    this.api = client;
     this.config = null;
     this.pending = 0;
     this.clearPulse();
@@ -380,24 +390,64 @@ export class AppreciatorButton extends HTMLElement {
     this.counts = this.skipCache ? null : readCachedCounts(key, this.item);
     this.skipCache = false;
     this.removeAttribute('data-error');
+    // Draw the last known icon straight away; the button stays disabled until
+    // the server has answered.
+    const cached = readCachedConfig(key);
+    if (cached !== null) this.applyConfig(cached);
     this.render();
 
+    // Both loads retry through throttling and network blips. They run in
+    // parallel, but the config is awaited first so the icon is drawn even if
+    // the counts never arrive.
+    const abandoned = (): boolean => generation !== this.generation;
+    const configLoad = withRetry(() => client.getConfig(), abandoned);
+    const counted = this.item;
+    const stateLoad = withRetry(() => client.getState(counted), abandoned);
+    // Settled below or abandoned; never an unhandled rejection.
+    stateLoad.catch(() => undefined);
+
     let config: ButtonPublicConfig;
-    let counts: ClickCounts;
     try {
-      [config, counts] = await Promise.all([this.api.getConfig(), this.api.getState(this.item)]);
+      config = await configLoad;
     } catch (error) {
-      if (generation !== this.generation) return;
+      if (abandoned()) return;
       this.fail(errorCode(error), errorMessage(error));
       return;
     }
-    if (generation !== this.generation) return;
-
-    const icons = parseIcons(config);
-    if (icons === null) {
+    if (abandoned()) return;
+    if (!this.applyConfig(config)) {
       this.fail('invalid_svg', 'The button icon could not be parsed');
       return;
     }
+    writeCachedConfig(key, config);
+
+    let counts: ClickCounts;
+    try {
+      counts = await stateLoad;
+    } catch (error) {
+      if (abandoned()) return;
+      this.fail(errorCode(error), errorMessage(error));
+      return;
+    }
+    if (abandoned()) return;
+
+    this.config = config;
+    this.counts = counts;
+    writeCachedCounts(key, this.item, counts);
+    this.render();
+    this.emit('appreciator:ready', counts);
+  }
+
+  /**
+   * Draws the icon(s), burst particles and colours for `config`. Skipped when
+   * the same config is already drawn, so a fresh copy of a cached config does
+   * not flicker. False if the icon cannot be parsed.
+   */
+  private applyConfig(config: ButtonPublicConfig): boolean {
+    const signature = JSON.stringify(config);
+    if (signature === this.painted) return true;
+    const icons = parseIcons(config);
+    if (icons === null) return false;
 
     const burst = document.createElement('span');
     burst.setAttribute('part', 'burst');
@@ -408,11 +458,8 @@ export class AppreciatorButton extends HTMLElement {
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }
-    this.config = config;
-    this.counts = counts;
-    writeCachedCounts(key, this.item, counts);
-    this.render();
-    this.emit('appreciator:ready', counts);
+    this.painted = signature;
+    return true;
   }
 
   private fail(code: string, message: string): void {

@@ -1,7 +1,15 @@
 import type { ClickCounts } from '@appreciator/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { cacheKey, readCachedCounts, writeCachedCounts } from '../../src/storage.js';
+import {
+  cacheKey,
+  configCacheKey,
+  readCachedConfig,
+  readCachedCounts,
+  writeCachedConfig,
+  writeCachedCounts,
+} from '../../src/storage.js';
+import { sampleConfig, sampleSvgSources } from './fake-server.js';
 
 const COUNTS: ClickCounts = {
   totalCount: 4,
@@ -51,5 +59,33 @@ describe('counts cache', () => {
     expect(() => writeCachedCounts('pk_1', 'a', COUNTS, throwingStorage())).not.toThrow();
     expect(readCachedCounts('pk_1', 'a', throwingStorage())).toBeNull();
     expect(readCachedCounts('pk_1', 'a', null)).toBeNull();
+  });
+});
+
+describe('config cache', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('round-trips a config per button, with or without per-state icons', () => {
+    writeCachedConfig('pk_1', sampleConfig());
+    writeCachedConfig('pk_2', sampleConfig({ svgSources: sampleSvgSources() }));
+
+    expect(readCachedConfig('pk_1')).toEqual(sampleConfig());
+    expect(readCachedConfig('pk_2')?.svgSources).toEqual(sampleSvgSources());
+    expect(readCachedConfig('pk_3')).toBeNull();
+  });
+
+  it('ignores corrupt or foreign values', () => {
+    localStorage.setItem(configCacheKey('pk_1'), '{nope');
+    localStorage.setItem(configCacheKey('pk_2'), JSON.stringify({ ...sampleConfig(), colors: {} }));
+
+    expect(readCachedConfig('pk_1')).toBeNull();
+    expect(readCachedConfig('pk_2')).toBeNull();
+  });
+
+  it('degrades to no cache when storage throws', () => {
+    expect(() => writeCachedConfig('pk_1', sampleConfig(), throwingStorage())).not.toThrow();
+    expect(readCachedConfig('pk_1', throwingStorage())).toBeNull();
   });
 });
