@@ -174,6 +174,11 @@ A button's icon takes one of two shapes:
   and a rejection names the state (`svgSources.hover …`). When present,
   these win over `svgSource` and `colors`.
 
+Either shape can have `iconRing: true`, which draws a 2px circle around the
+icon in the current state's colour. It defaults to `false` and is returned in
+every `ButtonConfig` and by `/config`. `colors` still matter with per-state
+icons and kept colours: they paint the ring and the count once full.
+
 `svgSource` and `svgSources` in the same request answer
 `400 conflicting_icon`. A button created with `svgSources` still stores the
 default heart as its `svgSource`. A `PATCH` that sets `svgSource` drops any
@@ -227,6 +232,8 @@ What the widget needs to render itself, and nothing else:
     "clicked": "<svg viewBox=\"0 0 24 24\">…</svg>",
     "full": "<svg viewBox=\"0 0 24 24\">…</svg>"
   },
+  "keepIconColors": false,
+  "iconRing": false,
   "urlNormalization": "pathname"
 }
 ```
@@ -445,11 +452,15 @@ page and dashboard read to boot:
   "demoKey": "pk_…",
   "signInEnabled": true,
   "repoUrl": "https://github.com/medhatdawoud/appreciator",
-  "leaderboardEnabled": true
+  "leaderboardEnabled": true,
+  "defaultIcon": { "svgSource": "<svg …>", "colors": { "default": "#6b7280", "…": "…" } }
 }
 ```
 
 `demoKey` is the demo button's public key, or `null` with `DEMO_BUTTON=false`.
+`defaultIcon` is the built-in heart and its colours, which the dashboard
+draws in its colour table and "Try it" preview. The GitHub Pages copy of
+`config.json` leaves it out, since only the dashboard reads it.
 
 `GET /config.json` answers the same body: the landing page fetches
 `./config.json` so that one file works both here and on GitHub Pages.

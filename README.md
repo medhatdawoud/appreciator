@@ -438,9 +438,15 @@ in `GITHUB_ALLOWED_LOGINS`).
   key" replaces it; "Delete site" removes its buttons and counts.
 - **Buttons.** Name, allowed origins (one per line; `https://*.example.com`
   for every subdomain, `*` for any site), clicks per visitor, whether to count
-  by page path or full URL, and the icon: the built-in heart, one SVG with
-  four colours, or four SVGs (one per state) — paste them or pick files, with a
-  live preview. Each button row shows its snippet with a Copy button.
+  by page path or full URL, and the icon: the built-in heart, one SVG, or four
+  SVGs (one per state), pasted or picked from files. A table shows the four
+  colours (default, hover, clicked, full), each with the icon drawn as it
+  looks in that state. Under it, "Draw a circle around the icon" adds a ring
+  that follows the state colours. "Try it" at the end of the form is the real
+  button built from the form: click it through its whole allowance to see the
+  fill, pulse, count and burst before saving. Test clicks are never sent or
+  counted, and "Reset preview" starts it over. Each button row shows its
+  snippet with a Copy button.
 - **Counts.** Per page (or item id), with an origin filter and paging.
 - **Sign out** clears the session cookie.
 
@@ -458,14 +464,19 @@ with the next action already open.
 The button renders directly after the tag. Options are `data-*` attributes on
 the same tag:
 
-| Attribute     | Default                          | Description                                                                               |
-| ------------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `data-key`    | —                                | The button's public key. Required for auto-mounting.                                      |
-| `data-item`   | the page URL                     | Count against an explicit id (SPAs, one article at several URLs, one button per comment). |
-| `data-target` | after the tag                    | CSS selector of the element to render into. Lets the tag live in `<head>`.                |
-| `data-label`  | `Appreciate`                     | Accessible name prefix, e.g. `Clap for this post`.                                        |
-| `data-count`  | `right`                          | Where the count sits relative to the icon: `right`, `left`, `top` or `bottom`.            |
-| `data-api`    | where the bundle was loaded from | Only needed when serving the bundle from somewhere other than your instance.              |
+| Attribute     | Default                          | Description                                                                         |
+| ------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| `data-key`    | —                                | The button's public key. Required for auto-mounting.                                |
+| `data-item`   | the page URL                     | Count against an explicit id (one article at several URLs, one button per comment). |
+| `data-target` | after the tag                    | CSS selector of the element to render into. Lets the tag live in `<head>`.          |
+| `data-label`  | `Appreciate`                     | Accessible name prefix, e.g. `Clap for this post`.                                  |
+| `data-count`  | `right`                          | Where the count sits relative to the icon: `right`, `left`, `top` or `bottom`.      |
+| `data-api`    | where the bundle was loaded from | Only needed when serving the bundle from somewhere other than your instance.        |
+
+Without `data-item`, a button counts the page it is on, and follows a
+single-page app's router: when the address changes to another page without a
+page load, the button reloads that page's count, even when it sits in a
+layout the router keeps.
 
 ### Several buttons on one page
 
@@ -494,8 +505,8 @@ The package is not published to npm yet; use a git dependency or copy
 ```css
 appreciator-button {
   --appreciator-size: 2rem; /* icon size, default 1.5em; the count and gap scale with it */
-  --appreciator-default: #9ca3af; /* the gray silhouette */
-  --appreciator-hover: #374151; /* the silhouette while hovered */
+  --appreciator-default: #9ca3af; /* the unfilled silhouette, and the ring */
+  --appreciator-hover: #374151; /* both while hovered */
   --appreciator-clicked: #f43f5e; /* the filled part during the pulse */
   --appreciator-full: #e11d48; /* the filled part */
 }
@@ -534,15 +545,18 @@ up to three times before the widget gives up.
 
 **One SVG, any SVG.** Upload it as-is in the dashboard's "One SVG" mode (or
 post it as `svgSource`). By default the widget paints every shape in it with
-the button's colours, whatever colours the file carries: a gray silhouette in
-`default` (`hover` while hovered) that fills with `full` (`clicked` during the
-pulse). Outlines become solid shapes and gradients become flat, so this suits
+the button's colours, whatever colours the file carries: a dimmed silhouette
+in `default` (`hover` while hovered) that fills with `full` (`clicked` during
+the pulse). Outlines become solid shapes and gradients become flat, so this suits
 icons: hearts, stars, claps, logos-as-glyphs.
 
 **Keep its own colours** (`keepIconColors: true`, or the dashboard checkbox)
 for multi-colour mascots and logos: the SVG is drawn as designed, grayscale at
-first, filling into its real colours as visitors click. The four colours are
-then unused.
+first, filling into its real colours as visitors click. The four colours then
+only paint the ring and the count once full.
+
+**A ring** (`iconRing: true`, or "Draw a circle around the icon") puts a 2px
+circle around any of these icons, in the colour of the state it is in.
 
 `svg-gen` is optional; it only pre-bakes the same recolouring into the file and
 writes a `colors.json` to go with it:
@@ -577,22 +591,22 @@ Every error has the same JSON shape:
 
 ### Public (button public key, origin allowlist, per-IP rate limit)
 
-| Method | Path                            |                                                                                         |
-| ------ | ------------------------------- | --------------------------------------------------------------------------------------- |
-| `GET`  | `/v1/buttons/:publicKey/config` | `{ maxClicks, svgSource, colors, svgSources?, urlNormalization }`                       |
-| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }`           |
-| `POST` | `/v1/buttons/:publicKey/click`  | `{ item }` → same as `state`                                                            |
-| `POST` | `/v1/buttons/:publicKey/reset`  | landing demo button only: forgets the caller's clicks → `{ resetItems, removedClicks }` |
+| Method | Path                            |                                                                                             |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET`  | `/v1/buttons/:publicKey/config` | `{ maxClicks, svgSource, colors, svgSources?, keepIconColors, iconRing, urlNormalization }` |
+| `GET`  | `/v1/buttons/:publicKey/state`  | `?item=` → `{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }`               |
+| `POST` | `/v1/buttons/:publicKey/click`  | `{ item }` → same as `state`                                                                |
+| `POST` | `/v1/buttons/:publicKey/reset`  | landing demo button only: forgets the caller's clicks → `{ resetItems, removedClicks }`     |
 
 ### Management (`Authorization: Bearer <site key>`)
 
-| Method   | Path                    |                                                                                                                                        |
-| -------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/v1/buttons`           | `{ allowedOrigins, name?, maxClicks?, svgSource?, colors?, svgSources?, urlNormalization? }` → `{ buttonId, publicKey, embedSnippet }` |
-| `GET`    | `/v1/buttons`           | `{ buttons: ButtonConfig[] }` — each with its `embedSnippet`                                                                           |
-| `PATCH`  | `/v1/buttons/:id`       | any subset of the create fields → `ButtonConfig`                                                                                       |
-| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                              |
-| `DELETE` | `/v1/buttons/:id`       | `204`                                                                                                                                  |
+| Method   | Path                    |                                                                                                                                                                    |
+| -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST`   | `/v1/buttons`           | `{ allowedOrigins, name?, maxClicks?, svgSource?, colors?, svgSources?, keepIconColors?, iconRing?, urlNormalization? }` → `{ buttonId, publicKey, embedSnippet }` |
+| `GET`    | `/v1/buttons`           | `{ buttons: ButtonConfig[] }` — each with its `embedSnippet`                                                                                                       |
+| `PATCH`  | `/v1/buttons/:id`       | any subset of the create fields → `ButtonConfig`                                                                                                                   |
+| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                                                          |
+| `DELETE` | `/v1/buttons/:id`       | `204`                                                                                                                                                              |
 
 The same five routes exist under `/v1/sites/:siteId/buttons…` for the
 dashboard, authenticated by the session cookie instead of a bearer key.
@@ -615,7 +629,7 @@ dashboard, authenticated by the session cookie instead of a bearer key.
 | Method | Path                               |                                                                                 |
 | ------ | ---------------------------------- | ------------------------------------------------------------------------------- |
 | `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                       |
-| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled }`               |
+| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled, defaultIcon }`  |
 | `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache |
 | `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                |
 | `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                       |

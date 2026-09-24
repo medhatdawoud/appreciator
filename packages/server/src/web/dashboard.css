@@ -160,22 +160,55 @@ button.link {
   font-weight: 500;
 }
 
-.colors label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.state-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
 }
 
-.preview {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  min-height: 2.5rem;
+.state-table th {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 0 0.4rem;
 }
 
-.preview img {
+.state-table td {
+  padding: 0.35rem;
+  border-top: 1px solid var(--line);
+}
+
+.state-table input[type='color'] {
+  width: 100%;
+  max-width: 4rem;
+  height: 2rem;
+}
+
+.swatch svg {
   width: 2.5rem;
   height: 2.5rem;
+  vertical-align: middle;
+}
+
+/* Tall enough for the burst, which flies well past the icon and its ring. */
+.try-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 13rem;
+}
+
+.try-stage appreciator-button {
+  --appreciator-size: 3rem;
+}
+
+.try-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .secret {

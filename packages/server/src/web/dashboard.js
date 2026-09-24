@@ -300,46 +300,92 @@
     for (const block of form.querySelectorAll('[data-icon-mode]')) {
       block.hidden = block.dataset.iconMode !== iconMode();
     }
-    updateColorPickers();
-    renderPreview();
+    updateColorsHint();
+    renderSwatches();
+    scheduleTry();
   }
 
-  // With the SVG's own colours kept, the pickers would change nothing.
-  function updateColorPickers() {
-    const keep = form.elements.keepIconColors.checked;
-    for (const input of $('[data-color-pickers]').querySelectorAll('input')) input.disabled = keep;
-    $('[data-colors-hint]').textContent = keep
-      ? 'The SVG keeps its own colours: grayscale at first, then its real colours as it fills. The colours below are not used.'
-      : 'Your SVG is painted with these colours: a gray silhouette, filled with “full” as visitors click.';
+  function updateColorsHint() {
+    const mode = iconMode();
+    $('[data-colors-hint]').textContent =
+      mode === 'states'
+        ? 'Each state shows its own drawing. The colours tint the circle and the count once full.'
+        : mode === 'single' && form.elements.keepIconColors.checked
+          ? 'The SVG keeps its own colours: grayscale at first, then its real colours as it fills. The colours tint the circle and the count once full.'
+          : mode === 'single'
+            ? 'Your SVG is painted with these colours, filling up with “full” as visitors click.'
+            : 'The built-in heart, painted with these colours.';
   }
 
-  function svgDataUrl(svg) {
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  function readColors() {
+    return Object.fromEntries(STATES.map((s) => [s, form.elements[`color-${s}`].value]));
   }
 
-  function renderPreview() {
-    const preview = $('[data-preview]');
-    const sources =
-      iconMode() === 'single'
-        ? [form.elements.svgSource.value]
-        : iconMode() === 'states'
-          ? STATES.map((s) => form.elements[`svg-${s}`].value)
-          : [];
-    preview.replaceChildren(
-      ...sources
-        .filter((svg) => svg.trim().startsWith('<'))
-        .map((svg) => {
-          const img = document.createElement('img');
-          img.alt = '';
-          img.src = svgDataUrl(svg);
-          return img;
-        }),
-    );
+  /**
+   * The button as the form describes it, in the shape the widget is served,
+   * or null while there is no icon to draw yet.
+   */
+  function formConfig() {
+    const config = {
+      maxClicks: Math.max(1, Math.min(1000, Number(form.elements.maxClicks.value) || 10)),
+      colors: readColors(),
+      keepIconColors: false,
+      iconRing: form.elements.iconRing.checked,
+      urlNormalization: form.elements.urlNormalization.value,
+    };
+    const mode = iconMode();
+    if (mode === 'states') {
+      const svgSources = Object.fromEntries(
+        STATES.map((s) => [s, form.elements[`svg-${s}`].value.trim()]),
+      );
+      if (STATES.some((s) => svgSources[s] === '')) return null;
+      return { ...config, svgSource: svgSources.full, svgSources };
+    }
+    const svgSource =
+      mode === 'single'
+        ? form.elements.svgSource.value.trim()
+        : (state.config?.defaultIcon?.svgSource ?? '');
+    if (svgSource === '') return null;
+    return {
+      ...config,
+      svgSource,
+      keepIconColors: mode === 'single' && form.elements.keepIconColors.checked,
+    };
   }
+
+  /** Under each colour, the icon as it looks in that state. */
+  function renderSwatches() {
+    const config = formConfig();
+    for (const cell of form.querySelectorAll('[data-swatch]')) {
+      const icon = config && window.Appreciator?.stateIcon(config, cell.dataset.swatch);
+      cell.replaceChildren(...(icon ? [icon] : []));
+    }
+  }
+
+  const tryButton = $('[data-preview-button]');
+  let tryTimer;
+
+  /** Redraws the try-it button from the form, from zero, once typing pauses. */
+  function scheduleTry() {
+    clearTimeout(tryTimer);
+    tryTimer = setTimeout(renderTry, 250);
+  }
+
+  function renderTry() {
+    clearTimeout(tryTimer);
+    const config = formConfig();
+    const ready = config !== null && typeof tryButton.preview === 'function';
+    tryButton.hidden = !ready;
+    $('[data-preview-empty]').hidden = ready;
+    if (ready) tryButton.preview(config);
+  }
+
+  $('[data-action="reset-preview"]').addEventListener('click', renderTry);
 
   form.addEventListener('change', updateIconMode);
-  form.addEventListener('input', (event) => {
-    if (event.target.tagName === 'TEXTAREA') renderPreview();
+  form.addEventListener('input', () => {
+    renderSwatches();
+    scheduleTry();
   });
 
   for (const input of form.querySelectorAll('[data-file-for]')) {
@@ -347,7 +393,8 @@
       const file = input.files?.[0];
       if (!file) return;
       form.elements[input.dataset.fileFor].value = await file.text();
-      renderPreview();
+      renderSwatches();
+      scheduleTry();
     });
   }
 
@@ -361,14 +408,17 @@
     form.elements.allowedOrigins.value = button.allowedOrigins.join('\n');
     form.elements.maxClicks.value = String(button.maxClicks);
     form.elements.urlNormalization.value = button.urlNormalization;
+    form.elements.iconRing.checked = button.iconRing === true;
+    for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
     if (button.svgSources) {
       form.elements.iconMode.value = 'states';
       for (const s of STATES) form.elements[`svg-${s}`].value = button.svgSources[s];
+    } else if (button.svgSource === state.config?.defaultIcon?.svgSource) {
+      form.elements.iconMode.value = 'default';
     } else {
       form.elements.iconMode.value = 'single';
       form.elements.svgSource.value = button.svgSource;
       form.elements.keepIconColors.checked = button.keepIconColors === true;
-      for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
     }
     updateIconMode();
   }
@@ -386,15 +436,20 @@
         .filter(Boolean),
       maxClicks: Number(form.elements.maxClicks.value),
       urlNormalization: form.elements.urlNormalization.value,
+      colors: readColors(),
+      iconRing: form.elements.iconRing.checked,
     };
     if (iconMode() === 'single') {
       input.svgSource = form.elements.svgSource.value;
-      input.colors = Object.fromEntries(STATES.map((s) => [s, form.elements[`color-${s}`].value]));
       input.keepIconColors = form.elements.keepIconColors.checked;
     } else if (iconMode() === 'states') {
       input.svgSources = Object.fromEntries(
         STATES.map((s) => [s, form.elements[`svg-${s}`].value]),
       );
+    } else if (state.config?.defaultIcon) {
+      // Sent so that switching an edited button back to the heart takes effect.
+      input.svgSource = state.config.defaultIcon.svgSource;
+      input.keepIconColors = false;
     }
     return input;
   }

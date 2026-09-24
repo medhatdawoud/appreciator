@@ -30,6 +30,35 @@ function view(page: Page, name: string) {
   return page.locator(`[data-view="${name}"]`);
 }
 
+/** `#rrggbb` → the `rgb(r, g, b)` form computed styles report. */
+function rgb(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
+}
+
+/** An upload straight from a design tool: black, with none of svg-gen's colour variables. */
+const RAW_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+  '<path fill="#000000" d="M12 2 22 21H2z"/></svg>';
+
+/** Same-origin dashboard API call, with the header the CSRF check wants. */
+async function dashboardApi<T>(page: Page, path: string, method = 'GET', body?: unknown) {
+  return page.evaluate(
+    async ({ path, method, body }) => {
+      const response = await fetch(path, {
+        method,
+        headers: {
+          'x-requested-with': 'appreciator',
+          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      return (response.status === 204 ? null : await response.json()) as T;
+    },
+    { path, method, body },
+  );
+}
+
 test('signed out, the dashboard offers GitHub sign-in', async ({ page }) => {
   await page.goto(DASHBOARD);
 
@@ -180,4 +209,90 @@ test('walks a new account from its first site to a counted click and back to not
   await expect(view(page, 'signed-out')).toBeVisible();
   await page.reload();
   await expect(view(page, 'signed-out')).toBeVisible();
+});
+
+test('designs a button from its own SVG, tries it without counting, and saves it with a ring', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(60_000);
+  await signIn(context);
+  await page.goto(DASHBOARD);
+  await expect(view(page, 'sites')).toBeVisible();
+  const { site } = await dashboardApi<{ site: { id: string } }>(page, '/v1/sites', 'POST', {
+    name: `E2E design ${randomUUID().slice(0, 8)}`,
+  });
+  const counted: string[] = [];
+  page.on('request', (request) => {
+    if (/\/v1\/buttons\/pk_/.test(request.url())) counted.push(request.url());
+  });
+
+  await page.goto(`${DASHBOARD}#/sites/${site.id}/buttons/new`);
+  await expect(view(page, 'button-form')).toBeVisible();
+  await page.locator('textarea[name="allowedOrigins"]').fill(PAGE_ORIGIN);
+  const swatch = (state: string) => page.locator(`[data-swatch="${state}"] svg`);
+  const preview = page.locator('[data-preview-button]');
+
+  // The built-in heart is already drawn in each state's colour, and ready to try.
+  await expect(page.locator('[data-swatch] svg')).toHaveCount(4);
+  await expect(preview).toHaveAttribute('data-icons', 'single');
+
+  // Four drawings: each swatch shows that state's own, as drawn.
+  await page.locator('input[name="iconMode"][value="states"]').check();
+  const shades = { default: '#111111', hover: '#222222', clicked: '#333333', full: '#444444' };
+  for (const [state, shade] of Object.entries(shades)) {
+    await page.locator(`textarea[name="svg-${state}"]`).fill(RAW_SVG.replace('#000000', shade));
+  }
+  for (const [state, shade] of Object.entries(shades)) {
+    await expect(swatch(state).locator('path')).toHaveCSS('fill', rgb(shade));
+  }
+  await expect(preview).toHaveAttribute('data-icons', 'states');
+
+  // One raw SVG: each swatch shows it in that state's colour.
+  await page.locator('input[name="iconMode"][value="single"]').check();
+  await page.locator('textarea[name="svgSource"]').fill(RAW_SVG);
+  await page.locator('input[name="color-full"]').fill('#00aa00');
+  await expect(swatch('default').locator('path')).toHaveCSS('fill', rgb('#6b7280'));
+  await expect(swatch('hover').locator('path')).toHaveCSS('fill', rgb('#374151'));
+  await expect(swatch('clicked').locator('path')).toHaveCSS('fill', rgb('#f43f5e'));
+  await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
+  await expect(swatch('default')).toHaveCSS('opacity', '0.45');
+
+  // The ring, then the preview, clicked through its whole allowance.
+  await page.locator('input[name="iconRing"]').check();
+  await expect(preview).toHaveAttribute('data-ring', '');
+  await expect(preview.locator('svg[data-layer="fill"] path')).toHaveCSS('fill', rgb('#00aa00'));
+  await expect(preview.locator('[part="icon"]')).toHaveCSS('border-top-width', '2px');
+  const button = preview.locator('button');
+  for (let i = 0; i < 10; i += 1) await button.click({ force: true });
+  await expect(preview).toHaveAttribute('data-state', 'full');
+  await expect(preview.locator('[part="count"]')).toHaveText('10');
+  await button.click({ force: true });
+  await expect(preview).toHaveAttribute('data-burst', '');
+  await expect(preview.locator('[part="count"]')).toHaveText('10');
+  await page.locator('[data-action="reset-preview"]').click();
+  await expect(preview.locator('[part="count"]')).toHaveText('0');
+  await expect(preview).toHaveAttribute('data-state', 'default');
+
+  await page.locator('[data-submit]').click();
+  await expect(view(page, 'site')).toBeVisible();
+  expect(counted).toEqual([]);
+  const { buttons } = await dashboardApi<{
+    buttons: Array<{ id: string; iconRing: boolean; svgSource: string; colors: { full: string } }>;
+  }>(page, `/v1/sites/${site.id}/buttons`);
+  expect(buttons).toHaveLength(1);
+  expect(buttons[0]).toMatchObject({
+    iconRing: true,
+    svgSource: RAW_SVG,
+    colors: { full: '#00aa00' },
+  });
+
+  // Editing it brings the design back.
+  await page.locator('[data-button-row-edit]').click();
+  await expect(page.locator('input[name="iconMode"][value="single"]')).toBeChecked();
+  await expect(page.locator('input[name="iconRing"]')).toBeChecked();
+  await expect(page.locator('input[name="color-full"]')).toHaveValue('#00aa00');
+  await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
+
+  await dashboardApi(page, `/v1/sites/${site.id}`, 'DELETE');
 });

@@ -3,6 +3,76 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Dashboard: colour table, icon ring, and a button to try
+
+- **Colour table.** The four colours sit in a table (Default, Hover,
+  Clicked, Full), each column with its picker and, under it, the icon as it
+  looks in that state, drawn with the widget's own `stateIcon`. It shows in
+  every icon mode:
+  - the built-in heart, in the chosen colours;
+  - one SVG, painted as the widget paints it, or in its own colours
+    (grayscale at rest) when those are kept;
+  - four SVGs, each state's own drawing.
+    The colours are sent in every mode, since they also paint the ring and the
+    count once full.
+- **Ring.** "Draw a circle around the icon" saves `iconRing`.
+- **Try it.** The end of the form holds a real `<appreciator-button>` built
+  from the form through `preview()`: it fills, pulses, rolls its count,
+  bursts and goes full exactly as live, with no request and nothing stored.
+  It rebuilds from zero as the form changes, and "Reset preview" restarts it.
+  It replaces the static image previews.
+- Editing a button whose icon is the built-in heart now opens in "Built-in
+  heart" mode, and saving in that mode sends the heart, so switching an
+  edited button back to it takes effect.
+- Tests: an e2e that draws four SVGs and then a raw SVG and checks each
+  swatch's colour, ticks the ring, clicks the preview to full and past it,
+  resets it, saves, and checks that no public button request was made and
+  that the saved button has the ring, SVG and colour. Editing brings the
+  design back.
+
+## 2026-09-25 — Buttons follow single-page app navigation
+
+- A button counting its page (no `data-item`) often sits in a layout the
+  router keeps, so it showed the first page's count on every page. It now
+  reloads once the address names a different counter: a new path, or any
+  change under `full` URL counting. Fragment and query changes under the
+  default path counting reload nothing.
+- It listens through the Navigation API (`currententrychange`), or wraps
+  `pushState`/`replaceState` and listens for `popstate` where that is
+  missing. Buttons with `data-item`, which reload when it changes, and
+  previews are left alone. A removed button stops listening.
+- Tests: unit tests on the fallback path in jsdom (push, back and forward,
+  fragment and query, `data-item`, removal), and an e2e in Chromium that
+  routes between two pages, clicks on one, and goes back to its count.
+
+## 2026-09-25 — Chosen resting colours show; icon ring; offline preview
+
+- **Bug.** The unfilled layer of a recoloured icon was always run through
+  `grayscale(1)`, so the `default` and `hover` colours were drained to gray
+  and changing them had no visible effect. Grayscale now applies only when
+  the icon keeps its own colours. The built-in heart looks the same, since
+  its default colour is gray.
+- **Ring.** `iconRing` (saved on the button, migration 010) draws a 2px
+  round border around the icon. It is coloured `default`, `hover`, `clicked`
+  or `full` with the state, each overridable by `--appreciator-*`. The burst
+  starts and ends 1.3× further out so it clears the ring.
+- **`preview(config)`** runs the element from a config alone. It needs no key
+  and makes no request, and clicks settle locally through the same code path
+  as live clicks.
+- **`stateIcon(config, state)`** returns the icon as it looks in one state,
+  painted through the CSSOM so a strict `style-src` allows it.
+- `GET /web/config.json` also carries `defaultIcon` (the heart and its
+  colours) for the dashboard.
+- Tests: integration tests for `iconRing` (default, create, list, PATCH,
+  `/config`, type check) and `defaultIcon`. Unit tests cover the preview, the
+  ring and `stateIcon`. An e2e checks the ring's width, shape and colour in
+  each state and that the recoloured base is no longer grayscaled.
+
+## 2026-09-25 — Wider gap between the icon and the count
+
+- Half of `--appreciator-size` beside the icon (was a third), a quarter when
+  stacked (was a sixth).
+
 ## 2026-09-24 — Burst copies no longer zoom with the icon's pulse
 
 - **Bug.** The burst copies lived inside `[part="icon"]`, which carries the

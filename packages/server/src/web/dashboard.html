@@ -169,16 +169,6 @@
                 ><input type="checkbox" name="keepIconColors" /> Keep the SVG's own colours (for
                 multi-colour logos and mascots)</label
               >
-              <small data-colors-hint
-                >Your SVG is painted with these colours: gray silhouette, then filled with
-                <em>full</em>.</small
-              >
-              <div class="row colors" data-color-pickers>
-                <label>default <input type="color" name="color-default" value="#6b7280" /></label>
-                <label>hover <input type="color" name="color-hover" value="#374151" /></label>
-                <label>clicked <input type="color" name="color-clicked" value="#f43f5e" /></label>
-                <label>full <input type="color" name="color-full" value="#e11d48" /></label>
-              </div>
             </div>
             <div data-icon-mode="states" hidden>
               <label>default <textarea name="svg-default" rows="3"></textarea></label>
@@ -190,7 +180,75 @@
               <label>full <textarea name="svg-full" rows="3"></textarea></label>
               <input type="file" accept=".svg,image/svg+xml" data-file-for="svg-full" />
             </div>
-            <div class="preview" data-preview></div>
+            <small data-colors-hint></small>
+            <table class="state-table" data-state-table>
+              <thead>
+                <tr>
+                  <th scope="col">Default</th>
+                  <th scope="col">Hover</th>
+                  <th scope="col">Clicked</th>
+                  <th scope="col">Full</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-color-pickers>
+                  <td>
+                    <input
+                      type="color"
+                      name="color-default"
+                      value="#6b7280"
+                      aria-label="Default colour"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="color"
+                      name="color-hover"
+                      value="#374151"
+                      aria-label="Hover colour"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="color"
+                      name="color-clicked"
+                      value="#f43f5e"
+                      aria-label="Clicked colour"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="color"
+                      name="color-full"
+                      value="#e11d48"
+                      aria-label="Full colour"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td class="swatch" data-swatch="default"></td>
+                  <td class="swatch" data-swatch="hover"></td>
+                  <td class="swatch" data-swatch="clicked"></td>
+                  <td class="swatch" data-swatch="full"></td>
+                </tr>
+              </tbody>
+            </table>
+            <label class="check"
+              ><input type="checkbox" name="iconRing" /> Draw a circle around the icon</label
+            >
+          </fieldset>
+          <fieldset class="try">
+            <legend>Try it</legend>
+            <div class="try-stage">
+              <appreciator-button data-preview-button></appreciator-button>
+              <p class="muted" data-preview-empty hidden>Paste or upload an SVG to try it here.</p>
+            </div>
+            <div class="try-foot">
+              <small>Click it as a visitor would. Test clicks aren't saved or counted.</small>
+              <button type="button" class="btn btn-secondary" data-action="reset-preview">
+                Reset preview
+              </button>
+            </div>
           </fieldset>
           <p class="notice" data-form-error hidden></p>
           <div class="actions">
@@ -257,6 +315,7 @@
       </li>
     </template>
 
+    <script src="/widget.js"></script>
     <script src="/web/dashboard.js"></script>
   </body>
 </html>

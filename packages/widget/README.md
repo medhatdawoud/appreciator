@@ -71,7 +71,7 @@ The element reflects `data-state` on itself so the host page can style around it
   the burst (below). It carries `aria-disabled="true"` and an accessible name
   ending in "all used", so assistive tech still reports it as finished.
 
-`hover` is pure CSS: the icon grows slightly and the gray part takes the
+`hover` is pure CSS: the icon grows slightly and the unfilled part takes the
 `hover` colour.
 
 It also reflects `data-progress`, the share of this visitor's allowance
@@ -88,12 +88,18 @@ the colour variables below, overriding the colours in the file, so an SVG
 uploaded as-is follows the button's colours; definitions (masks, clip paths,
 gradients, symbols) are left alone.
 
+And `data-ring` when the button draws a circle around its icon (`iconRing`):
+a 2px round border on `::part(icon)`, in the `default` colour at rest,
+`hover` under the pointer, `clicked` during the pulse and `full` once full,
+each overridable with the same `--appreciator-*` variables. The burst starts
+and ends further out so it clears the ring.
+
 And `data-icons`, which says how the icon is drawn:
 
-- `single` — one SVG drawn twice inside `::part(icon)`: a gray silhouette
-  (`svg[data-layer="base"]`, painted with the `default` colour and run through
-  `grayscale()`, so even an icon that ignores the colour variables starts
-  gray), and a coloured copy (`svg[data-layer="fill"]`, painted with `full`)
+- `single` — one SVG drawn twice inside `::part(icon)`: a dimmed silhouette
+  (`svg[data-layer="base"]`, painted with the `default` colour, or run through
+  `grayscale()` when it keeps its own colours so it still starts gray), and a
+  coloured copy (`svg[data-layer="fill"]`, painted with `full`)
   revealed from the bottom up to `--appr-progress`. The reveal is mapped onto
   the drawing's measured extent (`getBBox()` plus the stroke, within the
   viewBox), not the whole box, so padding above or below an icon never
@@ -128,7 +134,7 @@ own with `::part(count) { font-size: … }`:
 ```css
 appreciator-button {
   --appreciator-size: 2rem;
-  --appreciator-default: #9ca3af; /* the gray silhouette */
+  --appreciator-default: #9ca3af; /* the unfilled silhouette */
   --appreciator-hover: #6b7280; /* the silhouette while hovered */
   --appreciator-clicked: orange; /* the filled part during the pulse */
   --appreciator-full: gold; /* the filled part */
@@ -158,6 +164,17 @@ All bubble and cross the shadow boundary, with the counts (or an error) in `deta
   demo.
 - `whenReady()` and `whenIdle()` resolve once loaded and once every accepted
   click has been sent.
+- `preview(config)` runs the button from a config alone (the shape
+  `GET /v1/buttons/:publicKey/config` serves), with no key, no requests and
+  nothing stored. Counts start at zero and each click settles locally the way
+  the server would, so the fill, pulse, count, burst and full state play as
+  they do live. Calling it again starts over. The dashboard's "Try it" uses
+  it.
+
+The bundle also exports `stateIcon(config, state)`, which returns the icon as
+it looks in one state (`default`, `hover`, `clicked`, `full`) as a standalone
+SVG element, painted as the button paints it. The dashboard draws its colour
+table with it (`Appreciator.stateIcon` from the script tag).
 
 ## How it behaves
 
@@ -181,6 +198,14 @@ Each click is shown
 immediately and sent one at a time, so the server's answer to each is
 authoritative and rapid clicks stay consistent. When the server reports the
 visitor is maxed, the button locks into `full`.
+
+A button that counts the page it is on (no `data-item`) follows single-page
+app navigation: when the router changes the address without loading a page,
+and the change names a different counter (a new path, or any change under
+`full` URL counting), the button reloads for the new page. It listens through
+the Navigation API, or wraps `history.pushState`/`replaceState` and listens
+for `popstate` where that API is missing. A button with `data-item` reloads
+when that attribute changes instead.
 
 The per-visitor cap is enforced server-side from the request's IP address and
 user agent, so clearing `localStorage` does not grant a fresh allowance. See
