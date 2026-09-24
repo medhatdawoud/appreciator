@@ -202,9 +202,24 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
 
   // First, ahead of the CORS delegate, which already loads the button: a
   // request is counted before it costs a query, whatever happens to it next.
-  // The price is that a 429 carries no Access-Control-Allow-Origin, so page
-  // script sees a failed request rather than the status.
-  await registerIpRateLimit(app, app.appConfig.rateLimitMax);
+  // Reads and writes have separate budgets, so a page full of buttons loading
+  // cannot use up the room for clicking them, and the reverse.
+  await registerIpRateLimit(app, app.appConfig.rateLimitMax, {
+    readMax: app.appConfig.rateLimitReadMax,
+  });
+
+  // The limit answers before the CORS delegate runs, so a 429 would carry no
+  // Access-Control-Allow-Origin and an embedding page could not tell it was
+  // throttled rather than offline. The body holds no data, so any origin may
+  // read it, together with when to try again.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    if (reply.statusCode === 429 && !reply.hasHeader('access-control-allow-origin')) {
+      void reply
+        .header('access-control-allow-origin', '*')
+        .header('access-control-expose-headers', 'Retry-After');
+    }
+    return payload;
+  });
 
   // `delegator`, not a bare function: Fastify treats a function passed as
   // plugin options as a factory taking the instance, which would silently

@@ -125,7 +125,8 @@ export async function buildApp({
       request.log.info({ err: error, ip: request.ip }, 'request rejected');
       return reply.status(pluginStatus).send({
         statusCode: pluginStatus,
-        error: error.code ?? 'bad_request',
+        // The rate limiter raises a 429 with no code of its own.
+        error: error.code ?? (pluginStatus === 429 ? 'rate_limited' : 'bad_request'),
         message: error.message,
         requestId: request.id,
       });

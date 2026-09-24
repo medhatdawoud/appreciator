@@ -3,6 +3,28 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-24 — Separate read and write rate limits; readable 429s
+
+Fixes icons disappearing after a few reloads and a reset.
+
+- **Root cause.** Every public request shared one per-IP budget
+  (`RATE_LIMIT_MAX`, 60/min). The landing page has ten buttons, each spending
+  `/state` (and `/config` once its 60 s cache expires) on every load and
+  reset. Reproduced with production defaults: load 6 got a 429, loads 7–8 lost
+  all ten icons, leaving only the cached counts. The e2e stack runs with the
+  limit off, so no test caught it. Real sites with many buttons per page
+  would hit it on first load.
+- Reads (`GET`/`HEAD`/preflight) now have their own budget,
+  `RATE_LIMIT_READ_MAX` (default 600/min); writes (`/click`, `/reset`) keep
+  `RATE_LIMIT_MAX`. Two limiters with separate stores behind one first
+  `onRequest` hook.
+- A 429 from the public routes carries `Access-Control-Allow-Origin: *` and
+  exposes `Retry-After`, so an embedding page can tell throttling from being
+  offline, and its `error` is `rate_limited` instead of `bad_request`.
+- Tests: split-budget integration tests (reads can't starve writes and vice
+  versa; the 429's headers and code; the allowlist still governs every other
+  response) and env tests for `RATE_LIMIT_READ_MAX`.
+
 ## 2026-09-23 — Count positions on the landing page
 
 - "Where the count goes" under "Make it yours": four live buttons with

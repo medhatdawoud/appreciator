@@ -53,8 +53,18 @@ export interface AppConfig {
   defaultMaxClicks: number;
   /** Origin the embed snippet points at, e.g. https://appreciator.example.com. */
   publicBaseUrl: string;
-  /** Max public-route requests per IP per window. */
+  /**
+   * Max requests per IP per window that change something: clicks and resets
+   * on the public routes, and the auth and leaderboard scopes.
+   */
   rateLimitMax: number;
+  /**
+   * Max public-route reads (`/config`, `/state`) per IP per window, counted
+   * apart from `rateLimitMax`. A page with many buttons spends one or two
+   * reads per button on every load, so reads need far more room than clicks,
+   * and must not be able to starve them.
+   */
+  rateLimitReadMax: number;
   /** Rate limit window, as accepted by @fastify/rate-limit (e.g. '1 minute'). */
   rateLimitWindow: string;
   /**
@@ -257,6 +267,7 @@ export function loadAppConfig(source: Source = process.env): AppConfig {
     defaultMaxClicks: positiveInt(source, 'DEFAULT_MAX_CLICKS', 10),
     publicBaseUrl,
     rateLimitMax: positiveInt(source, 'RATE_LIMIT_MAX', 60),
+    rateLimitReadMax: positiveInt(source, 'RATE_LIMIT_READ_MAX', 600),
     rateLimitWindow: optional(source, 'RATE_LIMIT_WINDOW', '1 minute'),
     widgetRateLimitMax: positiveInt(source, 'WIDGET_RATE_LIMIT_MAX', 300),
     trustProxy: bool(source, 'TRUST_PROXY', false),

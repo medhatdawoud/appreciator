@@ -42,6 +42,7 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     // Effectively disabled by default so unrelated tests are not throttled.
     // The rate limit has its own test that sets a real value.
     rateLimitMax: 100_000,
+    rateLimitReadMax: 100_000,
     rateLimitWindow: '1 minute',
     widgetRateLimitMax: 100_000,
     trustProxy: false,

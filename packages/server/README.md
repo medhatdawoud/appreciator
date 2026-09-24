@@ -36,7 +36,8 @@ npm run dev -w @appreciator/server       # tsx watch on src/server.ts
 | `HOST`                  | no          | `0.0.0.0`                                     | Bind address.                                                                                                                                                         |
 | `DEFAULT_MAX_CLICKS`    | no          | `10`                                          | Per-visitor cap for buttons created without an explicit `maxClicks`.                                                                                                  |
 | `PUBLIC_BASE_URL`       | no          | `http://localhost:$PORT`                      | Absolute http(s) base URL of this server: written into the embed snippet, the GitHub callback URL, and the only origin cookie-authenticated writes are accepted from. |
-| `RATE_LIMIT_MAX`        | no          | `60`                                          | Public-route requests allowed per IP per window.                                                                                                                      |
+| `RATE_LIMIT_MAX`        | no          | `60`                                          | Writes allowed per IP per window: clicks and resets on the public routes (and the auth and leaderboard budgets).                                                      |
+| `RATE_LIMIT_READ_MAX`   | no          | `600`                                         | Public-route reads (`/config`, `/state`, preflights) allowed per IP per window, counted apart from writes.                                                            |
 | `RATE_LIMIT_WINDOW`     | no          | `1 minute`                                    | Rate limit window.                                                                                                                                                    |
 | `WIDGET_RATE_LIMIT_MAX` | no          | `300`                                         | `GET /widget.js` requests allowed per IP per `RATE_LIMIT_WINDOW`, counted separately from the public routes.                                                          |
 | `TRUST_PROXY`           | no          | `false`                                       | Derive the client IP from `X-Forwarded-For`. Only enable behind a proxy you control.                                                                                  |
@@ -117,12 +118,21 @@ without inflating its counters. It works on the demo button only
 `404` as an unknown key, so a real button's per-visitor cap cannot be reset.
 It is origin-checked and rate-limited like the other public routes.
 
-The rate limit (`RATE_LIMIT_MAX` per `RATE_LIMIT_WINDOW` per IP) is checked
-before anything else, so requests that are going to be refused (an unknown
-public key, a disallowed origin, a malformed body) count against it too, and a
-throttled request never reaches the database. A `429` therefore carries no
-`Access-Control-Allow-Origin`: page script sees a failed request rather than the
-status.
+The public routes have two per-IP budgets per `RATE_LIMIT_WINDOW`: reads
+(`GET`, `HEAD` and CORS preflights: `/config`, `/state`) get
+`RATE_LIMIT_READ_MAX`, and writes (`/click`, `/reset`) get `RATE_LIMIT_MAX`.
+They are counted separately because a page with many buttons spends one or two
+reads per button on every load. With a single budget, a few reloads of a page
+with ten buttons used up the room and the next load failed; clicking could
+also starve loading and the reverse.
+
+The limit is checked before anything else, so requests that are going to be
+refused (an unknown public key, a disallowed origin, a malformed body) count
+against it too, and a throttled request never reaches the database. Because it
+answers before the CORS allowlist is consulted, a `429` from these routes
+carries `Access-Control-Allow-Origin: *` and exposes `Retry-After`: the body
+holds no data, and an embedding page can then tell "throttled, retry in N
+seconds" apart from "offline". Its `error` is `rate_limited`.
 
 Unauthenticated, outside the per-button scope:
 

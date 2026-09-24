@@ -749,7 +749,11 @@ describe('rate limiting', () => {
   let context: TestContext;
 
   beforeAll(async () => {
-    context = await createTestContext({ rateLimitMax: 5, rateLimitWindow: '1 minute' });
+    context = await createTestContext({
+      rateLimitMax: 5,
+      rateLimitReadMax: 5,
+      rateLimitWindow: '1 minute',
+    });
   });
 
   afterAll(async () => {
@@ -837,5 +841,87 @@ describe('rate limiting', () => {
       });
       expect(response.statusCode).toBe(201);
     }
+  });
+});
+
+describe('separate read and write budgets', () => {
+  let context: TestContext;
+  let publicKey: string;
+
+  beforeAll(async () => {
+    context = await createTestContext({ rateLimitMax: 2, rateLimitReadMax: 4 });
+    const tenant = await seedTenant(context.pool, 'Budgets');
+    const created = (
+      await context.app.inject({
+        method: 'POST',
+        url: '/v1/buttons',
+        headers: { authorization: tenant.authHeader },
+        payload: buttonInput(),
+      })
+    ).json() as CreateButtonResponse;
+    publicKey = created.publicKey;
+  });
+
+  afterAll(async () => {
+    await closeTestContext(context);
+  });
+
+  function read(ip: string) {
+    return context.app.inject({
+      method: 'GET',
+      url: `/v1/buttons/${publicKey}/state?item=${encodeURIComponent(PAGE)}`,
+      headers: { origin: ORIGIN },
+      remoteAddress: ip,
+    });
+  }
+
+  function write(ip: string) {
+    return context.app.inject({
+      method: 'POST',
+      url: `/v1/buttons/${publicKey}/click`,
+      headers: { origin: ORIGIN },
+      remoteAddress: ip,
+      payload: { item: PAGE },
+    });
+  }
+
+  it('loading many buttons cannot use up the room for clicking them', async () => {
+    const reads: number[] = [];
+    for (let i = 0; i < 5; i += 1) reads.push((await read('198.51.100.10')).statusCode);
+
+    expect(reads).toEqual([200, 200, 200, 200, 429]);
+    expect((await write('198.51.100.10')).statusCode).toBe(200);
+  });
+
+  it('clicking cannot use up the room for loading', async () => {
+    const writes: number[] = [];
+    for (let i = 0; i < 3; i += 1) writes.push((await write('198.51.100.11')).statusCode);
+
+    expect(writes).toEqual([200, 200, 429]);
+    expect((await read('198.51.100.11')).statusCode).toBe(200);
+  });
+
+  it('answers a 429 any page can read: status, retry time and a clear code', async () => {
+    for (let i = 0; i < 4; i += 1) await read('198.51.100.12');
+
+    const response = await read('198.51.100.12');
+
+    expect(response.statusCode).toBe(429);
+    expect(response.headers['access-control-allow-origin']).toBe('*');
+    expect(response.headers['access-control-expose-headers']).toBe('Retry-After');
+    expect(Number(response.headers['retry-after'])).toBeGreaterThan(0);
+    expect(response.json().error).toBe('rate_limited');
+  });
+
+  it('leaves the allowlist in charge of every response that is not a 429', async () => {
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/v1/buttons/${publicKey}/config`,
+      headers: { origin: 'https://evil.test' },
+      remoteAddress: '198.51.100.13',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 });
