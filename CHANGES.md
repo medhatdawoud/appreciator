@@ -3,6 +3,24 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Owners get a way to their site's settings from the leaderboard
+
+- On the leaderboard, a signed-in owner's own sites carry a "Your site ·
+  Settings" link to that site's page in the dashboard, where its settings
+  are now at the top. No one else sees it, and the dashboard still checks
+  ownership on every site route.
+- Leaderboard entries carry `siteId`, the random id the site's badge
+  address already shows. `GET /v1/leaderboard/mine` lists which of them the
+  signed-in account owns: an empty list when signed out rather than a 401,
+  `private, no-store`, and no CORS header. The page asks only when the
+  instance serves it, since the GitHub Pages copy never sees the sign-in.
+- Site settings move from the bottom of the site page to the top, above its
+  buttons and badge.
+- Tests: integration tests for ids in the list, the owner's list with
+  another account's site left out, signed out and forged cookies, and the
+  leaderboard switched off; an e2e where an owner sees the link on their own
+  row only, follows it to the settings, and a stranger sees none.
+
 ## 2026-09-25 — Rename a site, or take it off the leaderboard
 
 - `PATCH /v1/sites/:id` takes a new `name` and `showOnLeaderboard`

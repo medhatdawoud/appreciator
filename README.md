@@ -101,7 +101,8 @@ the person running an instance, or deploys their own in about ten minutes.
    change the icon, colours or cap, to add origins, or to rotate the key.
    Visit `/leaderboard` to see which of your sites is the most appreciated;
    each name links to the site's most-clicked page, whose address shows under
-   it. In the dashboard's counts, each page is a link to that page.
+   it, and your own sites carry a "Your site · Settings" link that only you
+   see. In the dashboard's counts, each page is a link to that page.
 
 ## Architecture
 
@@ -686,14 +687,15 @@ dashboard, authenticated by the session cookie instead of a bearer key.
 
 ### Everything else (no auth)
 
-| Method | Path                               |                                                                                  |
-| ------ | ---------------------------------- | -------------------------------------------------------------------------------- |
-| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                        |
-| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled, defaultIcon }`   |
-| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache  |
-| `GET`  | `/v1/sites/:siteId/badge.svg`      | the site's badge, `?label=`, `?color=`, 5 min cache; `badge.json` for shields.io |
-| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                 |
-| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                        |
+| Method | Path                               |                                                                                         |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                               |
+| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled, defaultIcon }`          |
+| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteId, siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache |
+| `GET`  | `/v1/leaderboard/mine`             | `{ siteIds }` the signed-in account owns, empty when signed out; same origin only       |
+| `GET`  | `/v1/sites/:siteId/badge.svg`      | the site's badge, `?label=`, `?color=`, 5 min cache; `badge.json` for shields.io        |
+| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                        |
+| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                               |
 
 ## Configuration reference
 

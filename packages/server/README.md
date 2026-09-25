@@ -546,12 +546,13 @@ all their buttons:
 {
   "sites": [
     {
+      "siteId": "1dd1100f-…",
       "siteName": "My blog",
       "url": "https://myblog.com/posts/hello",
       "buttonCount": 3,
       "totalCount": 1204
     },
-    { "siteName": "Docs", "url": null, "buttonCount": 1, "totalCount": 87 }
+    { "siteId": "ea0abf0e-…", "siteName": "Docs", "url": null, "buttonCount": 1, "totalCount": 87 }
   ]
 }
 ```
@@ -576,8 +577,19 @@ clicks are left out, as are sites whose owner turned `showOnLeaderboard` off,
 and the landing page's `demo` tenant (a dashboard site that happens to be
 named `demo` is not).
 
-The page that reads it may be hosted anywhere, so the response carries
-`Access-Control-Allow-Origin: *`, with `Cache-Control: public, max-age=60`. It
+`siteId` is the site's id, the same one its badge address carries: random,
+and on its own it opens nothing.
+
+`GET /v1/leaderboard/mine` lists the ids of the sites the signed-in account
+owns (`{ "siteIds": [...] }`), and an empty list when signed out, so the
+leaderboard page, served by the instance, can offer an owner a "Your site ·
+Settings" link on their own rows. It is `Cache-Control: private, no-store`
+and carries no CORS header, so no other site can read it; the dashboard still
+checks ownership on every site route.
+
+The page that reads `/v1/leaderboard` may be hosted anywhere, so its response
+carries `Access-Control-Allow-Origin: *`, with `Cache-Control: public,
+max-age=60`. It
 has a per-IP rate limit of `RATE_LIMIT_MAX` per window, counted separately from
 the public button routes. It makes every tenant's name public, including the
 `MANAGEMENT_SECRET` tenant (`default`) and CLI tenants once they have clicks;

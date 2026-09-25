@@ -65,6 +65,7 @@
     body.replaceChildren(
       ...entries.map((entry, index) => {
         const tr = document.createElement('tr');
+        tr.dataset.siteId = entry.siteId;
         tr.append(
           cell(String(index + 1), 'rank'),
           siteCell(entry),
@@ -76,6 +77,37 @@
     );
     table.hidden = entries.length === 0;
     document.querySelector('[data-board-empty]').hidden = entries.length > 0;
+  }
+
+  /**
+   * Offers the signed-in owner of a listed site a way to its settings. Only
+   * where the page is served by the instance itself: the sign-in cookie is
+   * that origin's, and a copy hosted elsewhere never sees it. Anyone else,
+   * or anything going wrong, simply gets no links.
+   */
+  async function markOwnSites(api) {
+    if (new URL(api).origin !== location.origin) return;
+    let siteIds = [];
+    try {
+      const response = await fetch(`${api}/v1/leaderboard/mine`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (response.ok) ({ siteIds } = await response.json());
+    } catch {
+      return;
+    }
+    for (const siteId of siteIds) {
+      const row = document.querySelector(
+        `[data-board-body] tr[data-site-id="${CSS.escape(siteId)}"]`,
+      );
+      if (!row) continue;
+      const link = document.createElement('a');
+      link.className = 'owner-link';
+      link.href = `/dashboard#/sites/${encodeURIComponent(siteId)}`;
+      link.textContent = 'Your site · Settings';
+      row.children[1]?.append(link);
+    }
   }
 
   async function main() {
@@ -100,6 +132,7 @@
       if (!response.ok) throw new Error(`status ${response.status}`);
       const { sites } = await response.json();
       render(sites);
+      await markOwnSites(trimSlash(config.apiUrl));
     } catch {
       document.querySelector('[data-board-error]').hidden = false;
     }

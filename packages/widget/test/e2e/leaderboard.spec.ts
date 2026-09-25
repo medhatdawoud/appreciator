@@ -84,3 +84,77 @@ test('links a site to its most-clicked public page, shown under its name', async
   await expect(link).toHaveAttribute('rel', 'nofollow ugc noopener noreferrer');
   await expect(link).toHaveAttribute('target', '_blank');
 });
+
+test("offers a site's owner, and only its owner, a way to its settings", async ({ browser }) => {
+  // The owner: signed in, with a site of their own that has a click.
+  const owner = await browser.newContext();
+  await owner.addCookies([
+    {
+      name: fixture.session.cookieName,
+      value: fixture.session.cookieValue,
+      url: API_ORIGIN,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  const page = await owner.newPage();
+  await page.goto(`${API_ORIGIN}/dashboard`);
+  const siteName = `Owned ${randomUUID().slice(0, 8)}`;
+  const { siteId, publicKey } = await page.evaluate(
+    async ({ name, origin }) => {
+      const post = async (path: string, body: unknown) =>
+        (
+          await fetch(path, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-requested-with': 'appreciator' },
+            body: JSON.stringify(body),
+          })
+        ).json();
+      const { site } = await post('/v1/sites', { name });
+      const button = await post(`/v1/sites/${site.id}/buttons`, { allowedOrigins: [origin] });
+      return { siteId: site.id as string, publicKey: button.publicKey as string };
+    },
+    { name: siteName, origin: PAGE_ORIGIN },
+  );
+  const visitor = await owner.newPage();
+  await visitor.goto(`${PAGE_ORIGIN}/?${new URLSearchParams({ api: API_ORIGIN, key: publicKey })}`);
+  await visitor.locator('appreciator-button button').click();
+  await visitor.evaluate(() =>
+    (
+      document.querySelector('appreciator-button') as unknown as { whenIdle(): Promise<void> }
+    ).whenIdle(),
+  );
+  await visitor.close();
+
+  await page.goto(`${API_ORIGIN}/leaderboard`);
+  const ownRow = page.locator(`[data-board-body] tr[data-site-id="${siteId}"]`);
+  await expect(ownRow).toContainText(siteName);
+  const settings = ownRow.getByRole('link', { name: 'Your site · Settings' });
+  await expect(settings).toHaveAttribute('href', `/dashboard#/sites/${siteId}`);
+  // The fixture's site belongs to no account, so no link there.
+  await expect(page.locator('.owner-link')).toHaveCount(1);
+
+  await settings.click();
+  await expect(page.locator('[data-view="site"]')).toBeVisible();
+  await expect(page.locator('[data-form="site-settings"] input[name="name"]')).toHaveValue(
+    siteName,
+  );
+
+  // Anyone else sees the same board without a single link.
+  const stranger = await browser.newContext();
+  const strangerPage = await stranger.newPage();
+  await strangerPage.goto(`${API_ORIGIN}/leaderboard`);
+  await expect(strangerPage.locator(`tr[data-site-id="${siteId}"]`)).toContainText(siteName);
+  await expect(strangerPage.locator('.owner-link')).toHaveCount(0);
+  await stranger.close();
+
+  await page.evaluate(
+    (id) =>
+      fetch(`/v1/sites/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-requested-with': 'appreciator' },
+      }),
+    siteId,
+  );
+  await owner.close();
+});

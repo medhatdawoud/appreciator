@@ -573,6 +573,21 @@ pre code {
   text-decoration: underline;
 }
 
+.owner-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.owner-link:hover {
+  border-color: var(--accent);
+}
+
 /* The page's address, on its own line, wrapping anywhere rather than
    widening the table. */
 .site-page {
