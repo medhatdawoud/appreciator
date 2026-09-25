@@ -49,6 +49,9 @@ the person running an instance, or deploys their own in about ten minutes.
   (sign in → name a site → create a button → paste the snippet) and a public
   "Most appreciated" ranking at `/leaderboard`. The landing page can also be
   hosted on GitHub Pages.
+- **A badge to show off.** Every site gets a small SVG badge with its total
+  appreciations across all its buttons, like the build badges on GitHub
+  READMEs, ready to paste into a README, a footer or a portfolio.
 - **Progress you can see.** The icon is a gray silhouette that fills with
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
   bottom 30%, 10 of 10 is fully coloured. Each click also pulses and throws
@@ -485,6 +488,19 @@ in `GITHUB_ALLOWED_LOGINS`).
 - **Counts.** Per page (or item id), with paging and a site filter: type
   `myblog.com`, `https://myblog.com` or any page address on it. Item ids
   belong to no site, so the filter leaves them out.
+- **Badge.** Each site's page shows its badge and the Markdown and HTML to
+  paste it anywhere, linked to the leaderboard:
+
+  ```markdown
+  [![My blog: appreciations](https://appreciator.example.com/v1/sites/<site-id>/badge.svg)](https://appreciator.example.com/leaderboard)
+  ```
+
+  It counts every button on the site and catches up within five minutes.
+  Add `?label=claps&color=6d28d9` to change its words or colour (a label up to
+  40 characters, a hex colour without the `#`). For one of shields.io's
+  styles, point its endpoint badge at `badge.json`:
+  `https://img.shields.io/endpoint?url=<the badge.json address, URL-encoded>`.
+
 - **Sign out** clears the session cookie.
 
 The first sign-in walks through the three steps (site → button → snippet)
@@ -666,13 +682,14 @@ dashboard, authenticated by the session cookie instead of a bearer key.
 
 ### Everything else (no auth)
 
-| Method | Path                               |                                                                                 |
-| ------ | ---------------------------------- | ------------------------------------------------------------------------------- |
-| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                       |
-| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled, defaultIcon }`  |
-| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache |
-| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                |
-| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                       |
+| Method | Path                               |                                                                                  |
+| ------ | ---------------------------------- | -------------------------------------------------------------------------------- |
+| `GET`  | `/`, `/leaderboard`, `/dashboard`  | the pages                                                                        |
+| `GET`  | `/config.json`, `/web/config.json` | `{ apiUrl, demoKey, signInEnabled, repoUrl, leaderboardEnabled, defaultIcon }`   |
+| `GET`  | `/v1/leaderboard`                  | `{ sites: [{ siteName, url, buttonCount, totalCount }] }`, CORS `*`, 60 s cache  |
+| `GET`  | `/v1/sites/:siteId/badge.svg`      | the site's badge, `?label=`, `?color=`, 5 min cache; `badge.json` for shields.io |
+| `GET`  | `/widget.js`                       | the widget bundle, 5 min cache, own per-IP limit                                 |
+| `GET`  | `/healthz`                         | `200`, or `503` when MySQL is unreachable                                        |
 
 ## Configuration reference
 

@@ -575,6 +575,36 @@ the public button routes. It makes every tenant's name public, including the
 set `LEADERBOARD=false` to switch it off, and it answers
 `404 leaderboard_disabled`.
 
+## Site badges
+
+`GET /v1/sites/:siteId/badge.svg` (public, no session) is a small flat SVG in
+the style of README build badges: a heart, a label and the site's exact total,
+every click on every one of its buttons, grouped in thousands (`1,234`). It is
+for owners to show wherever an image goes; the dashboard shows it, with
+Markdown and HTML to paste, on each site's page.
+
+- `?label=` replaces "appreciated" (1–40 characters) and `?color=` the value's
+  colour (hex without the `#`, 3 or 6 digits). Anything else is a `400`.
+- `Cache-Control: public, max-age=300`, `Access-Control-Allow-Origin: *`,
+  `X-Content-Type-Options: nosniff`, and a CSP of `default-src 'none'`. It
+  is metered by the public read rate limit, in a scope of its own.
+- An unknown or malformed site id answers `404` with a gray "not found" badge,
+  which browsers still draw, rather than a broken image.
+- The SVG carries no script and no external reference, only escaped text,
+  and its ids are unique per badge, so several badges pasted inline into one
+  page do not clip each other. Text is laid out from Verdana's widths and
+  pinned with `textLength`, so it fits in whatever font the viewer has.
+
+`GET /v1/sites/:siteId/badge.json` answers the same total in the shape
+shields.io's endpoint badges read (`{ schemaVersion, label, message, color,
+cacheSeconds }`), with the same options, for owners who want one of its
+styles; an unknown site is a JSON `404`.
+
+The badge is addressed by the site's id. The id is random, and on its own it
+opens nothing: every route that acts on a site needs its owner's session or
+secret. The badge reveals only the total, which the leaderboard already
+publishes by name and which the owner is sharing the badge to show.
+
 ## Tests
 
 Unit tests cover the pure helpers in `src/lib/` and need nothing running:

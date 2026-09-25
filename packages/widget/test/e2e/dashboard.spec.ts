@@ -148,6 +148,26 @@ test('walks a new account from its first site to a counted click and back to not
   );
   await visitor.close();
 
+  // The site's badge: a preview that loads, snippets to copy, and a total
+  // that already includes the click.
+  const siteId = new URL(page.url()).hash.split('/')[2] ?? '';
+  const badgeUrl = `${API_ORIGIN}/v1/sites/${siteId}/badge.svg`;
+  const badgeImg = page.locator('[data-badge-img]');
+  await expect(badgeImg).toHaveAttribute('src', `/v1/sites/${siteId}/badge.svg`);
+  await expect
+    .poll(() => badgeImg.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+    .toBeGreaterThan(0);
+  await expect(page.locator('[data-badge-markdown]')).toHaveText(
+    `[![${siteName}: appreciations](${badgeUrl})](${API_ORIGIN}/leaderboard)`,
+  );
+  await expect(page.locator('[data-badge-html]')).toContainText(`<img src="${badgeUrl}"`);
+  await page.locator('[data-badge] [data-copy="[data-badge-markdown]"]').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(badgeUrl);
+  const badge = await page.request.get(badgeUrl);
+  expect(badge.status()).toBe(200);
+  expect(badge.headers()['content-type']).toBe('image/svg+xml; charset=utf-8');
+  expect(await badge.text()).toContain(`aria-label="appreciated: 1"`);
+
   // The click shows up under Counts, keyed by the page, and the origin filter finds it.
   await row.locator('[data-button-row-items]').click();
   await expect(view(page, 'items')).toBeVisible();

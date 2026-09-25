@@ -3,6 +3,28 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A badge with each site's total appreciations
+
+- `GET /v1/sites/:siteId/badge.svg` draws a small flat badge, like a README
+  build badge: a heart, "appreciated" and the site's exact total over all its
+  buttons (`1,234`). Public, cached five minutes, metered by the public read
+  rate limit. `?label=` and `?color=` restyle it. An unknown site is a gray
+  "not found" badge with a `404`, still an image.
+- Safe anywhere: no script or external reference, escaped text,
+  `nosniff` and `default-src 'none'`. Its ids are unique per badge; with
+  shared ids, badges pasted inline into one page clipped each other to the
+  first one's width, which the first rendering showed.
+- `badge.json` answers the same in shields.io's endpoint-badge shape.
+- The dashboard shows each site's badge with Markdown and HTML to copy,
+  linked to the leaderboard (or the home page when it is off), with the site
+  name made safe for each snippet.
+- Tests: unit tests for the renderer (grouping, widths, halves adding up,
+  labels, escaping, unique ids, the server's own SVG check); integration
+  tests for totals across buttons and sites, a live click, options and their
+  refusals, not-found, headers, no session needed, the JSON shape, and the
+  session-only site routes left alone; an e2e that loads the badge in the
+  dashboard, copies its snippet and reads a total that includes a click.
+
 ## 2026-09-25 — A short, quiet click sound
 
 - Each counted click plays a soft pop, about a tenth of a second, climbing a

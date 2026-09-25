@@ -210,6 +210,33 @@
     if (state.sites.length === 0) state.sites = (await api('/v1/sites')).sites;
   }
 
+  /**
+   * The site's badge: a preview, and snippets that link it to the instance's
+   * leaderboard (or its home page when there is none). The preview loads from
+   * this origin, which the dashboard's CSP allows; the snippets carry the
+   * public address.
+   */
+  function renderBadge(site) {
+    const base = (state.config?.apiUrl || location.origin).replace(/\/+$/, '');
+    const path = `/v1/sites/${site.id}/badge.svg`;
+    const link = state.config?.leaderboardEnabled ? `${base}/leaderboard` : `${base}/`;
+    const alt = `${site.name}: appreciations`;
+    // The name is the owner's own text, so it is made safe for each snippet:
+    // no brackets to end a Markdown alt, and entities for an HTML attribute.
+    const markdownAlt = alt.replace(/[[\]\\]/g, '');
+    const htmlAlt = alt
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    $('[data-badge-img]').src = path;
+    $('[data-badge-img]').alt = alt;
+    $('[data-badge-markdown]').textContent = `[![${markdownAlt}](${base}${path})](${link})`;
+    $('[data-badge-html]').textContent =
+      `<a href="${link}"><img src="${base}${path}" alt="${htmlAlt}" height="20"></a>`;
+    copyButtons($('[data-badge]'));
+  }
+
   async function renderSite(siteId) {
     await ensureSites();
     const site = siteById(siteId);
@@ -219,6 +246,7 @@
     }
     show('site');
     $('[data-site-name]').textContent = site.name;
+    renderBadge(site);
     const { buttons } = await api(`/v1/sites/${siteId}/buttons`);
     state.buttons.set(siteId, buttons);
     const list = $('[data-buttons-list]');

@@ -284,6 +284,28 @@ button.link {
   color: var(--muted);
 }
 
+.badge-card {
+  display: grid;
+  /* May shrink below a snippet's line, which then scrolls in its block. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+  margin: 1.5rem 0;
+}
+
+.badge-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.badge-card p {
+  margin: 0;
+}
+
+.badge-preview img {
+  height: 20px;
+  vertical-align: middle;
+}
+
 .list-row.highlight {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
