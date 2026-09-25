@@ -6,9 +6,9 @@ import { API_ORIGIN, FIXTURE_PATH, type E2eFixture } from './constants.js';
 
 /**
  * Every demo slot on the page: the hero, the three variants, the four count
- * positions and the two "multiple" rows.
+ * positions and the three blog post cards.
  */
-const DEMO_SLOTS = 10;
+const DEMO_SLOTS = 11;
 
 let fixture: E2eFixture;
 
@@ -168,6 +168,7 @@ test('shows the count on every side, and on the left in the multi-button example
   expect(await side('count-bottom')).toBe('bottom');
   expect(await side('multi-1')).toBe('left');
   expect(await side('multi-2')).toBe('left');
+  expect(await side('multi-3')).toBe('left');
   expect(await side('hero')).toBe('right');
 });
 
