@@ -3,6 +3,28 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A thank-you message when a visitor runs out of clicks
+
+- Each button has a `thanksMessage` (migration 012, up to 160 characters,
+  empty for none), starting as "Thank you so much, we're truly grateful.",
+  set in the dashboard's "Thank-you message" field and served by `/config`.
+- On the click that uses up the visitor's allowance, the widget fades it in
+  under the button (above it when the count is below) and out 3 s later. It
+  is 80% of the page's text size, wraps a typical message onto two lines so
+  it fits small containers, and sits over what follows so nothing moves.
+  Next to the edge of the window it slides back into view. Its text is put
+  in only as it appears, in a `role="status"` region, so screen readers
+  announce it. Later clicks and a visitor who comes back spent do not bring
+  it back. It is `::part(thanks)` for host pages to restyle.
+- "Try it" in the dashboard shows it, and the landing page keeps room for it
+  under the main demo.
+- Tests: integration tests for the default, a custom and an empty message,
+  trimming, the 160-character limit, PATCH and `/config`. Unit tests for when
+  it shows and goes, never for a returning visitor or an empty message, and
+  a preview starting over. The e2e checks its text, size, two lines, place
+  below or above the button, fading out, staying on screen next to the
+  window's edge, and the dashboard field through to the saved button.
+
 ## 2026-09-25 — Deploy to Coolify when CI passes on main
 
 - CI gains a `deploy` job that runs after every check has passed on a push

@@ -261,6 +261,11 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
   await expect(swatch('default')).toHaveCSS('opacity', '0.45');
 
+  // A new button starts with the default thank-you message; this one has its own.
+  const thanksInput = page.locator('input[name="thanksMessage"]');
+  await expect(thanksInput).toHaveValue("Thank you so much, we're truly grateful.");
+  await thanksInput.fill('Thanks a ton.');
+
   // The ring, then the preview, clicked through its whole allowance.
   await page.locator('input[name="iconRing"]').check();
   await expect(preview).toHaveAttribute('data-ring', '');
@@ -270,6 +275,8 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   for (let i = 0; i < 10; i += 1) await button.click({ force: true });
   await expect(preview).toHaveAttribute('data-state', 'full');
   await expect(preview.locator('[part="count"]')).toHaveText('10');
+  await expect(preview.locator('[part="thanks"]')).toHaveText('Thanks a ton.');
+  await expect(preview.locator('[part="thanks"]')).toBeVisible();
   await button.click({ force: true });
   await expect(preview).toHaveAttribute('data-burst', '');
   await expect(preview.locator('[part="count"]')).toHaveText('10');
@@ -346,10 +353,17 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   );
   expect(counted).toEqual([]);
   const { buttons } = await dashboardApi<{
-    buttons: Array<{ id: string; iconRing: boolean; svgSource: string; colors: { full: string } }>;
+    buttons: Array<{
+      id: string;
+      iconRing: boolean;
+      thanksMessage: string;
+      svgSource: string;
+      colors: { full: string };
+    }>;
   }>(page, `/v1/sites/${site.id}/buttons`);
   expect(buttons).toHaveLength(1);
   expect(buttons[0]).toMatchObject({
+    thanksMessage: 'Thanks a ton.',
     iconRing: true,
     svgSource: RAW_SVG,
     colors: { full: '#00aa00' },
@@ -360,6 +374,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(page.locator('input[name="iconMode"][value="single"]')).toBeChecked();
   await expect(page.locator('input[name="iconRing"]')).toBeChecked();
   await expect(page.locator('select[name="countPosition"]')).toHaveValue('left');
+  await expect(thanksInput).toHaveValue('Thanks a ton.');
   await expect(page.locator('input[name="color-full"]')).toHaveValue('#00aa00');
   await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
 

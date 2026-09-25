@@ -56,7 +56,9 @@ the person running an instance, or deploys their own in about ten minutes.
   from the count so none crosses it; clicking a full button
   still bursts but counts nothing. The
   count rolls up to its new number like an odometer on every counted click,
-  and can sit on any side of the icon (`data-count`). Works with
+  and can sit on any side of the icon (`data-count`). The click that uses up
+  a visitor's allowance shows a short thank-you message for three seconds.
+  Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons
   configured with four SVGs, one per state, swap drawings instead.
 - **Per-page counters, automatically.** The counter key is origin + path, so
@@ -467,9 +469,12 @@ in `GITHUB_ALLOWED_LOGINS`).
   that follows the state colours, and "Count position" puts the count right,
   left, above or below the icon. The position is written into the button's
   snippets as `data-count`, so a page already embedding the button keeps its
-  old position until its snippet is pasted again. "Try it" at the end of the
-  form is the real button built from the form: click it through its whole
-  allowance to see the fill, pulse, count and burst before saving. Test clicks are never sent or
+  old position until its snippet is pasted again. "Thank-you message" is what
+  the button says, for three seconds, on the click that uses up a visitor's
+  clicks; it starts as "Thank you so much, we're truly grateful." and can be
+  emptied for none. "Try it" at the end of the form is the real button built
+  from the form: click it through its whole allowance to see the fill, pulse,
+  count, burst and message before saving. Test clicks are never sent or
   counted, and "Reset preview" starts it over.
 - **The button list.** Each row shows its button as saved, clickable in the
   same way (nothing counted), and two snippets with Copy buttons: the one tag

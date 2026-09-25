@@ -246,10 +246,15 @@ button.link {
   --appreciator-size: 3rem;
 }
 
-.count-position {
+.count-position,
+.thanks-message {
   display: grid;
   gap: 0.3rem;
   max-width: 22rem;
+}
+
+.thanks-message {
+  max-width: 32rem;
 }
 
 .try-foot {

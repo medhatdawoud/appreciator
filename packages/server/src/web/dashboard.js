@@ -343,6 +343,7 @@
       colors: readColors(),
       keepIconColors: false,
       iconRing: form.elements.iconRing.checked,
+      thanksMessage: form.elements.thanksMessage.value.trim(),
       urlNormalization: form.elements.urlNormalization.value,
     };
     const mode = iconMode();
@@ -413,6 +414,9 @@
 
   function fillForm(button) {
     form.reset();
+    form.elements.thanksMessage.value = button
+      ? button.thanksMessage
+      : (state.config?.defaultThanksMessage ?? '');
     if (!button) {
       updateIconMode();
       return;
@@ -453,6 +457,7 @@
       colors: readColors(),
       iconRing: form.elements.iconRing.checked,
       countPosition: form.elements.countPosition.value,
+      thanksMessage: form.elements.thanksMessage.value.trim(),
     };
     if (iconMode() === 'single') {
       input.svgSource = form.elements.svgSource.value;
