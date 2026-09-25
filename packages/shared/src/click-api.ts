@@ -33,6 +33,12 @@ export interface ItemSummary {
   updatedAt: string;
 }
 
+/**
+ * How GET /v1/buttons/:id/items orders its rows: most recently updated first
+ * (the default), or highest total first. Ties go by key either way.
+ */
+export type ItemsSort = 'updated' | 'total';
+
 export interface ItemsPage {
   items: ItemSummary[];
   nextCursor: string | null;

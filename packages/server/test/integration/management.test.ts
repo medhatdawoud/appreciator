@@ -929,12 +929,26 @@ describe('management routes', () => {
   });
 
   describe('GET /v1/buttons/:id/items', () => {
+    /**
+     * All updated in the same second, so the default order (last updated
+     * first) falls back to key order, whenever the test happens to run.
+     */
     async function seedItemKeys(buttonId: string, keys: readonly string[]): Promise<void> {
-      for (const [i, key] of keys.entries()) {
+      await seedRows(
+        buttonId,
+        keys.map((key, i) => [key, i, '2026-01-01 00:00:00']),
+      );
+    }
+
+    async function seedRows(
+      buttonId: string,
+      rows: ReadonlyArray<[itemKey: string, total: number, updatedAt: string]>,
+    ): Promise<void> {
+      for (const [key, total, updatedAt] of rows) {
         await execute(
           context.pool,
-          'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)',
-          [buttonId, key, i],
+          'INSERT INTO items (button_id, item_key, total_count, updated_at) VALUES (?, ?, ?, ?)',
+          [buttonId, key, total, updatedAt],
         );
       }
     }
@@ -1074,18 +1088,97 @@ describe('management routes', () => {
     it('does not let a crafted cursor change the query', async () => {
       const created = await createButton();
       await seedItems(created.buttonId, 3);
-      const cursor = Buffer.from("' OR '1'='1").toString('base64url');
+      const cursor = Buffer.from(JSON.stringify({ s: 'total', v: 99, k: "' OR '1'='1" })).toString(
+        'base64url',
+      );
 
       const response = await context.app.inject({
         method: 'GET',
-        url: `/v1/buttons/${created.buttonId}/items?cursor=${cursor}`,
+        url: `/v1/buttons/${created.buttonId}/items?sort=total&cursor=${cursor}`,
         headers: { authorization: tenant.authHeader },
       });
 
       expect(response.statusCode).toBe(200);
-      // The cursor is compared as a literal value, so it simply sorts before
-      // every seeded key and returns them all.
+      // The key is compared as a literal value: every seeded total is below
+      // 99, so they all come after it.
       expect(response.json().items).toHaveLength(3);
+    });
+
+    describe('order', () => {
+      const ROWS: Array<[string, number, string]> = [
+        ['https://example.com/old-and-big', 50, '2026-01-01 10:00:00'],
+        ['https://example.com/new-and-small', 2, '2026-03-01 10:00:00'],
+        ['https://example.com/b-middle', 9, '2026-02-01 10:00:00'],
+        ['https://example.com/a-middle', 9, '2026-02-01 10:00:00'],
+      ];
+
+      it('lists the most recently updated first by default, ties by key', async () => {
+        const created = await createButton();
+        await seedRows(created.buttonId, ROWS);
+
+        for (const query of ['', 'sort=updated']) {
+          expect((await listItemKeys(created.buttonId, query)).itemKeys).toEqual([
+            'https://example.com/new-and-small',
+            'https://example.com/a-middle',
+            'https://example.com/b-middle',
+            'https://example.com/old-and-big',
+          ]);
+        }
+      });
+
+      it('lists the highest total first with sort=total, ties by key', async () => {
+        const created = await createButton();
+        await seedRows(created.buttonId, ROWS);
+
+        expect((await listItemKeys(created.buttonId, 'sort=total')).itemKeys).toEqual([
+          'https://example.com/old-and-big',
+          'https://example.com/a-middle',
+          'https://example.com/b-middle',
+          'https://example.com/new-and-small',
+        ]);
+      });
+
+      it.each(['updated', 'total'])(
+        'pages by %s through every item once, in order, across ties',
+        async (sort) => {
+          const created = await createButton();
+          await seedRows(created.buttonId, ROWS);
+          const whole = (await listItemKeys(created.buttonId, `sort=${sort}`)).itemKeys;
+
+          const seen: string[] = [];
+          let cursor: string | null = null;
+          do {
+            const page = await listItemKeys(
+              created.buttonId,
+              `sort=${sort}&limit=1${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+            );
+            seen.push(...page.itemKeys);
+            cursor = page.nextCursor;
+          } while (cursor !== null && seen.length < 10);
+
+          expect(seen).toEqual(whole);
+        },
+      );
+
+      it("refuses another sort's cursor, an old key-only cursor, and an unknown sort", async () => {
+        const created = await createButton();
+        await seedRows(created.buttonId, ROWS);
+        const byTotal = await listItemKeys(created.buttonId, 'sort=total&limit=1');
+        const oldStyle = Buffer.from('https://example.com/a-middle').toString('base64url');
+
+        for (const query of [
+          `sort=updated&cursor=${encodeURIComponent(byTotal.nextCursor ?? '')}`,
+          `cursor=${oldStyle}`,
+          'sort=oldest',
+        ]) {
+          const response = await context.app.inject({
+            method: 'GET',
+            url: `/v1/buttons/${created.buttonId}/items?${query}`,
+            headers: { authorization: tenant.authHeader },
+          });
+          expect(response.statusCode).toBe(400);
+        }
+      });
     });
 
     describe('?origin=', () => {

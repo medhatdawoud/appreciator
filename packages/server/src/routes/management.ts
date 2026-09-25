@@ -4,6 +4,7 @@ import type {
   ButtonListResponse,
   CreateButtonResponse,
   ItemsPage,
+  ItemsSort,
 } from '@appreciator/shared';
 import type { FastifyInstance, FastifyRequest, onRequestHookHandler } from 'fastify';
 
@@ -133,6 +134,7 @@ interface ItemsQuery {
   limit?: number;
   cursor?: string;
   origin?: string;
+  sort?: ItemsSort;
 }
 
 /**
@@ -234,14 +236,77 @@ async function loadOwnedButton(
   return toButtonConfig(row, app.appConfig.publicBaseUrl);
 }
 
-function decodeCursor(cursor: string | undefined): string | undefined {
+interface ItemRow {
+  item_key: string;
+  total_count: number;
+  updated_at: Date;
+  /** `updated_at` in whole seconds, as the column stores it. */
+  updated_ts: number | string;
+}
+
+/**
+ * Each order the items listing offers, highest first with ties by key, and
+ * how a page that ended on some row carries on after it: each `after` takes
+ * the cursor's value twice, then its key. The clauses are
+ * literals; only the cursor's values are bound. Each has an index to match
+ * (migrations 015 and 016).
+ */
+const ITEM_SORTS: Record<
+  ItemsSort,
+  { order: string; after: string; value: (row: ItemRow) => number }
+> = {
+  // FROM_UNIXTIME and the column are both read in the session's time zone,
+  // so the comparison holds whatever that zone is.
+  updated: {
+    order: 'updated_at DESC, item_key ASC',
+    after: '(updated_at < FROM_UNIXTIME(?) OR (updated_at = FROM_UNIXTIME(?) AND item_key > ?))',
+    value: (row) => Number(row.updated_ts),
+  },
+  total: {
+    order: 'total_count DESC, item_key ASC',
+    after: '(total_count < ? OR (total_count = ? AND item_key > ?))',
+    value: (row) => row.total_count,
+  },
+};
+
+/** Where a page of items ended, in the sort it was listed by. */
+interface ItemsCursor {
+  sort: ItemsSort;
+  value: number;
+  itemKey: string;
+}
+
+function encodeCursor(cursor: ItemsCursor): string {
+  return Buffer.from(
+    JSON.stringify({ s: cursor.sort, v: cursor.value, k: cursor.itemKey }),
+    'utf8',
+  ).toString('base64url');
+}
+
+/** A cursor from another sort, or not one of ours at all, is refused. */
+function decodeCursor(cursor: string | undefined, sort: ItemsSort): ItemsCursor | undefined {
   if (cursor === undefined) return undefined;
 
-  const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
-  if (decoded.length === 0 || decoded.length > MAX_ITEM_KEY_LENGTH) {
-    throw badRequest('cursor is not a valid pagination cursor', 'invalid_cursor');
+  const invalid = badRequest('cursor is not a valid pagination cursor', 'invalid_cursor');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw invalid;
   }
-  return decoded;
+  const { s, v, k } = (parsed ?? {}) as { s?: unknown; v?: unknown; k?: unknown };
+  if (
+    s !== sort ||
+    typeof v !== 'number' ||
+    !Number.isSafeInteger(v) ||
+    v < 0 ||
+    typeof k !== 'string' ||
+    k.length === 0 ||
+    k.length > MAX_ITEM_KEY_LENGTH
+  ) {
+    throw invalid;
+  }
+  return { sort, value: v, itemKey: k };
 }
 
 /**
@@ -451,6 +516,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
             limit: { type: 'integer', minimum: 1, maximum: MAX_PAGE_SIZE },
             cursor: { type: 'string', minLength: 1, maxLength: 1024 },
             origin: { type: 'string', maxLength: 255, pattern: ORIGIN_FILTER_PATTERN },
+            sort: { type: 'string', enum: ['updated', 'total'] },
           },
         },
         response: {
@@ -483,7 +549,8 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       await loadOwnedButton(app, tenantId, request.params.id);
 
       const limit = request.query.limit ?? DEFAULT_PAGE_SIZE;
-      const after = decodeCursor(request.query.cursor);
+      const sort = ITEM_SORTS[request.query.sort ?? 'updated'];
+      const after = decodeCursor(request.query.cursor, request.query.sort ?? 'updated');
       const origin = decodeOriginFilter(request.query.origin);
 
       const conditions = ['button_id = ?'];
@@ -498,19 +565,21 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         params.push(origin, `${escapeLike(origin)}/%`);
       }
       if (after !== undefined) {
-        conditions.push('item_key > ?');
-        params.push(after);
+        conditions.push(sort.after);
+        params.push(after.value, after.value, after.itemKey);
       }
 
-      // Keyset pagination on the primary key: stable under concurrent writes,
-      // and it never makes the database skip rows to reach a page.
-      // One extra row tells us whether another page exists.
-      const rows = await queryRows<{ item_key: string; total_count: number; updated_at: Date }>(
+      // Keyset pagination on the chosen order: it never makes the database
+      // skip rows to reach a page. An item clicked while someone pages moves
+      // up, so it may land on a page they already have, but the pages they
+      // fetch never repeat or drop an item that stayed put. One extra row
+      // tells us whether another page exists.
+      const rows = await queryRows<ItemRow>(
         app.pool,
-        `SELECT item_key, total_count, updated_at
+        `SELECT item_key, total_count, updated_at, UNIX_TIMESTAMP(updated_at) AS updated_ts
            FROM items
           WHERE ${conditions.join(' AND ')}
-          ORDER BY item_key ASC
+          ORDER BY ${sort.order}
           LIMIT ?`,
         [...params, limit + 1],
       );
@@ -527,7 +596,11 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         })),
         nextCursor:
           hasMore && last !== undefined
-            ? Buffer.from(last.item_key, 'utf8').toString('base64url')
+            ? encodeCursor({
+                sort: request.query.sort ?? 'updated',
+                value: sort.value(last),
+                itemKey: last.item_key,
+              })
             : null,
       };
     },
