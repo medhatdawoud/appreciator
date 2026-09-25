@@ -97,28 +97,57 @@ test('taps are never taken for a double-tap zoom or a text selection', async ({ 
   expect(await page.evaluate(() => String(window.getSelection()))).toBe('');
 });
 
-test('thanks the visitor under the button once they are out of clicks', async ({ page }) => {
+test('thanks the visitor under the button as they run out of clicks, then fades', async ({
+  page,
+}) => {
   const ui = await open(page);
   const thanks = ui.host.locator('[part="thanks"]');
   await expect(thanks).toBeHidden();
 
   for (let i = 0; i < fixture.maxClicks; i += 1) await ui.button.click({ force: true });
 
-  // The server's default message, a step smaller than the page's text.
+  // The server's default message, a step smaller than the page's text, on two
+  // lines so it fits a small container, under the button.
   await expect(thanks).toBeVisible();
   await expect(thanks).toHaveText("Thank you so much, we're truly grateful.");
   const hostFont = await ui.host.evaluate((element) => getComputedStyle(element).fontSize);
-  await expect(thanks).toHaveCSS('font-size', `${Number.parseFloat(hostFont) * 0.8}px`);
-  const below = async () => {
-    const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
-    return (text?.y ?? 0) >= (button?.y ?? 0) + (button?.height ?? 0);
-  };
-  expect(await below()).toBe(true);
+  const fontSize = Number.parseFloat(hostFont) * 0.8;
+  await expect(thanks).toHaveCSS('font-size', `${fontSize}px`);
+  const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
+  expect(Math.round((text?.height ?? 0) / (fontSize * 1.3))).toBe(2);
+  expect(text?.y ?? 0).toBeGreaterThanOrEqual((button?.y ?? 0) + (button?.height ?? 0));
 
   // With the count under the icon, the message moves above the button.
   await ui.host.evaluate((element) => element.setAttribute('data-count', 'bottom'));
-  const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
-  expect((text?.y ?? 0) + (text?.height ?? 0)).toBeLessThanOrEqual(button?.y ?? 0);
+  const [above, moved] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
+  expect((above?.y ?? 0) + (above?.height ?? 0)).toBeLessThanOrEqual(moved?.y ?? 0);
+
+  // It goes after a few seconds, and later clicks do not bring it back.
+  await expect(thanks).toBeHidden({ timeout: 5000 });
+  await ui.button.click({ force: true });
+  await page.waitForTimeout(400);
+  await expect(thanks).toBeHidden();
+});
+
+test('keeps the thank-you message on screen next to the edge of the window', async ({ page }) => {
+  const ui = await open(page);
+  await ui.host.evaluate((element) => {
+    element.style.position = 'fixed';
+    element.style.right = '2px';
+    element.style.top = '200px';
+  });
+
+  for (let i = 0; i < fixture.maxClicks; i += 1) await ui.button.click({ force: true });
+
+  const thanks = ui.host.locator('[part="thanks"]');
+  await expect(thanks).toBeVisible();
+  // Settled: it slides up into place as it fades in.
+  await page.waitForTimeout(400);
+  const box = await thanks.boundingBox();
+  const width = await page.evaluate(() => document.documentElement.clientWidth);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width - 7);
+  expect(box?.x ?? 0).toBeGreaterThanOrEqual(7);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('hover recolours the silhouette', async ({ page }) => {

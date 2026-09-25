@@ -22,6 +22,12 @@ export const BURST_MS = 600;
 /** How long the count takes to roll to its new number. Matches the roll keyframes below. */
 export const ROLL_MS = 320;
 
+/** How long the thank-you message stays after the click that uses up the allowance. */
+export const THANKS_MS = 3000;
+
+/** The least room the thank-you message keeps from the edges of the window, in px. */
+const THANKS_EDGE_PX = 8;
+
 /** Where a burst copy appears and where it ends, in icon sizes from the icon's centre. */
 const BURST_START_RADIUS = 0.6;
 const BURST_END_RADIUS = 1.5;
@@ -95,11 +101,12 @@ const RING_REACH = 1.5;
  * `data-ring` draws a 1px circle around the icon, coloured like the state it
  * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
  *
- * `[part="thanks"]` is the button's thank-you message, shown once the visitor
- * has used all their clicks (`data-thanked`): smaller than the page's text,
- * fading in under the button, or above it when the count is below. It sits
- * over whatever follows rather than pushing it down, so nothing on the page
- * moves when it appears.
+ * `[part="thanks"]` is the button's thank-you message, shown for `THANKS_MS`
+ * after the click that uses up the visitor's allowance (`data-thanked`):
+ * smaller than the page's text, fading in under the button, or above it when
+ * the count is below, then fading out. It sits over whatever follows rather
+ * than pushing it down, so nothing on the page moves, and is narrow enough to
+ * wrap a typical message onto two lines and fit small containers.
  */
 const STYLES = `
 :host { display: inline-block; line-height: 1; position: relative; }
@@ -272,10 +279,12 @@ svg[data-layer="fill"] {
   position: absolute;
   left: 50%;
   top: calc(100% + 0.4em);
-  transform: translate(-50%, -0.25em);
+  transform: translate(calc(-50% + var(--_shift, 0px)), -0.25em);
+  width: max-content;
+  max-width: 11em;
   font-size: 0.8em;
   line-height: 1.3;
-  white-space: nowrap;
+  text-align: center;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -284,12 +293,12 @@ svg[data-layer="fill"] {
 :host([data-count="bottom"]) [part="thanks"] {
   top: auto;
   bottom: calc(100% + 0.4em);
-  transform: translate(-50%, 0.25em);
+  transform: translate(calc(-50% + var(--_shift, 0px)), 0.25em);
 }
 :host([data-thanked]) [part="thanks"] {
   opacity: 0.8;
   visibility: visible;
-  transform: translate(-50%, 0);
+  transform: translate(calc(-50% + var(--_shift, 0px)), 0);
   transition: opacity 300ms ease, transform 300ms ease;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -396,6 +405,7 @@ export class AppreciatorButton extends HTMLElement {
   private pulsing = false;
   private pulseTimer: ReturnType<typeof setTimeout> | undefined;
   private burstTimer: ReturnType<typeof setTimeout> | undefined;
+  private thanksTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Set by refresh(): the next initialisation ignores the localStorage cache. */
   private skipCache = false;
@@ -504,6 +514,7 @@ export class AppreciatorButton extends HTMLElement {
     this.generation += 1;
     this.clearPulse();
     this.clearBurst();
+    this.clearThanks();
   }
 
   attributeChangedCallback(): void {
@@ -543,6 +554,7 @@ export class AppreciatorButton extends HTMLElement {
     this.pending = 0;
     this.clearPulse();
     this.clearBurst();
+    this.clearThanks();
     this.removeAttribute('data-error');
   }
 
@@ -687,6 +699,7 @@ export class AppreciatorButton extends HTMLElement {
     this.pulse();
     this.rollNext = true;
     this.burst();
+    if (this.displayedCounts()?.maxed === true) this.thank();
     this.render();
     this.draining ??= this.drain().finally(() => {
       this.draining = null;
@@ -792,6 +805,44 @@ export class AppreciatorButton extends HTMLElement {
     this.emit('appreciator:burst', this.displayedCounts());
   }
 
+  /**
+   * Shows the thank-you message for `THANKS_MS`. The text is put in only now,
+   * so screen readers announce it as it appears.
+   */
+  private thank(): void {
+    this.clearThanks();
+    if (this.thanksMessage === '') return;
+    this.thanks.textContent = this.thanksMessage;
+    this.keepThanksOnScreen();
+    this.setAttribute('data-thanked', '');
+    this.thanksTimer = setTimeout(() => {
+      this.thanksTimer = undefined;
+      this.removeAttribute('data-thanked');
+    }, THANKS_MS);
+  }
+
+  /**
+   * Centred under a button near the edge of the window, the message would be
+   * cut off, and on a phone make the page scroll sideways; it is slid back
+   * just far enough to stay in view.
+   */
+  private keepThanksOnScreen(): void {
+    this.thanks.style.setProperty('--_shift', '0px');
+    const { left, right } = this.thanks.getBoundingClientRect();
+    const room = document.documentElement.clientWidth || window.innerWidth;
+    let shift = 0;
+    if (right > room - THANKS_EDGE_PX) shift = room - THANKS_EDGE_PX - right;
+    if (left + shift < THANKS_EDGE_PX) shift = THANKS_EDGE_PX - left;
+    this.thanks.style.setProperty('--_shift', `${Math.round(shift)}px`);
+  }
+
+  private clearThanks(): void {
+    if (this.thanksTimer !== undefined) clearTimeout(this.thanksTimer);
+    this.thanksTimer = undefined;
+    this.removeAttribute('data-thanked');
+    this.thanks.textContent = '';
+  }
+
   private clearBurst(): void {
     if (this.burstTimer !== undefined) clearTimeout(this.burstTimer);
     this.burstTimer = undefined;
@@ -828,10 +879,6 @@ export class AppreciatorButton extends HTMLElement {
     this.button.disabled = this.config === null || counts === null;
     if (spent) this.button.setAttribute('aria-disabled', 'true');
     else this.button.removeAttribute('aria-disabled');
-
-    const thanks = spent ? this.thanksMessage : '';
-    if (this.thanks.textContent !== thanks) this.thanks.textContent = thanks;
-    this.toggleAttribute('data-thanked', thanks !== '');
 
     const label = this.dataset.label ?? 'Appreciate';
     const remaining = counts?.visitorRemaining;

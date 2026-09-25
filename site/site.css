@@ -279,6 +279,11 @@ h1 em {
   --appreciator-size: 3rem;
 }
 
+/* Room under the main demo for the thank-you message it shows when full. */
+.demo-slot[data-demo-slot='hero'] {
+  padding-bottom: 2.5em;
+}
+
 .section {
   padding: 2.5rem 0;
   border-top: 1px solid var(--line);

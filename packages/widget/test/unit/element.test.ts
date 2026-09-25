@@ -6,6 +6,7 @@ import {
   BURST_MS,
   PULSE_MS,
   ROLL_MS,
+  THANKS_MS,
   mount,
   setDefaultApi,
 } from '../../src/index.js';
@@ -808,7 +809,8 @@ describe('AppreciatorButton', () => {
       return part;
     }
 
-    it('says nothing until the visitor is out of clicks, then says thanks', async () => {
+    it('says thanks on the click that uses up the allowance, for a few seconds', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const element = await mountReady();
       expect(thanks(element).getAttribute('role')).toBe('status');
 
@@ -816,22 +818,29 @@ describe('AppreciatorButton', () => {
       expect(thanks(element).textContent).toBe('');
       expect(element.hasAttribute('data-thanked')).toBe(false);
 
-      await clickAndSettle(element);
+      innerButton(element).click();
       expect(thanks(element).textContent).toBe('Thank you.');
       expect(element.hasAttribute('data-thanked')).toBe(true);
+      await element.whenIdle();
+
+      await vi.advanceTimersByTimeAsync(THANKS_MS - 1);
+      expect(element.hasAttribute('data-thanked')).toBe(true);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(element.hasAttribute('data-thanked')).toBe(false);
     });
 
-    it('thanks a visitor who comes back already out of clicks', async () => {
+    it('does not thank again on later clicks, or a visitor who comes back spent', async () => {
       const element = await mountReady();
       await clickAndSettle(element, 3);
-      localStorage.clear();
+      innerButton(element).click();
 
       element.dataset.item = 'article-1-again';
       element.dataset.item = 'article-1';
       await element.whenReady();
 
       expect(element.getAttribute('data-state')).toBe('full');
-      expect(thanks(element).textContent).toBe('Thank you.');
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+      expect(thanks(element).textContent).toBe('');
     });
 
     it('stays silent when the button has no message', async () => {
