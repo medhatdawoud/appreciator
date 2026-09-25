@@ -481,7 +481,9 @@ in `GITHUB_ALLOWED_LOGINS`).
   same way (nothing counted), and two snippets with Copy buttons: the one tag
   that renders the button where it is pasted, and the script plus an
   `<appreciator-button data-key="…">` element to place anywhere.
-- **Counts.** Per page (or item id), with an origin filter and paging.
+- **Counts.** Per page (or item id), with paging and a site filter: type
+  `myblog.com`, `https://myblog.com` or any page address on it. Item ids
+  belong to no site, so the filter leaves them out.
 - **Sign out** clears the session cookie.
 
 The first sign-in walks through the three steps (site → button → snippet)

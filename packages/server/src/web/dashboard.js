@@ -540,13 +540,51 @@
     return td;
   }
 
+  /**
+   * The site typed in the counts filter, as the origin the server filters on:
+   * a bare host, a trailing slash or a whole page address all name the same
+   * site, and a bare host is taken to be https. Empty for no filter, null for
+   * something that names no site.
+   */
+  function filterOrigin(value) {
+    const text = value.trim();
+    if (text === '') return '';
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url.origin : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const NOT_A_SITE = 'Type a site, like myblog.com or https://myblog.com.';
+
+  /** Reports a counts error next to the filter, where it is seen, or clears it. */
+  function itemsError(message) {
+    const el = $('[data-items-error]');
+    el.textContent = message ?? '';
+    el.hidden = !message;
+  }
+
   async function loadItems(reset) {
     const { siteId, buttonId } = itemsContext;
     const params = new URLSearchParams({ limit: '50' });
-    const origin = $('[data-form="items-filter"] input').value.trim();
-    if (origin) params.set('origin', origin);
+    const input = $('[data-form="items-filter"] input');
+    const origin = filterOrigin(input.value);
+    if (origin === null) throw new Error(NOT_A_SITE);
+    if (origin) {
+      params.set('origin', origin);
+      input.value = origin;
+    }
     if (!reset && state.itemsCursor) params.set('cursor', state.itemsCursor);
-    const page = await api(`/v1/sites/${siteId}/buttons/${buttonId}/items?${params}`);
+    let page;
+    try {
+      page = await api(`/v1/sites/${siteId}/buttons/${buttonId}/items?${params}`);
+    } catch (error) {
+      // The server refuses a filter it cannot read as one site; say so plainly.
+      if (origin && error instanceof ApiError && error.status === 400) throw new Error(NOT_A_SITE);
+      throw error;
+    }
     const body = $('[data-items-body]');
     if (reset) body.replaceChildren();
     for (const item of page.items) {
@@ -565,7 +603,12 @@
     }
     state.itemsCursor = page.nextCursor;
     $('[data-action="load-more"]').hidden = page.nextCursor === null;
-    $('[data-items-empty]').hidden = body.children.length > 0;
+    const empty = $('[data-items-empty]');
+    empty.textContent = origin
+      ? `Nothing counted on ${origin}. Item ids belong to no site, so this filter leaves them out.`
+      : 'No clicks yet.';
+    empty.hidden = body.children.length > 0;
+    itemsError(null);
   }
 
   async function renderItems(siteId, buttonId) {
@@ -576,23 +619,24 @@
     $('[data-items-button]').textContent = button?.name || button?.publicKey || 'button';
     itemsContext = { siteId, buttonId };
     $('[data-form="items-filter"] input').value = '';
+    itemsError(null);
     try {
       await loadItems(true);
     } catch (error) {
-      fail(error.message);
+      itemsError(error.message);
     }
   }
 
   $('[data-form="items-filter"]').addEventListener('submit', (event) => {
     event.preventDefault();
-    loadItems(true).catch((error) => fail(error.message));
+    loadItems(true).catch((error) => itemsError(error.message));
   });
   $('[data-action="clear-filter"]').addEventListener('click', () => {
     $('[data-form="items-filter"] input').value = '';
-    loadItems(true).catch((error) => fail(error.message));
+    loadItems(true).catch((error) => itemsError(error.message));
   });
   $('[data-action="load-more"]').addEventListener('click', () => {
-    loadItems(false).catch((error) => fail(error.message));
+    loadItems(false).catch((error) => itemsError(error.message));
   });
 
   // ---- routing ------------------------------------------------------------

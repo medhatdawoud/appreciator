@@ -287,10 +287,11 @@
         <p><a data-back-link href="#/sites">← Back</a></p>
         <h1>Counts for <span data-items-button></span></h1>
         <form class="inline-form" data-form="items-filter">
-          <label>Origin <input name="origin" placeholder="https://myblog.com" /></label>
+          <label>Site <input name="origin" placeholder="myblog.com" /></label>
           <button type="submit" class="btn btn-secondary">Filter</button>
           <button type="button" class="btn btn-secondary" data-action="clear-filter">Clear</button>
         </form>
+        <p class="notice" data-items-error hidden></p>
         <table class="table">
           <thead>
             <tr>

@@ -3,6 +3,21 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — The counts filter takes any form of site, and says what went wrong
+
+- **Bug.** On a button's counts, Filter and Clear seemed to do nothing. The
+  server accepts only an exact origin (`https://myblog.com`), so `myblog.com`
+  or a trailing slash was refused, the old rows stayed, and the error was
+  shown at the very bottom of the page, out of sight, where it also outlived
+  Clear.
+- The filter now reads a bare host (taken as https), a trailing slash or a
+  whole page address as its site, and shows the origin it used. Anything
+  that names no site gets a plain message right under the filter, which
+  Filter and Clear remove once they load. A filter that matches nothing says
+  so, and that item ids belong to no site.
+- Tests: the dashboard e2e filters by a bare host, by a page address, by
+  something that is not a site, and clears.
+
 ## 2026-09-25 — A shorter thank-you message
 
 - The thank-you message stays 1.5 s instead of 3 s (`THANKS_MS`), on the

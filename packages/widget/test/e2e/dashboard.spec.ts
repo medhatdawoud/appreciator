@@ -159,14 +159,30 @@ test('walks a new account from its first site to a counted click and back to not
   await expect(pageLink).toHaveAttribute('target', '_blank');
   await expect(items.first().locator('td').nth(1)).toHaveText('1');
   const filter = page.locator('[data-form="items-filter"]');
-  await filter.locator('input[name="origin"]').fill('https://nope.test');
+  const siteInput = filter.locator('input[name="origin"]');
+  const itemsError = page.locator('[data-items-error]');
+  // A bare host is a site too, taken as https.
+  await siteInput.fill('nope.test');
   await filter.getByRole('button', { name: 'Filter' }).click();
-  await expect(page.locator('[data-items-empty]')).toBeVisible();
+  await expect(siteInput).toHaveValue('https://nope.test');
+  await expect(page.locator('[data-items-empty]')).toContainText('Nothing counted on');
   await expect(items).toHaveCount(0);
-  await filter.locator('input[name="origin"]').fill(PAGE_ORIGIN);
+  // A page address with its path filters on its site.
+  await siteInput.fill(`${PAGE_ORIGIN}/some/page`);
   await filter.getByRole('button', { name: 'Filter' }).click();
   await expect(items).toHaveCount(1);
+  await expect(siteInput).toHaveValue(PAGE_ORIGIN);
   await expect(page.locator('[data-items-empty]')).toBeHidden();
+  // Something that names no site says so next to the filter; Clear brings
+  // everything back and the message goes.
+  await siteInput.fill('not a site');
+  await filter.getByRole('button', { name: 'Filter' }).click();
+  await expect(itemsError).toBeVisible();
+  await expect(itemsError).toContainText('Type a site');
+  await filter.getByRole('button', { name: 'Clear' }).click();
+  await expect(itemsError).toBeHidden();
+  await expect(siteInput).toHaveValue('');
+  await expect(items).toHaveCount(1);
   await page.locator('[data-view="items"] [data-back-link]').click();
 
   // Editing keeps everything else and changes the cap.
