@@ -500,14 +500,15 @@ with the next action already open.
 The button renders directly after the tag. Options are `data-*` attributes on
 the same tag:
 
-| Attribute     | Default                          | Description                                                                         |
-| ------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
-| `data-key`    | —                                | The button's public key. Required for auto-mounting.                                |
-| `data-item`   | the page URL                     | Count against an explicit id (one article at several URLs, one button per comment). |
-| `data-target` | after the tag                    | CSS selector of the element to render into. Lets the tag live in `<head>`.          |
-| `data-label`  | `Appreciate`                     | Accessible name prefix, e.g. `Clap for this post`.                                  |
-| `data-count`  | `right`                          | Where the count sits relative to the icon: `right`, `left`, `top` or `bottom`.      |
-| `data-api`    | where the bundle was loaded from | Only needed when serving the bundle from somewhere other than your instance.        |
+| Attribute       | Default                          | Description                                                                         |
+| --------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| `data-key`      | —                                | The button's public key. Required for auto-mounting.                                |
+| `data-item`     | the page URL                     | Count against an explicit id (one article at several URLs, one button per comment). |
+| `data-target`   | after the tag                    | CSS selector of the element to render into. Lets the tag live in `<head>`.          |
+| `data-label`    | `Appreciate`                     | Accessible name prefix, e.g. `Clap for this post`.                                  |
+| `data-count`    | `right`                          | Where the count sits relative to the icon: `right`, `left`, `top` or `bottom`.      |
+| `data-readonly` | off                              | Show the count and fill without taking clicks, e.g. in a list of posts.             |
+| `data-api`      | where the bundle was loaded from | Only needed when serving the bundle from somewhere other than your instance.        |
 
 Without `data-item`, a button counts the page it is on, and follows a
 single-page app's router: when the address changes to another page without a
@@ -530,6 +531,7 @@ import { mount } from '@appreciator/widget';
 mount(document.querySelector('#appreciate'), {
   api: 'https://appreciator.example.com',
   key: 'pk_...',
+  readonly: false, // true shows the count without taking clicks
 });
 ```
 

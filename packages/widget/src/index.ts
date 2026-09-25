@@ -34,6 +34,7 @@ export function mount(target: Element, options: MountOptions): AppreciatorButton
   if (options.api !== undefined) element.dataset.api = options.api;
   element.dataset.key = options.key;
   if (options.item !== undefined) element.dataset.item = options.item;
+  if (options.readonly === true) element.dataset.readonly = '';
   target.append(element);
   return element;
 }

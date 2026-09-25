@@ -367,6 +367,8 @@ export interface MountOptions {
   key: string;
   /** Explicit counter id. Defaults to the page URL. */
   item?: string;
+  /** Show the count and this visitor's progress without taking clicks. */
+  readonly?: boolean;
 }
 
 export interface ErrorDetail {
@@ -375,10 +377,15 @@ export interface ErrorDetail {
 }
 
 /**
- * `<appreciator-button data-key [data-api] [data-item] [data-label]>`
+ * `<appreciator-button data-key [data-api] [data-item] [data-label] [data-readonly]>`
  *
  * `data-api` is only needed when the bundle was not loaded from the server it
  * should talk to; otherwise the element uses the URL the bundle came from.
+ *
+ * `data-readonly` (any value but `false`) shows the count and this visitor's
+ * progress but takes no clicks: the button is disabled, so it sends nothing,
+ * plays nothing and has no hover. Toggling it takes effect at once, with no
+ * reload.
  *
  * Reflects `data-state` (`default` | `clicked` | `full`), `data-icons`
  * (`single` | `states`), `data-ring` and `data-error` on itself, and dispatches `appreciator:ready`, `appreciator:change`,
@@ -386,7 +393,7 @@ export interface ErrorDetail {
  * (detail: ErrorDetail). All events bubble and cross the shadow boundary.
  */
 export class AppreciatorButton extends HTMLElement {
-  static readonly observedAttributes = ['data-api', 'data-key', 'data-item'];
+  static readonly observedAttributes = ['data-api', 'data-key', 'data-item', 'data-readonly'];
 
   private readonly button: HTMLButtonElement;
   private readonly icon: HTMLSpanElement;
@@ -522,8 +529,11 @@ export class AppreciatorButton extends HTMLElement {
     this.clearThanks();
   }
 
-  attributeChangedCallback(): void {
-    if (this.isConnected) this.scheduleInitialize();
+  attributeChangedCallback(name: string): void {
+    if (!this.isConnected) return;
+    // Read-only changes what a click does, not what is loaded.
+    if (name === 'data-readonly') this.render();
+    else this.scheduleInitialize();
   }
 
   /**
@@ -696,7 +706,7 @@ export class AppreciatorButton extends HTMLElement {
    */
   private handleClick(): void {
     const counts = this.displayedCounts();
-    if (this.config === null || counts === null) return;
+    if (this.config === null || counts === null || this.readonly) return;
     if (!canClick(counts)) {
       this.burst();
       this.thank();
@@ -883,15 +893,16 @@ export class AppreciatorButton extends HTMLElement {
     // A spent allowance leaves the button clickable (it replays the burst),
     // so "finished" is conveyed to assistive tech rather than by disabling.
     const spent = counts !== null && !canClick(counts);
-    this.button.disabled = this.config === null || counts === null;
-    if (spent) this.button.setAttribute('aria-disabled', 'true');
+    const readonly = this.readonly;
+    this.button.disabled = this.config === null || counts === null || readonly;
+    if (spent && !readonly) this.button.setAttribute('aria-disabled', 'true');
     else this.button.removeAttribute('aria-disabled');
 
     const label = this.dataset.label ?? 'Appreciate';
     const remaining = counts?.visitorRemaining;
     this.button.setAttribute(
       'aria-label',
-      remaining === undefined
+      remaining === undefined || readonly
         ? `${label}, ${total} total`
         : spent
           ? `${label}, ${total} total, all used`
@@ -931,6 +942,12 @@ export class AppreciatorButton extends HTMLElement {
     }
     incoming.classList.add('roll-in');
     this.countLabel.append(incoming);
+  }
+
+  /** Set by `data-readonly`, unless it says `false`. */
+  private get readonly(): boolean {
+    const value = this.dataset.readonly;
+    return value !== undefined && value !== 'false';
   }
 
   private emit(name: string, detail: unknown): void {

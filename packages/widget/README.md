@@ -18,14 +18,15 @@ That is the whole embed. The bundle reads its own `src` to learn which server
 to talk to, and because the tag carries `data-key` it renders a button right
 after itself. Options are `data-*` attributes on the tag:
 
-| Attribute     | Required | Description                                                             |
-| ------------- | -------- | ----------------------------------------------------------------------- |
-| `data-key`    | yes      | The button's public key.                                                |
-| `data-item`   | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
-| `data-label`  | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
-| `data-count`  | no       | Where the count sits: `right` (default), `left`, `top` or `bottom`.     |
-| `data-target` | no       | CSS selector of the element to render into, instead of after the tag.   |
-| `data-api`    | no       | Server base URL. Defaults to where the bundle was loaded from.          |
+| Attribute       | Required | Description                                                             |
+| --------------- | -------- | ----------------------------------------------------------------------- |
+| `data-key`      | yes      | The button's public key.                                                |
+| `data-item`     | no       | Explicit counter id. Defaults to the page URL (normalised server-side). |
+| `data-label`    | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
+| `data-count`    | no       | Where the count sits: `right` (default), `left`, `top` or `bottom`.     |
+| `data-readonly` | no       | Show the count without taking clicks (see below).                       |
+| `data-target`   | no       | CSS selector of the element to render into, instead of after the tag.   |
+| `data-api`      | no       | Server base URL. Defaults to where the bundle was loaded from.          |
 
 A tag in `<head>` renders into `<body>`; a `data-target` that does not exist
 yet is looked up once the document has been parsed.
@@ -56,9 +57,19 @@ mount(document.querySelector('#appreciate'), {
 Importing the module registers the element; `mount()` is a convenience for
 creating one programmatically.
 
-The element takes `data-key`, `data-item`, `data-label` and `data-count` as above, plus
-`data-api`, which is required when the bundle was **not** loaded from the
-appreciator server (a bundler build, or a copy hosted elsewhere).
+The element takes `data-key`, `data-item`, `data-label`, `data-count` and
+`data-readonly` as above, plus `data-api`, which is required when the bundle
+was **not** loaded from the appreciator server (a bundler build, or a copy
+hosted elsewhere). `mount()` takes `readonly: true` for the same.
+
+### Read-only
+
+`data-readonly` (any value but `false`) shows the button as it is, the total
+and this visitor's fill, but takes no clicks: nothing is sent, and there is no
+pulse, burst, thank-you message or hover. Use it where the count is for
+reading, such as a list of posts that each link to the page with the real
+button. Adding or removing it takes effect at once, without reloading
+anything. The accessible name leaves out the visitor's remaining clicks.
 
 ### States
 

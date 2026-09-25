@@ -73,6 +73,7 @@ describe('autoMount', () => {
       'data-item': 'post-7',
       'data-label': 'Clap',
       'data-count': 'top',
+      'data-readonly': '',
       'data-nonsense': 'ignored',
     });
 
@@ -85,6 +86,7 @@ describe('autoMount', () => {
       item: 'post-7',
       label: 'Clap',
       count: 'top',
+      readonly: '',
     });
     expect(element?.dataset.api).toBeUndefined();
     expect(element?.dataset.nonsense).toBeUndefined();

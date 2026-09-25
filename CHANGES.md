@@ -3,6 +3,18 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Read-only buttons
+
+- `data-readonly` on the element or the script tag (any value but `false`),
+  or `readonly: true` for `mount()`, shows the count and this visitor's fill
+  but takes no clicks: the button is disabled, so nothing is sent and there
+  is no pulse, burst, thank-you message or hover. Adding or removing it takes
+  effect at once, without reloading. For places where the count is for
+  reading, such as a list of posts.
+- Tests: unit tests for the embed passthrough, `mount()`, no requests or
+  bursts, the accessible name, and switching it off and on; an e2e that
+  force-clicks a read-only button, then switches it off and clicks.
+
 ## 2026-09-25 — More room between the button and the thank-you message
 
 - 0.8em of the message's size between them (was 0.4em), and 1.1em when the

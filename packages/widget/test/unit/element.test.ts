@@ -802,6 +802,50 @@ describe('AppreciatorButton', () => {
     });
   });
 
+  describe('read-only', () => {
+    function posts(): number {
+      return server.requests.filter((request) => request.method === 'POST').length;
+    }
+
+    it('shows the counts but takes no clicks', async () => {
+      const element = mount(document.body, {
+        api: API,
+        key: KEY,
+        item: 'article-1',
+        readonly: true,
+      });
+      await element.whenReady();
+      const bursts = recordEvents(element, 'appreciator:burst');
+
+      expect(element.dataset.readonly).toBe('');
+      expect(countText(element)).toBe('0');
+      expect(innerButton(element).disabled).toBe(true);
+      expect(innerButton(element).getAttribute('aria-label')).toBe('Appreciate, 0 total');
+
+      innerButton(element).click();
+      element.shadowRoot?.querySelector('button')?.dispatchEvent(new MouseEvent('click'));
+      await element.whenIdle();
+
+      expect(posts()).toBe(0);
+      expect(bursts).toHaveLength(0);
+      expect(element.getAttribute('data-state')).toBe('default');
+    });
+
+    it('can be switched on and off without reloading', async () => {
+      const element = await mountReady();
+      const requests = server.requests.length;
+
+      element.dataset.readonly = '';
+      expect(innerButton(element).disabled).toBe(true);
+      element.dataset.readonly = 'false';
+      expect(innerButton(element).disabled).toBe(false);
+      await clickAndSettle(element);
+
+      expect(server.requests).toHaveLength(requests + 1);
+      expect(countText(element)).toBe('1');
+    });
+  });
+
   describe('the thank-you message', () => {
     function thanks(element: AppreciatorButton): HTMLElement {
       const part = shadow(element).querySelector<HTMLElement>('[part="thanks"]');

@@ -156,6 +156,29 @@ test('keeps the thank-you message on screen next to the edge of the window', asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('read-only shows the count and takes no clicks, until it is switched off', async ({
+  page,
+}) => {
+  const ui = await open(page);
+  const clicks: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/click')) clicks.push(request.url());
+  });
+
+  await ui.host.evaluate((element) => element.setAttribute('data-readonly', ''));
+  await expect(ui.button).toBeDisabled();
+  await ui.button.click({ force: true });
+  await ui.button.click({ force: true });
+  await expect(ui.count).toHaveText('0');
+  await expect(ui.host).not.toHaveAttribute('data-burst', /.*/);
+  expect(clicks).toEqual([]);
+
+  await ui.host.evaluate((element) => element.removeAttribute('data-readonly'));
+  await ui.button.click();
+  await expect(ui.count).toHaveText('1');
+  await expect.poll(() => clicks.length).toBe(1);
+});
+
 test('hover recolours the silhouette', async ({ page }) => {
   const ui = await open(page);
 

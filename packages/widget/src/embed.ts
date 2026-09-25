@@ -18,12 +18,13 @@ import { AppreciatorButton } from './element.js';
  * | `data-item`   | Explicit counter id. Defaults to the page URL.                       |
  * | `data-count`  | Where the count sits: `right` (default), `left`, `top` or `bottom`.
  * | `data-label`  | Accessible name prefix. Defaults to `Appreciate`.                    |
+ * | `data-readonly` | Show the count without taking clicks.                              |
  * | `data-target` | CSS selector of the element to render into. Defaults to after the tag. |
  * | `data-api`    | Server base URL. Defaults to where the bundle was loaded from.       |
  */
 
 /** The `data-*` attributes copied from the script tag onto the element. */
-const PASSTHROUGH = ['api', 'key', 'item', 'label', 'count'] as const;
+const PASSTHROUGH = ['api', 'key', 'item', 'label', 'count', 'readonly'] as const;
 
 /**
  * Derives the API base URL from the bundle's own URL: the origin plus any path
