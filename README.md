@@ -464,7 +464,7 @@ in `GITHUB_ALLOWED_LOGINS`).
   shows its API key once — you only need it for the
   [management API](#http-api); the dashboard uses your session. "Rotate API
   key" replaces it; "Delete site" removes its buttons and counts. "Site
-  settings", at the bottom of a site's page, renames it and can take it off
+  settings", at the top of a site's page above its buttons, renames it and can take it off
   the public "Most appreciated" leaderboard (it is listed by default; its
   badge works either way).
 - **Buttons.** Name, allowed origins (one per line; `https://*.example.com`

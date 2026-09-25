@@ -118,6 +118,20 @@
           </div>
           <button type="button" class="btn btn-secondary" data-action="dismiss-secret">Done</button>
         </div>
+        <form class="card inline-form site-settings" data-form="site-settings">
+          <h2>Site settings</h2>
+          <label>Name <input name="name" required maxlength="255" /></label>
+          <label class="check" data-leaderboard-option
+            ><input type="checkbox" name="showOnLeaderboard" />
+            <span
+              >Show this site on the <a href="/leaderboard">Most appreciated</a> leaderboard</span
+            ></label
+          >
+          <div class="actions">
+            <button type="submit" class="btn btn-secondary">Save</button>
+            <span class="muted" data-settings-status role="status"></span>
+          </div>
+        </form>
         <ul class="list" data-buttons-list></ul>
         <p class="muted" data-buttons-empty hidden>No buttons yet.</p>
         <div class="card badge-card" data-badge>
@@ -142,20 +156,6 @@
             its address: any label up to 40 characters, and a hex colour without the #.</small
           >
         </div>
-        <form class="card inline-form site-settings" data-form="site-settings">
-          <h2>Site settings</h2>
-          <label>Name <input name="name" required maxlength="255" /></label>
-          <label class="check" data-leaderboard-option
-            ><input type="checkbox" name="showOnLeaderboard" />
-            <span
-              >Show this site on the <a href="/leaderboard">Most appreciated</a> leaderboard</span
-            ></label
-          >
-          <div class="actions">
-            <button type="submit" class="btn btn-secondary">Save</button>
-            <span class="muted" data-settings-status role="status"></span>
-          </div>
-        </form>
       </section>
 
       <section data-view="button-form" hidden>

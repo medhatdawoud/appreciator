@@ -9,7 +9,8 @@ Each entry is written so it can seed a PR description.
   (migration 014, on by default and for every existing site), with the same
   session, CSRF and ownership checks as the other site routes. The
   leaderboard leaves out sites that opted out; their badges keep working.
-- The dashboard has "Site settings" at the bottom of each site's page: the
+- The dashboard has "Site settings" at the top of each site's page, above
+  its buttons and badge: the
   name, and "Show this site on the Most appreciated leaderboard", hidden
   where the instance has no leaderboard. Saving updates the title, the site
   list and the badge snippets, and a blank name gets a plain message.
