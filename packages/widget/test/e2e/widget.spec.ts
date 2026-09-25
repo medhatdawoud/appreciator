@@ -276,6 +276,11 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   await expect(ui.host.locator('[part="burst"] > svg')).toHaveCount(5);
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
 
+  // Full shows at once; the clicks are still being sent one by one. Reload
+  // only once the server has them all.
+  await ui.host.evaluate((element) =>
+    (element as unknown as { whenIdle(): Promise<void> }).whenIdle(),
+  );
   await page.reload();
   await expect(ui.host).toHaveAttribute('data-state', 'full');
   await expect(ui.button).toHaveAttribute('aria-disabled', 'true');

@@ -84,6 +84,11 @@ test('the full drawing takes over at the cap and survives a reload', async ({ pa
   await expect(ui.button).toHaveAttribute('aria-disabled', 'true');
   await expectOnlyVisible(ui, 'full');
 
+  // Full shows at once; the clicks are still being sent one by one. Reload
+  // only once the server has them all.
+  await ui.host.evaluate((element) =>
+    (element as unknown as { whenIdle(): Promise<void> }).whenIdle(),
+  );
   await page.reload();
 
   await expect(ui.host).toHaveAttribute('data-state', 'full');
