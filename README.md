@@ -463,7 +463,10 @@ in `GITHUB_ALLOWED_LOGINS`).
   project you want to keep separate; up to 20 per account. Creating a site
   shows its API key once — you only need it for the
   [management API](#http-api); the dashboard uses your session. "Rotate API
-  key" replaces it; "Delete site" removes its buttons and counts.
+  key" replaces it; "Delete site" removes its buttons and counts. "Site
+  settings", at the bottom of a site's page, renames it and can take it off
+  the public "Most appreciated" leaderboard (it is listed by default; its
+  badge works either way).
 - **Buttons.** Name, allowed origins (one per line; `https://*.example.com`
   for every subdomain, `*` for any site), clicks per visitor, whether to count
   by page path or full URL, and the icon: the built-in heart, one SVG, or four
@@ -677,6 +680,7 @@ dashboard, authenticated by the session cookie instead of a bearer key.
 | `GET`    | `/auth/me`                 | `{ id, login, avatarUrl }` or `401`                              |
 | `GET`    | `/v1/sites`                | `{ sites: [{ id, name, createdAt, buttonCount }] }`              |
 | `POST`   | `/v1/sites`                | `{ name }` → `{ site, secret }` (secret shown once)              |
+| `PATCH`  | `/v1/sites/:id`            | `{ name?, showOnLeaderboard? }` → the site                       |
 | `POST`   | `/v1/sites/:id/rotate-key` | `{ secret }`                                                     |
 | `DELETE` | `/v1/sites/:id`            | `204`, deletes its buttons and counts                            |
 

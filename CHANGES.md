@@ -3,6 +3,22 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Rename a site, or take it off the leaderboard
+
+- `PATCH /v1/sites/:id` takes a new `name` and `showOnLeaderboard`
+  (migration 014, on by default and for every existing site), with the same
+  session, CSRF and ownership checks as the other site routes. The
+  leaderboard leaves out sites that opted out; their badges keep working.
+- The dashboard has "Site settings" at the bottom of each site's page: the
+  name, and "Show this site on the Most appreciated leaderboard", hidden
+  where the instance has no leaderboard. Saving updates the title, the site
+  list and the badge snippets, and a blank name gets a plain message.
+- Tests: integration tests for renaming (trimmed), leaving and rejoining the
+  leaderboard, the badge unaffected, blank names, empty or unknown changes,
+  another account's site and the CSRF header; the dashboard e2e renames the
+  site, takes it off and puts it back on the real leaderboard, and refuses a
+  blank name.
+
 ## 2026-09-25 — Page assets are checked on every load
 
 - The dashboard's and landing page's scripts and styles were cached for five

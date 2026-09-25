@@ -168,6 +168,45 @@ test('walks a new account from its first site to a counted click and back to not
   expect(badge.headers()['content-type']).toBe('image/svg+xml; charset=utf-8');
   expect(await badge.text()).toContain(`aria-label="appreciated: 1"`);
 
+  // Site settings: a new name, and off the leaderboard and back, each saved
+  // and visible where it counts.
+  const leaderboardNames = async () =>
+    (
+      (await (await page.request.get(`${API_ORIGIN}/v1/leaderboard`)).json()) as {
+        sites: Array<{ siteName: string }>;
+      }
+    ).sites.map((entry) => entry.siteName);
+  const settings = page.locator('[data-form="site-settings"]');
+  const settingsStatus = page.locator('[data-settings-status]');
+  const onLeaderboard = settings.locator('input[name="showOnLeaderboard"]');
+  const renamed = `${siteName} renamed`;
+  await expect(settings.locator('input[name="name"]')).toHaveValue(siteName);
+  await expect(onLeaderboard).toBeChecked();
+  expect(await leaderboardNames()).toContain(siteName);
+
+  await settings.locator('input[name="name"]').fill(renamed);
+  await onLeaderboard.uncheck();
+  await settings.getByRole('button', { name: 'Save' }).click();
+  await expect(settingsStatus).toHaveText('Saved.');
+  await expect(page.locator('[data-site-name]')).toHaveText(renamed);
+  await expect(page.locator('[data-badge-markdown]')).toContainText(
+    `[![${renamed}: appreciations]`,
+  );
+  const hidden = await leaderboardNames();
+  expect(hidden).not.toContain(renamed);
+  expect(hidden).not.toContain(siteName);
+
+  await onLeaderboard.check();
+  await settings.getByRole('button', { name: 'Save' }).click();
+  await expect(settingsStatus).toHaveText('Saved.');
+  expect(await leaderboardNames()).toContain(renamed);
+
+  // A blank name is refused and the old one kept.
+  await settings.locator('input[name="name"]').fill('   ');
+  await settings.getByRole('button', { name: 'Save' }).click();
+  await expect(settingsStatus).toHaveText('A site needs a name.');
+  await expect(page.locator('[data-site-name]')).toHaveText(renamed);
+
   // The click shows up under Counts, keyed by the page, and the origin filter finds it.
   await row.locator('[data-button-row-items]').click();
   await expect(view(page, 'items')).toBeVisible();
@@ -221,7 +260,7 @@ test('walks a new account from its first site to a counted click and back to not
   await expect(view(page, 'sites')).toBeVisible();
   const siteRows = page.locator('[data-sites-list] li');
   await expect(siteRows).toHaveCount(1);
-  await expect(siteRows.locator('[data-site-row-name]')).toHaveText(siteName);
+  await expect(siteRows.locator('[data-site-row-name]')).toHaveText(renamed);
   await expect(siteRows.locator('[data-site-row-count]')).toHaveText('1 button');
   await expect(newSite).toBeHidden();
   await expect(page.locator('[data-onboarding-sites]')).toBeHidden();

@@ -141,6 +141,24 @@ button.link {
   padding: 1rem 1.25rem;
 }
 
+.site-settings h2 {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.site-settings .check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  flex-basis: 100%;
+}
+
+.site-settings .actions {
+  align-items: center;
+}
+
 .form {
   display: grid;
   gap: 1rem;

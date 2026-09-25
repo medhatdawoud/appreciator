@@ -427,10 +427,15 @@ Session cookie plus the CSRF rules above; the bearer secret is not accepted:
 | -------- | -------------------------- | ------------------------------------------------------- |
 | `GET`    | `/v1/sites`                | → `SiteListResponse` (oldest first, with button counts) |
 | `POST`   | `/v1/sites`                | `{ "name": … }` → `201 CreateSiteResponse`              |
+| `PATCH`  | `/v1/sites/:id`            | `{ "name"?: …, "showOnLeaderboard"?: … }` → `Site`      |
 | `POST`   | `/v1/sites/:id/rotate-key` | → `RotateKeyResponse`                                   |
 | `DELETE` | `/v1/sites/:id`            | `204`                                                   |
 
-`name` is 1–255 characters and trimmed; a blank one is refused. The `secret`
+`name` is 1–255 characters and trimmed; a blank one is refused, on create and
+on `PATCH`. `showOnLeaderboard` (migration 014, `true` by default and for
+every site before it) lists the site on the public leaderboard; the owner can
+turn it off, and the site's badge works either way. A `PATCH` carries at least
+one of the two and nothing else. The `secret`
 in `CreateSiteResponse` and `RotateKeyResponse` is shown once: only its hash is
 stored. Rotating replaces the hash, so the previous secret stops working on
 the next request. Deleting a site deletes its buttons and their counters in
@@ -567,8 +572,9 @@ because any allowed page can create counters it renders the link with
 `totalCount` is the sum of every item's total over every one of the tenant's
 buttons, and `buttonCount` is how many buttons it has. Sites are ordered by
 `totalCount`, highest first, then by name, and capped at 100. Tenants with no
-clicks are left out, as is the landing page's `demo` tenant (a dashboard site
-that happens to be named `demo` is not).
+clicks are left out, as are sites whose owner turned `showOnLeaderboard` off,
+and the landing page's `demo` tenant (a dashboard site that happens to be
+named `demo` is not).
 
 The page that reads it may be hosted anywhere, so the response carries
 `Access-Control-Allow-Origin: *`, with `Cache-Control: public, max-age=60`. It

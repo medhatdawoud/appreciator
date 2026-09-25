@@ -237,6 +237,44 @@
     copyButtons($('[data-badge]'));
   }
 
+  /**
+   * Renaming the site and taking it off the leaderboard. The leaderboard
+   * choice is hidden where the instance has no leaderboard.
+   */
+  function renderSiteSettings(site) {
+    const settings = $('[data-form="site-settings"]');
+    const status = $('[data-settings-status]');
+    settings.elements.name.value = site.name;
+    settings.elements.showOnLeaderboard.checked = site.showOnLeaderboard;
+    $('[data-leaderboard-option]').hidden = state.config?.leaderboardEnabled === false;
+    status.textContent = '';
+    settings.onsubmit = async (event) => {
+      event.preventDefault();
+      const name = settings.elements.name.value.trim();
+      if (name === '') {
+        status.textContent = 'A site needs a name.';
+        return;
+      }
+      status.textContent = 'Saving…';
+      try {
+        const saved = await api(`/v1/sites/${site.id}`, {
+          method: 'PATCH',
+          body: {
+            name,
+            showOnLeaderboard: settings.elements.showOnLeaderboard.checked,
+          },
+        });
+        state.sites = state.sites.map((known) => (known.id === saved.id ? saved : known));
+        $('[data-site-name]').textContent = saved.name;
+        renderBadge(saved);
+        settings.elements.name.value = saved.name;
+        status.textContent = 'Saved.';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    };
+  }
+
   async function renderSite(siteId) {
     await ensureSites();
     const site = siteById(siteId);
@@ -247,6 +285,7 @@
     show('site');
     $('[data-site-name]').textContent = site.name;
     renderBadge(site);
+    renderSiteSettings(site);
     const { buttons } = await api(`/v1/sites/${siteId}/buttons`);
     state.buttons.set(siteId, buttons);
     const list = $('[data-buttons-list]');
