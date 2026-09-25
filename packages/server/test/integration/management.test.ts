@@ -1088,9 +1088,9 @@ describe('management routes', () => {
     it('does not let a crafted cursor change the query', async () => {
       const created = await createButton();
       await seedItems(created.buttonId, 3);
-      const cursor = Buffer.from(JSON.stringify({ s: 'total', v: 99, k: "' OR '1'='1" })).toString(
-        'base64url',
-      );
+      const cursor = Buffer.from(
+        JSON.stringify({ s: 'total', d: 'desc', v: 99, k: "' OR '1'='1" }),
+      ).toString('base64url');
 
       const response = await context.app.inject({
         method: 'GET',
@@ -1138,29 +1138,49 @@ describe('management routes', () => {
         ]);
       });
 
-      it.each(['updated', 'total'])(
-        'pages by %s through every item once, in order, across ties',
-        async (sort) => {
-          const created = await createButton();
-          await seedRows(created.buttonId, ROWS);
-          const whole = (await listItemKeys(created.buttonId, `sort=${sort}`)).itemKeys;
+      it('lists each sort in reverse with order=asc, ties reversed too', async () => {
+        const created = await createButton();
+        await seedRows(created.buttonId, ROWS);
 
-          const seen: string[] = [];
-          let cursor: string | null = null;
-          do {
-            const page = await listItemKeys(
-              created.buttonId,
-              `sort=${sort}&limit=1${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
-            );
-            seen.push(...page.itemKeys);
-            cursor = page.nextCursor;
-          } while (cursor !== null && seen.length < 10);
+        for (const sort of ['updated', 'total']) {
+          const down = (await listItemKeys(created.buttonId, `sort=${sort}&order=desc`)).itemKeys;
+          const up = (await listItemKeys(created.buttonId, `sort=${sort}&order=asc`)).itemKeys;
+          expect(up).toEqual([...down].reverse());
+        }
+        expect((await listItemKeys(created.buttonId, 'sort=updated&order=asc')).itemKeys[0]).toBe(
+          'https://example.com/old-and-big',
+        );
+        expect((await listItemKeys(created.buttonId, 'sort=total&order=asc')).itemKeys[0]).toBe(
+          'https://example.com/new-and-small',
+        );
+      });
 
-          expect(seen).toEqual(whole);
-        },
-      );
+      it.each([
+        ['updated', 'desc'],
+        ['updated', 'asc'],
+        ['total', 'desc'],
+        ['total', 'asc'],
+      ])('pages by %s %s through every item once, in order, across ties', async (sort, order) => {
+        const created = await createButton();
+        await seedRows(created.buttonId, ROWS);
+        const query = `sort=${sort}&order=${order}`;
+        const whole = (await listItemKeys(created.buttonId, query)).itemKeys;
 
-      it("refuses another sort's cursor, an old key-only cursor, and an unknown sort", async () => {
+        const seen: string[] = [];
+        let cursor: string | null = null;
+        do {
+          const page = await listItemKeys(
+            created.buttonId,
+            `${query}&limit=1${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+          );
+          seen.push(...page.itemKeys);
+          cursor = page.nextCursor;
+        } while (cursor !== null && seen.length < 10);
+
+        expect(seen).toEqual(whole);
+      });
+
+      it("refuses another sort's or direction's cursor, an old key-only cursor, and unknown values", async () => {
         const created = await createButton();
         await seedRows(created.buttonId, ROWS);
         const byTotal = await listItemKeys(created.buttonId, 'sort=total&limit=1');
@@ -1168,8 +1188,10 @@ describe('management routes', () => {
 
         for (const query of [
           `sort=updated&cursor=${encodeURIComponent(byTotal.nextCursor ?? '')}`,
+          `sort=total&order=asc&cursor=${encodeURIComponent(byTotal.nextCursor ?? '')}`,
           `cursor=${oldStyle}`,
           'sort=oldest',
+          'order=up',
         ]) {
           const response = await context.app.inject({
             method: 'GET',

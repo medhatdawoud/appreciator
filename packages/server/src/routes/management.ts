@@ -3,6 +3,7 @@ import type {
   ButtonConfigInput,
   ButtonListResponse,
   CreateButtonResponse,
+  ItemsOrder,
   ItemsPage,
   ItemsSort,
 } from '@appreciator/shared';
@@ -135,6 +136,7 @@ interface ItemsQuery {
   cursor?: string;
   origin?: string;
   sort?: ItemsSort;
+  order?: ItemsOrder;
 }
 
 /**
@@ -245,46 +247,61 @@ interface ItemRow {
 }
 
 /**
- * Each order the items listing offers, highest first with ties by key, and
- * how a page that ended on some row carries on after it: each `after` takes
- * the cursor's value twice, then its key. The clauses are
- * literals; only the cursor's values are bound. Each has an index to match
- * (migrations 015 and 016).
+ * The column each sort lists by, how the cursor's value is bound against it,
+ * and how that value is read from the last row of a page.
  */
 const ITEM_SORTS: Record<
   ItemsSort,
-  { order: string; after: string; value: (row: ItemRow) => number }
+  { column: string; bound: string; value: (row: ItemRow) => number }
 > = {
   // FROM_UNIXTIME and the column are both read in the session's time zone,
   // so the comparison holds whatever that zone is.
   updated: {
-    order: 'updated_at DESC, item_key ASC',
-    after: '(updated_at < FROM_UNIXTIME(?) OR (updated_at = FROM_UNIXTIME(?) AND item_key > ?))',
+    column: 'updated_at',
+    bound: 'FROM_UNIXTIME(?)',
     value: (row) => Number(row.updated_ts),
   },
-  total: {
-    order: 'total_count DESC, item_key ASC',
-    after: '(total_count < ? OR (total_count = ? AND item_key > ?))',
-    value: (row) => row.total_count,
-  },
+  total: { column: 'total_count', bound: '?', value: (row) => row.total_count },
 };
 
-/** Where a page of items ended, in the sort it was listed by. */
+/**
+ * ORDER BY and the "after this row" condition for a sort and a direction.
+ * `desc` lists by the column descending, ties by key ascending; `asc` is the
+ * exact reverse, ties by key descending, so both read the same index
+ * (migrations 015 and 016), forwards or backwards. Built only from the
+ * literals above; the cursor's value (twice) and key are bound.
+ */
+function itemsQuery(sort: ItemsSort, order: ItemsOrder): { orderBy: string; after: string } {
+  const { column, bound } = ITEM_SORTS[sort];
+  const [past, keyPast, direction, keyDirection] =
+    order === 'desc' ? ['<', '>', 'DESC', 'ASC'] : ['>', '<', 'ASC', 'DESC'];
+  return {
+    orderBy: `${column} ${direction}, item_key ${keyDirection}`,
+    after: `(${column} ${past} ${bound} OR (${column} = ${bound} AND item_key ${keyPast} ?))`,
+  };
+}
+
+/** Where a page of items ended, in the sort and direction it was listed by. */
 interface ItemsCursor {
   sort: ItemsSort;
+  order: ItemsOrder;
   value: number;
   itemKey: string;
 }
 
 function encodeCursor(cursor: ItemsCursor): string {
   return Buffer.from(
-    JSON.stringify({ s: cursor.sort, v: cursor.value, k: cursor.itemKey }),
+    JSON.stringify({ s: cursor.sort, d: cursor.order, v: cursor.value, k: cursor.itemKey }),
     'utf8',
   ).toString('base64url');
 }
 
-/** A cursor from another sort, or not one of ours at all, is refused. */
-function decodeCursor(cursor: string | undefined, sort: ItemsSort): ItemsCursor | undefined {
+/** A cursor from another sort or direction, or not one of ours at all, is refused. */
+function decodeCursor(
+  cursor: string | undefined,
+  sort: ItemsSort,
+  order: ItemsOrder,
+): ItemsCursor | undefined {
   if (cursor === undefined) return undefined;
 
   const invalid = badRequest('cursor is not a valid pagination cursor', 'invalid_cursor');
@@ -294,9 +311,10 @@ function decodeCursor(cursor: string | undefined, sort: ItemsSort): ItemsCursor 
   } catch {
     throw invalid;
   }
-  const { s, v, k } = (parsed ?? {}) as { s?: unknown; v?: unknown; k?: unknown };
+  const { s, d, v, k } = (parsed ?? {}) as { s?: unknown; d?: unknown; v?: unknown; k?: unknown };
   if (
     s !== sort ||
+    d !== order ||
     typeof v !== 'number' ||
     !Number.isSafeInteger(v) ||
     v < 0 ||
@@ -306,7 +324,7 @@ function decodeCursor(cursor: string | undefined, sort: ItemsSort): ItemsCursor 
   ) {
     throw invalid;
   }
-  return { sort, value: v, itemKey: k };
+  return { sort, order, value: v, itemKey: k };
 }
 
 /**
@@ -517,6 +535,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
             cursor: { type: 'string', minLength: 1, maxLength: 1024 },
             origin: { type: 'string', maxLength: 255, pattern: ORIGIN_FILTER_PATTERN },
             sort: { type: 'string', enum: ['updated', 'total'] },
+            order: { type: 'string', enum: ['desc', 'asc'] },
           },
         },
         response: {
@@ -549,8 +568,10 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       await loadOwnedButton(app, tenantId, request.params.id);
 
       const limit = request.query.limit ?? DEFAULT_PAGE_SIZE;
-      const sort = ITEM_SORTS[request.query.sort ?? 'updated'];
-      const after = decodeCursor(request.query.cursor, request.query.sort ?? 'updated');
+      const sortBy = request.query.sort ?? 'updated';
+      const order = request.query.order ?? 'desc';
+      const query = itemsQuery(sortBy, order);
+      const after = decodeCursor(request.query.cursor, sortBy, order);
       const origin = decodeOriginFilter(request.query.origin);
 
       const conditions = ['button_id = ?'];
@@ -565,7 +586,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         params.push(origin, `${escapeLike(origin)}/%`);
       }
       if (after !== undefined) {
-        conditions.push(sort.after);
+        conditions.push(query.after);
         params.push(after.value, after.value, after.itemKey);
       }
 
@@ -579,7 +600,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         `SELECT item_key, total_count, updated_at, UNIX_TIMESTAMP(updated_at) AS updated_ts
            FROM items
           WHERE ${conditions.join(' AND ')}
-          ORDER BY ${sort.order}
+          ORDER BY ${query.orderBy}
           LIMIT ?`,
         [...params, limit + 1],
       );
@@ -597,8 +618,9 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         nextCursor:
           hasMore && last !== undefined
             ? encodeCursor({
-                sort: request.query.sort ?? 'updated',
-                value: sort.value(last),
+                sort: sortBy,
+                order,
+                value: ITEM_SORTS[sortBy].value(last),
                 itemKey: last.item_key,
               })
             : null,

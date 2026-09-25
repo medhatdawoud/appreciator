@@ -39,6 +39,9 @@ export interface ItemSummary {
  */
 export type ItemsSort = 'updated' | 'total';
 
+/** `desc` (the default) lists the newest or highest first; `asc` is its exact reverse. */
+export type ItemsOrder = 'asc' | 'desc';
+
 export interface ItemsPage {
   items: ItemSummary[];
   nextCursor: string | null;
