@@ -587,18 +587,26 @@
 
   /** How the counts are listed: newest update first unless a header says otherwise. */
   let itemsSort = 'updated';
+  let itemsOrder = 'desc';
 
   /** Marks the header of the order in use, for the arrow and for screen readers. */
   function showItemsSort() {
     for (const th of document.querySelectorAll('[data-sort-by]')) {
-      if (th.dataset.sortBy === itemsSort) th.setAttribute('aria-sort', 'descending');
-      else th.removeAttribute('aria-sort');
+      if (th.dataset.sortBy !== itemsSort) th.removeAttribute('aria-sort');
+      else th.setAttribute('aria-sort', itemsOrder === 'desc' ? 'descending' : 'ascending');
     }
   }
 
+  // The header in use flips its direction; another header takes over,
+  // newest or highest first.
   for (const th of document.querySelectorAll('[data-sort-by]')) {
     $('button', th).addEventListener('click', () => {
-      itemsSort = th.dataset.sortBy;
+      if (th.dataset.sortBy === itemsSort) {
+        itemsOrder = itemsOrder === 'desc' ? 'asc' : 'desc';
+      } else {
+        itemsSort = th.dataset.sortBy;
+        itemsOrder = 'desc';
+      }
       showItemsSort();
       loadItems(true).catch((error) => itemsError(error.message));
     });
@@ -657,7 +665,7 @@
 
   async function loadItems(reset) {
     const { siteId, buttonId } = itemsContext;
-    const params = new URLSearchParams({ limit: '50', sort: itemsSort });
+    const params = new URLSearchParams({ limit: '50', sort: itemsSort, order: itemsOrder });
     const input = $('[data-form="items-filter"] input');
     const origin = filterOrigin(input.value);
     if (origin === null) throw new Error(NOT_A_SITE);
@@ -708,6 +716,7 @@
     $('[data-items-button]').textContent = button?.name || button?.publicKey || 'button';
     itemsContext = { siteId, buttonId };
     itemsSort = 'updated';
+    itemsOrder = 'desc';
     showItemsSort();
     $('[data-form="items-filter"] input').value = '';
     itemsError(null);

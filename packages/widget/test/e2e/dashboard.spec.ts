@@ -513,8 +513,19 @@ test("sorts a button's counts by last update, or by total", async ({ page, conte
   await expect(byTotal).toHaveAttribute('aria-sort', 'descending');
   await expect(byUpdate).not.toHaveAttribute('aria-sort', /.*/);
 
+  // Clicking the header in use again flips it.
+  await byTotal.getByRole('button', { name: 'Total' }).click();
+  await expect(keys).toHaveText([`${PAGE_ORIGIN}/quiet`, `${PAGE_ORIGIN}/busy`]);
+  await expect(byTotal).toHaveAttribute('aria-sort', 'ascending');
+
+  // Another header takes over, newest first, and flips on its own next click.
   await byUpdate.getByRole('button', { name: 'Updated' }).click();
   await expect(keys).toHaveText([`${PAGE_ORIGIN}/quiet`, `${PAGE_ORIGIN}/busy`]);
+  await expect(byUpdate).toHaveAttribute('aria-sort', 'descending');
+  await expect(byTotal).not.toHaveAttribute('aria-sort', /.*/);
+  await byUpdate.getByRole('button', { name: 'Updated' }).click();
+  await expect(keys).toHaveText([`${PAGE_ORIGIN}/busy`, `${PAGE_ORIGIN}/quiet`]);
+  await expect(byUpdate).toHaveAttribute('aria-sort', 'ascending');
 
   await dashboardApi(page, `/v1/sites/${site.id}`, 'DELETE');
 });

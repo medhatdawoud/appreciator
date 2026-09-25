@@ -365,6 +365,10 @@ button.link {
   content: ' ↓';
 }
 
+.table [aria-sort='ascending'] .sort::after {
+  content: ' ↑';
+}
+
 .form .check {
   display: flex;
   align-items: center;

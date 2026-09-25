@@ -6,9 +6,13 @@ Each entry is written so it can seed a PR description.
 ## 2026-09-25 — Counts sorted by last update, or by total
 
 - A button's counts list the most recently updated first. In the dashboard,
-  clicking the Total header lists the highest total first, and Updated goes
-  back; the header in use carries an arrow and `aria-sort`, and opening
-  another button's counts starts from Updated again.
+  the Total and Updated headers sort by their column, highest or newest
+  first, and clicking the header in use again flips it; it carries an arrow
+  (↓ or ↑) and `aria-sort`, and opening another button's counts starts from
+  Updated, newest first, again.
+- `order=asc` lists either sort in exact reverse of the default
+  `order=desc`, ties included, so both read the same index; a cursor
+  carries its direction and is refused in the other one.
 - `GET /v1/buttons/:id/items` takes `sort=updated` (the default) or
   `sort=total`, both descending with ties by key, instead of key order.
   Cursors carry their sort and last value, so paging stays exact across
