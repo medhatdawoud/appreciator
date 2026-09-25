@@ -916,8 +916,13 @@ describe('AppreciatorButton', () => {
 
       expect(element.dataset.readonly).toBe('');
       expect(countText(element)).toBe('0');
-      expect(innerButton(element).disabled).toBe(true);
-      expect(innerButton(element).getAttribute('aria-label')).toBe('Appreciate, 0 total');
+      // Not a control: no focus, no role of its own; the element speaks as an
+      // image with the count instead.
+      expect(innerButton(element).hasAttribute('data-readonly')).toBe(true);
+      expect(innerButton(element).tabIndex).toBe(-1);
+      expect(innerButton(element).getAttribute('aria-hidden')).toBe('true');
+      expect(element.getAttribute('role')).toBe('img');
+      expect(element.getAttribute('aria-label')).toBe('Appreciate, 0 total');
 
       innerButton(element).click();
       element.shadowRoot?.querySelector('button')?.dispatchEvent(new MouseEvent('click'));
@@ -933,13 +938,30 @@ describe('AppreciatorButton', () => {
       const requests = server.requests.length;
 
       element.dataset.readonly = '';
-      expect(innerButton(element).disabled).toBe(true);
+      expect(innerButton(element).hasAttribute('data-readonly')).toBe(true);
+      expect(element.getAttribute('role')).toBe('img');
       element.dataset.readonly = 'false';
-      expect(innerButton(element).disabled).toBe(false);
+      expect(innerButton(element).hasAttribute('data-readonly')).toBe(false);
+      expect(innerButton(element).hasAttribute('tabindex')).toBe(false);
+      expect(innerButton(element).hasAttribute('aria-hidden')).toBe(false);
+      expect(element.hasAttribute('role')).toBe(false);
+      expect(element.hasAttribute('aria-label')).toBe(false);
       await clickAndSettle(element);
 
       expect(server.requests).toHaveLength(requests + 1);
       expect(countText(element)).toBe('1');
+    });
+
+    it('leaves a role and label the page gave the element alone', async () => {
+      const element = await mountReady();
+      element.setAttribute('role', 'group');
+      element.setAttribute('aria-label', "Readers' appreciation");
+
+      element.dataset.readonly = '';
+      element.dataset.readonly = 'false';
+
+      expect(element.getAttribute('role')).toBe('group');
+      expect(element.getAttribute('aria-label')).toBe("Readers' appreciation");
     });
   });
 

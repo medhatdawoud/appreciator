@@ -166,7 +166,8 @@ test('read-only shows the count and takes no clicks, until it is switched off', 
   });
 
   await ui.host.evaluate((element) => element.setAttribute('data-readonly', ''));
-  await expect(ui.button).toBeDisabled();
+  await expect(ui.button).toHaveAttribute('data-readonly', '');
+  await expect(ui.host).toHaveAttribute('role', 'img');
   await ui.button.click({ force: true });
   await ui.button.click({ force: true });
   await expect(ui.count).toHaveText('0');
@@ -177,6 +178,48 @@ test('read-only shows the count and takes no clicks, until it is switched off', 
   await ui.button.click();
   await expect(ui.count).toHaveText('1');
   await expect.poll(() => clicks.length).toBe(1);
+});
+
+test('read-only hands clicks, hover and the cursor to what holds it, like a card link', async ({
+  page,
+}) => {
+  const ui = await open(page);
+  const clicks: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/click')) clicks.push(request.url());
+  });
+  // A post card: a link around the button, with a hover style and a pointer.
+  await ui.host.evaluate((element) => {
+    const style = document.createElement('style');
+    style.textContent =
+      '#card { display: inline-block; padding: 8px; cursor: pointer; }' +
+      '#card:hover { background: rgb(1, 2, 3); }';
+    document.head.append(style);
+    const card = document.createElement('a');
+    card.id = 'card';
+    card.href = '#followed';
+    element.replaceWith(card);
+    card.append(element);
+    element.setAttribute('data-readonly', '');
+  });
+  const card = page.locator('#card');
+  await expect(ui.count).toHaveText('0');
+
+  // The count itself takes no pointer, so Playwright aims at the element,
+  // which is where a visitor's pointer lands too.
+  await ui.host.hover();
+  await expect(card).toHaveCSS('background-color', 'rgb(1, 2, 3)');
+  const under = await ui.count.evaluate((count) => {
+    const box = count.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return { tag: hit?.tagName, cursor: hit ? getComputedStyle(hit).cursor : '' };
+  });
+  expect(under).toEqual({ tag: 'APPRECIATOR-BUTTON', cursor: 'pointer' });
+
+  await ui.host.click();
+  await expect(page).toHaveURL(/#followed$/);
+  await expect(ui.count).toHaveText('0');
+  expect(clicks).toEqual([]);
 });
 
 test('clicks play a short sound, unless the page turns it off', async ({ page }) => {

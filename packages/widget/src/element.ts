@@ -134,6 +134,9 @@ button {
 }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }
+/* Read-only takes no pointer at all: clicks, hover and the cursor belong to
+   whatever holds the button, such as a link around a post card. */
+button[data-readonly] { pointer-events: none; }
 :host([data-count="left"]) button { flex-direction: row-reverse; }
 :host([data-count="top"]) button {
   flex-direction: column-reverse;
@@ -386,9 +389,9 @@ export interface ErrorDetail {
  * `data-sound="off"` silences the click sounds the config asks for.
  *
  * `data-readonly` (any value but `false`) shows the count and this visitor's
- * progress but takes no clicks: the button is disabled, so it sends nothing,
- * plays nothing and has no hover. Toggling it takes effect at once, with no
- * reload.
+ * progress but takes no clicks: it sends and plays nothing, and clicks, hover
+ * and the cursor pass to whatever holds it (see `renderReadonly`). Toggling
+ * it takes effect at once, with no reload.
  *
  * Reflects `data-state` (`default` | `clicked` | `full`), `data-icons`
  * (`single` | `states`), `data-ring` and `data-error` on itself, and dispatches `appreciator:ready`, `appreciator:change`,
@@ -406,6 +409,9 @@ export class AppreciatorButton extends HTMLElement {
 
   /** The config's thank-you message, empty for none. */
   private thanksMessage = '';
+
+  /** Set while read-only has given the element a role and label of its own making. */
+  private ownsHostName = false;
 
   /** Whether the config asks for click sounds; a config from before they existed does. */
   private clickSound = true;
@@ -907,20 +913,48 @@ export class AppreciatorButton extends HTMLElement {
     // so "finished" is conveyed to assistive tech rather than by disabling.
     const spent = counts !== null && !canClick(counts);
     const readonly = this.readonly;
-    this.button.disabled = this.config === null || counts === null || readonly;
+    this.button.disabled = this.config === null || counts === null;
     if (spent && !readonly) this.button.setAttribute('aria-disabled', 'true');
     else this.button.removeAttribute('aria-disabled');
 
     const label = this.dataset.label ?? 'Appreciate';
     const remaining = counts?.visitorRemaining;
-    this.button.setAttribute(
-      'aria-label',
+    const name =
       remaining === undefined || readonly
         ? `${label}, ${total} total`
         : spent
           ? `${label}, ${total} total, all used`
-          : `${label}, ${total} total, ${remaining} left for you`,
-    );
+          : `${label}, ${total} total, ${remaining} left for you`;
+    this.button.setAttribute('aria-label', name);
+    this.renderReadonly(readonly, name);
+  }
+
+  /**
+   * Read-only, the inner button is not a control: it takes no pointer (see
+   * the styles), no focus and no role, so a link or card around the element
+   * gets the clicks, the hover and the cursor. The element itself speaks as
+   * an image with the count, which inside a link becomes part of its name.
+   * It only clears a role or label it set itself, never a page's own.
+   */
+  private renderReadonly(readonly: boolean, name: string): void {
+    this.button.toggleAttribute('data-readonly', readonly);
+    if (readonly) {
+      this.button.tabIndex = -1;
+      this.button.setAttribute('aria-hidden', 'true');
+      if (this.ownsHostName || !this.hasAttribute('role')) {
+        this.setAttribute('role', 'img');
+        this.setAttribute('aria-label', name);
+        this.ownsHostName = true;
+      }
+      return;
+    }
+    this.button.removeAttribute('tabindex');
+    this.button.removeAttribute('aria-hidden');
+    if (this.ownsHostName) {
+      this.removeAttribute('role');
+      this.removeAttribute('aria-label');
+      this.ownsHostName = false;
+    }
   }
 
   /**

@@ -180,7 +180,7 @@ test('the read-only example shows the main demo count and follows it, untouchabl
   const mirror = page.locator('[data-demo-slot="readonly"] appreciator-button');
   await expect(hero.locator('button')).toBeEnabled();
   await expect(mirror).toHaveAttribute('data-readonly', '');
-  await expect(mirror.locator('button')).toBeDisabled();
+  await expect(mirror.locator('button')).toHaveAttribute('data-readonly', '');
   const before = await hero.locator('[part="count"]').textContent();
   await expect(mirror.locator('[part="count"]')).toHaveText(before ?? '');
 
