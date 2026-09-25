@@ -113,9 +113,15 @@ test('thanks the visitor under the button as they run out, and on every click af
   const hostFont = await ui.host.evaluate((element) => getComputedStyle(element).fontSize);
   const fontSize = Number.parseFloat(hostFont) * 0.8;
   await expect(thanks).toHaveCSS('font-size', `${fontSize}px`);
+  // Measured once it has slid into place.
+  await page.waitForTimeout(350);
   const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
   expect(Math.round((text?.height ?? 0) / (fontSize * 1.3))).toBe(2);
-  expect(text?.y ?? 0).toBeGreaterThanOrEqual((button?.y ?? 0) + (button?.height ?? 0));
+  // 0.8em of the message's own size between them.
+  expect((text?.y ?? 0) - ((button?.y ?? 0) + (button?.height ?? 0))).toBeCloseTo(
+    fontSize * 0.8,
+    0,
+  );
 
   // With the count under the icon, the message moves above the button.
   await ui.host.evaluate((element) => element.setAttribute('data-count', 'bottom'));
@@ -352,6 +358,19 @@ test('a ring around the icon takes the colour of each state', async ({ page }) =
   for (let i = 0; i < fixture.maxClicks; i += 1) await ui.button.click({ force: true });
   await expect(ui.host).toHaveAttribute('data-state', 'full');
   await expect(icon).toHaveCSS('border-top-color', rgb(fixture.colors.full));
+
+  // The thank-you message keeps further from a ringed button: 1.1em of its size.
+  const thanks = ui.host.locator('[part="thanks"]');
+  await expect(thanks).toBeVisible();
+  await page.waitForTimeout(350);
+  const thanksFont = Number.parseFloat(
+    await thanks.evaluate((element) => getComputedStyle(element).fontSize),
+  );
+  const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
+  expect((text?.y ?? 0) - ((button?.y ?? 0) + (button?.height ?? 0))).toBeCloseTo(
+    thanksFont * 1.1,
+    0,
+  );
 });
 
 test("a page's button follows a single-page app's router to each page's own count", async ({

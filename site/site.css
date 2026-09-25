@@ -281,7 +281,7 @@ h1 em {
 
 /* Room under the main demo for the thank-you message it shows when full. */
 .demo-slot[data-demo-slot='hero'] {
-  padding-bottom: 2.5em;
+  padding-bottom: 3em;
 }
 
 .section {

@@ -110,7 +110,9 @@ const RING_REACH = 1.5;
  * wrap a typical message onto two lines and fit small containers.
  */
 const STYLES = `
-:host { display: inline-block; line-height: 1; position: relative; }
+/* inline-flex, not inline-block: no line box, so no room left under the
+   button for descenders, and the host ends where the button does. */
+:host { display: inline-flex; line-height: 1; position: relative; }
 :host([hidden]) { display: none; }
 button {
   all: unset;
@@ -279,7 +281,8 @@ svg[data-layer="fill"] {
 [part="thanks"] {
   position: absolute;
   left: 50%;
-  top: calc(100% + 0.4em);
+  --_gap: 0.8em;
+  top: calc(100% + var(--_gap));
   transform: translate(calc(-50% + var(--_shift, 0px)), -0.25em);
   width: max-content;
   max-width: 11em;
@@ -291,9 +294,10 @@ svg[data-layer="fill"] {
   pointer-events: none;
   transition: opacity 300ms ease, transform 300ms ease, visibility 0s linear 300ms;
 }
+:host([data-ring]) [part="thanks"] { --_gap: 1.1em; }
 :host([data-count="bottom"]) [part="thanks"] {
   top: auto;
-  bottom: calc(100% + 0.4em);
+  bottom: calc(100% + var(--_gap));
   transform: translate(calc(-50% + var(--_shift, 0px)), 0.25em);
 }
 :host([data-thanked]) [part="thanks"] {

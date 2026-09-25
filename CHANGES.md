@@ -3,6 +3,17 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — More room between the button and the thank-you message
+
+- 0.8em of the message's size between them (was 0.4em), and 1.1em when the
+  button has a ring. The landing page's room under its main demo grows to
+  match.
+- The element is `inline-flex` instead of `inline-block`. As an inline
+  block it kept a few pixels under the button for letter descenders, so
+  anything placed from its bottom edge, like the message, sat lower than
+  set. It lines up with surrounding text as before.
+- Tests: the e2e measures the gap with and without a ring.
+
 ## 2026-09-25 — The counts filter takes any form of site, and says what went wrong
 
 - **Bug.** On a button's counts, Filter and Clear seemed to do nothing. The
