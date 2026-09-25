@@ -13,11 +13,12 @@ interface SiteRow {
   id: string;
   name: string;
   created_at: Date;
+  show_on_leaderboard: number | boolean;
   button_count: number | string;
 }
 
 const SITE_SELECT = `
-  SELECT t.id, t.name, t.created_at, COUNT(b.id) AS button_count
+  SELECT t.id, t.name, t.created_at, t.show_on_leaderboard, COUNT(b.id) AS button_count
     FROM tenants t
     LEFT JOIN buttons b ON b.tenant_id = t.id
    WHERE t.account_id = ?`;
@@ -29,6 +30,8 @@ function toSite(row: SiteRow): Site {
     createdAt: row.created_at.toISOString(),
     // COUNT() is a BIGINT, which the driver may hand back as a string.
     buttonCount: Number(row.button_count),
+    // TINYINT(1) comes back as a number.
+    showOnLeaderboard: Boolean(row.show_on_leaderboard),
   };
 }
 
@@ -37,7 +40,7 @@ export async function listSitesForAccount(executor: Executor, accountId: string)
   const rows = await queryRows<SiteRow>(
     executor,
     `${SITE_SELECT}
-     GROUP BY t.id, t.name, t.created_at
+     GROUP BY t.id, t.name, t.created_at, t.show_on_leaderboard
      ORDER BY t.created_at ASC, t.id ASC`,
     [accountId],
   );
@@ -56,7 +59,7 @@ export async function findSiteForAccount(
   const row = await queryOne<SiteRow>(
     executor,
     `${SITE_SELECT} AND t.id = ?
-     GROUP BY t.id, t.name, t.created_at`,
+     GROUP BY t.id, t.name, t.created_at, t.show_on_leaderboard`,
     [accountId, siteId],
   );
   return row === undefined ? undefined : toSite(row);

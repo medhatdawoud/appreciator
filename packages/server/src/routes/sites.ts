@@ -5,6 +5,7 @@ import type {
   RotateKeyResponse,
   Site,
   SiteListResponse,
+  UpdateSiteBody,
 } from '@appreciator/shared';
 import type { FastifyInstance } from 'fastify';
 
@@ -24,14 +25,18 @@ export const MAX_SITES_PER_ACCOUNT = 20;
 const siteSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'name', 'createdAt', 'buttonCount'],
+  required: ['id', 'name', 'createdAt', 'buttonCount', 'showOnLeaderboard'],
   properties: {
     id: { type: 'string' },
     name: { type: 'string' },
     createdAt: { type: 'string' },
     buttonCount: { type: 'integer' },
+    showOnLeaderboard: { type: 'boolean' },
   },
 };
+
+/** At least one non-space character, so a site is never nameless once trimmed. */
+const siteNameSchema = { type: 'string', minLength: 1, maxLength: 255, pattern: '\\S' };
 
 const siteIdParamsSchema = {
   type: 'object',
@@ -87,9 +92,7 @@ export async function siteRoutes(app: FastifyInstance): Promise<void> {
           type: 'object',
           additionalProperties: false,
           required: ['name'],
-          // At least one non-space character, so a site is never nameless
-          // once trimmed.
-          properties: { name: { type: 'string', minLength: 1, maxLength: 255, pattern: '\\S' } },
+          properties: { name: siteNameSchema },
         },
         response: {
           201: {
@@ -136,6 +139,49 @@ export async function siteRoutes(app: FastifyInstance): Promise<void> {
       request.log.info({ siteId: id, accountId: account.id }, 'site created');
       reply.status(201);
       return { site, secret };
+    },
+  );
+
+  app.patch<{ Params: SiteIdParams; Body: UpdateSiteBody }>(
+    '/v1/sites/:id',
+    {
+      schema: {
+        params: siteIdParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          minProperties: 1,
+          properties: { name: siteNameSchema, showOnLeaderboard: { type: 'boolean' } },
+        },
+        response: { 200: siteSchema },
+      },
+    },
+    async (request): Promise<Site> => {
+      const account = accountOf(request);
+      const siteId = request.params.id;
+      // Checked first: an UPDATE that changes nothing reports no rows, the
+      // same as one that matched no site.
+      if ((await findSiteForAccount(app.pool, account.id, siteId)) === undefined) {
+        throw notFound('Site not found');
+      }
+
+      // Column names come from this literal list, never from the request.
+      const assignments: Array<[column: string, value: string | boolean]> = [];
+      if (request.body.name !== undefined) assignments.push(['name', request.body.name.trim()]);
+      if (request.body.showOnLeaderboard !== undefined) {
+        assignments.push(['show_on_leaderboard', request.body.showOnLeaderboard]);
+      }
+      await execute(
+        app.pool,
+        `UPDATE tenants SET ${assignments.map(([column]) => `${column} = ?`).join(', ')}
+          WHERE id = ? AND account_id = ?`,
+        [...assignments.map(([, value]) => value), siteId, account.id],
+      );
+
+      const site = await findSiteForAccount(app.pool, account.id, siteId);
+      if (site === undefined) throw notFound('Site not found');
+      request.log.info({ siteId, accountId: account.id }, 'site updated');
+      return site;
     },
   );
 

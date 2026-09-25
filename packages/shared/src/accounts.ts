@@ -16,6 +16,15 @@ export interface Site {
   name: string;
   createdAt: string;
   buttonCount: number;
+  /** Whether the site is listed on the public "Most appreciated" leaderboard. */
+  showOnLeaderboard: boolean;
+}
+
+/** PATCH /v1/sites/:id: any of these, at least one. */
+export interface UpdateSiteBody {
+  /** Trimmed; must keep at least one non-space character. */
+  name?: string;
+  showOnLeaderboard?: boolean;
 }
 
 /** GET /v1/sites: the signed-in account's sites, oldest first. */

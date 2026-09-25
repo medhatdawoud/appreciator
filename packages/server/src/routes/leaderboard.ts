@@ -84,7 +84,8 @@ function topPages(rows: PageRow[]): Map<string, string> {
  * origin; it carries no credentials and nothing a tenant has not already
  * published by embedding a button. It does publish tenant names, which is why
  * `LEADERBOARD=false` switches it off. The landing page's demo tenant is left
- * out; a dashboard site that happens to be called "demo" is not.
+ * out, and so is any site whose owner turned `showOnLeaderboard` off; a
+ * dashboard site that happens to be called "demo" is not.
  */
 export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
   // One aggregate query over every tenant, so it is metered like the public
@@ -136,6 +137,7 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
            JOIN buttons b ON b.tenant_id = t.id
            LEFT JOIN items i ON i.button_id = b.id
           WHERE NOT (t.name = ? AND t.account_id IS NULL)
+            AND t.show_on_leaderboard = 1
           GROUP BY t.id, t.name
          HAVING total_count > 0
           ORDER BY total_count DESC, t.name ASC

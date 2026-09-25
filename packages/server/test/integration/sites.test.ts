@@ -119,6 +119,7 @@ describe('sites', () => {
         name: 'My blog',
         createdAt: expect.any(String),
         buttonCount: 0,
+        showOnLeaderboard: true,
       });
       expect(created.secret).toMatch(/^apr_sk_/);
 
@@ -208,6 +209,96 @@ describe('sites', () => {
         ['First', 0],
         ['Second', 2],
       ]);
+    });
+  });
+
+  describe('PATCH /v1/sites/:id', () => {
+    function patchSite(id: string, payload: Record<string, unknown>, account = me) {
+      return context.app.inject({
+        method: 'PATCH',
+        url: `/v1/sites/${id}`,
+        headers: as(account),
+        payload,
+      });
+    }
+
+    it('renames a site, trimmed, and the list says so', async () => {
+      const created = await createSite('Old name');
+
+      const response = await patchSite(created.site.id, { name: '  New name  ' });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ id: created.site.id, name: 'New name' });
+      expect((await listSites()).map((site) => site.name)).toEqual(['New name']);
+    });
+
+    it('is on the leaderboard by default, and can leave and come back', async () => {
+      const created = await createSite('Braggable');
+      expect(created.site.showOnLeaderboard).toBe(true);
+      const button = (await createButtonWith(created.secret)).json() as { buttonId: string };
+      await execute(
+        context.pool,
+        'INSERT INTO items (button_id, item_key, total_count) VALUES (?, ?, ?)',
+        [button.buttonId, 'https://example.com/post', 7],
+      );
+      const listed = async () =>
+        (await context.app.inject({ method: 'GET', url: '/v1/leaderboard' }))
+          .json()
+          .sites.map((site: { siteName: string }) => site.siteName);
+      expect(await listed()).toEqual(['Braggable']);
+
+      const off = await patchSite(created.site.id, { showOnLeaderboard: false });
+      expect(off.json()).toMatchObject({ showOnLeaderboard: false, name: 'Braggable' });
+      expect(await listed()).toEqual([]);
+
+      await patchSite(created.site.id, { showOnLeaderboard: true });
+      expect(await listed()).toEqual(['Braggable']);
+    });
+
+    it('keeps the site badge whether or not it is on the leaderboard', async () => {
+      const created = await createSite();
+      await patchSite(created.site.id, { showOnLeaderboard: false });
+
+      const badge = await context.app.inject({
+        method: 'GET',
+        url: `/v1/sites/${created.site.id}/badge.svg`,
+      });
+
+      expect(badge.statusCode).toBe(200);
+    });
+
+    it('refuses a blank name, an empty change and unknown fields', async () => {
+      const created = await createSite();
+
+      for (const payload of [{ name: '   ' }, { name: '' }, {}, { owner: 'me' }]) {
+        expect((await patchSite(created.site.id, payload)).statusCode).toBe(400);
+      }
+      expect((await listSites())[0]?.name).toBe('My blog');
+    });
+
+    it("404s on another account's site and changes nothing", async () => {
+      const theirs = await createSite('Theirs', them);
+
+      const response = await patchSite(theirs.site.id, { name: 'Mine now' });
+
+      expect(response.statusCode).toBe(404);
+      expect((await listSites(them))[0]?.name).toBe('Theirs');
+    });
+
+    it('needs the CSRF header like every other write', async () => {
+      const created = await createSite();
+      const withoutCsrf = { ...as(me) };
+      delete withoutCsrf['x-requested-with'];
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/v1/sites/${created.site.id}`,
+        headers: withoutCsrf,
+        payload: { name: 'Sneaky' },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect((await listSites())[0]?.name).toBe('My blog');
     });
   });
 

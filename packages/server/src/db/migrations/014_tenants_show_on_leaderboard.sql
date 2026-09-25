@@ -1,0 +1,1 @@
+ALTER TABLE tenants ADD COLUMN show_on_leaderboard TINYINT(1) NOT NULL DEFAULT 1
