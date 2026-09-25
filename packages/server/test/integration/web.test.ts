@@ -67,15 +67,39 @@ describe('web pages', () => {
     ['/img/heart.svg', 'image/svg+xml'],
     ['/web/dashboard.css', 'text/css; charset=utf-8'],
     ['/web/dashboard.js', 'application/javascript; charset=utf-8'],
-  ])('serves the asset at %s briefly cacheable, with security headers', async (url, type) => {
+  ])('serves the asset at %s checked on every load, with security headers', async (url, type) => {
     const { app } = await context();
 
     const response = await get(app, url);
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toBe(type);
-    expect(response.headers['cache-control']).toBe('public, max-age=300');
+    expect(response.headers['cache-control']).toBe('no-cache');
+    expect(response.headers.etag).toMatch(/^"[\w-]{22}"$/);
     expectSecurityHeaders(response.headers);
+    expect(response.body.length).toBeGreaterThan(0);
+
+    // Unchanged since the browser's copy: a bodiless 304 it can reuse.
+    const again = await app.inject({
+      method: 'GET',
+      url,
+      headers: { 'if-none-match': String(response.headers.etag) },
+    });
+    expect(again.statusCode).toBe(304);
+    expect(again.body).toBe('');
+    expect(again.headers.etag).toBe(response.headers.etag);
+  });
+
+  it('sends an asset again when the browser holds a different version', async () => {
+    const { app } = await context();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/web/dashboard.css',
+      headers: { 'if-none-match': '"an-older-version-of-it"' },
+    });
+
+    expect(response.statusCode).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
   });
 

@@ -3,6 +3,19 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Page assets are checked on every load
+
+- The dashboard's and landing page's scripts and styles were cached for five
+  minutes while their pages were never cached, so after a change a browser
+  could run a fresh page with an old stylesheet or script. The count-position
+  picker once seemed not to work, and the badge card's snippets once seemed
+  to overflow, for exactly that reason.
+- They are now `no-cache` with an `ETag`: checked on every load, answered
+  with a bodiless `304` while unchanged, and sent anew after a change. The
+  widget bundle embedded on other sites keeps its five-minute cache.
+- Tests: every page asset has an `ETag`, a matching `If-None-Match` gets a
+  `304`, and a different one gets the file.
+
 ## 2026-09-25 — A badge with each site's total appreciations
 
 - `GET /v1/sites/:siteId/badge.svg` draws a small flat badge, like a README

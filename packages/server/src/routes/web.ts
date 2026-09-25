@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, resolve, sep } from 'node:path';
@@ -33,9 +34,15 @@ const CONTENT_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
-/** Pages carry generated state (the demo key, sign-in) and are small; assets can be cached briefly, like the widget bundle. */
+/**
+ * Pages carry generated state (the demo key, sign-in) and are small, so they
+ * are never stored. Their scripts and styles are kept but checked on every
+ * load, cheaply by ETag: kept for minutes instead, a browser paired a fresh
+ * page with an old script or stylesheet after every change, and new features
+ * looked broken until the cache ran out.
+ */
 const PAGE_CACHE_CONTROL = 'no-store';
-const ASSET_CACHE_CONTROL = 'public, max-age=300';
+const ASSET_CACHE_CONTROL = 'no-cache';
 
 /**
  * Everything the pages need and nothing more: their own scripts and styles,
@@ -121,8 +128,16 @@ async function sendFile(
     throw notFound();
   }
 
-  const cacheControl = file.endsWith('.html') ? PAGE_CACHE_CONTROL : ASSET_CACHE_CONTROL;
-  return reply.header('content-type', type).header('cache-control', cacheControl).send(content);
+  if (file.endsWith('.html')) {
+    return reply
+      .header('content-type', type)
+      .header('cache-control', PAGE_CACHE_CONTROL)
+      .send(content);
+  }
+  const etag = `"${createHash('sha256').update(content).digest('base64url').slice(0, 22)}"`;
+  void reply.header('cache-control', ASSET_CACHE_CONTROL).header('etag', etag);
+  if (reply.request.headers['if-none-match'] === etag) return reply.status(304).send();
+  return reply.header('content-type', type).send(content);
 }
 
 /**

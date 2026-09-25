@@ -513,7 +513,10 @@ resolve to `/site.css` and `/img/heart.svg`.
 Only `.html`, `.css`, `.js` and `.svg` files are served, paths are resolved
 and checked to stay inside their folder, and anything else answers the usual
 `404 not_found`. Pages are `Cache-Control: no-store`; assets are
-`public, max-age=300`, like the widget bundle. Every response carries
+`no-cache` with an `ETag`, so a browser checks them on every load and gets a
+bodiless `304` while they are unchanged, and a new version on the first
+reload after a deploy. (Cached for minutes instead, a fresh page could run
+with an old script or stylesheet.) Every response carries
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and
 
 ```
