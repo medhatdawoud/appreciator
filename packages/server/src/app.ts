@@ -7,6 +7,7 @@ import type { Pool } from './db/pool.js';
 import type { AppConfig } from './env.js';
 import { HttpError } from './lib/errors.js';
 import { authRoutes } from './routes/auth.js';
+import { badgeRoutes } from './routes/badge.js';
 import { healthRoutes } from './routes/health.js';
 import { leaderboardRoutes } from './routes/leaderboard.js';
 import { managementRoutes } from './routes/management.js';
@@ -159,6 +160,9 @@ export async function buildApp({
   await app.register(siteRoutes);
   await app.register(webRoutes);
   await app.register(leaderboardRoutes);
+  // Public site badges: no session, their own rate limit, outside the
+  // session-checked site routes despite sharing their path prefix.
+  await app.register(badgeRoutes);
 
   return app;
 }
