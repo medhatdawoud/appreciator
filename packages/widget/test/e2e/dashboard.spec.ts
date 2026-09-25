@@ -463,3 +463,58 @@ test('designs a button from its own SVG, tries it without counting, and saves it
 
   await dashboardApi(page, `/v1/sites/${site.id}`, 'DELETE');
 });
+
+test("sorts a button's counts by last update, or by total", async ({ page, context }) => {
+  test.setTimeout(60_000);
+  await signIn(context);
+  await page.goto(DASHBOARD);
+  await expect(view(page, 'sites')).toBeVisible();
+  const { site } = await dashboardApi<{ site: { id: string } }>(page, '/v1/sites', 'POST', {
+    name: `E2E sort ${randomUUID().slice(0, 8)}`,
+  });
+  const button = await dashboardApi<{ buttonId: string; publicKey: string }>(
+    page,
+    `/v1/sites/${site.id}/buttons`,
+    'POST',
+    { allowedOrigins: [PAGE_ORIGIN] },
+  );
+
+  // Real clicks: three on a busy page, then, a moment later, one on a quiet one.
+  const visitor = await context.newPage();
+  const clickOn = async (item: string, times: number) => {
+    await visitor.goto(
+      `${PAGE_ORIGIN}/?${new URLSearchParams({ api: API_ORIGIN, key: button.publicKey, item })}`,
+    );
+    const widget = visitor.locator('appreciator-button');
+    await expect(widget.locator('button')).toBeEnabled();
+    for (let i = 0; i < times; i += 1) await widget.locator('button').click();
+    await widget.evaluate((element) =>
+      (element as unknown as { whenIdle(): Promise<void> }).whenIdle(),
+    );
+  };
+  await clickOn(`${PAGE_ORIGIN}/busy`, 3);
+  // Updates are kept to the second, so the quiet page's must be a later one.
+  await visitor.waitForTimeout(1100);
+  await clickOn(`${PAGE_ORIGIN}/quiet`, 1);
+  await visitor.close();
+
+  await page.goto(`${DASHBOARD}#/sites/${site.id}/buttons/${button.buttonId}/items`);
+  const keys = page.locator('[data-items-body] tr td:first-child');
+  const byUpdate = page.locator('th[data-sort-by="updated"]');
+  const byTotal = page.locator('th[data-sort-by="total"]');
+
+  // Newest update first by default.
+  await expect(keys).toHaveText([`${PAGE_ORIGIN}/quiet`, `${PAGE_ORIGIN}/busy`]);
+  await expect(byUpdate).toHaveAttribute('aria-sort', 'descending');
+  await expect(byTotal).not.toHaveAttribute('aria-sort', /.*/);
+
+  await byTotal.getByRole('button', { name: 'Total' }).click();
+  await expect(keys).toHaveText([`${PAGE_ORIGIN}/busy`, `${PAGE_ORIGIN}/quiet`]);
+  await expect(byTotal).toHaveAttribute('aria-sort', 'descending');
+  await expect(byUpdate).not.toHaveAttribute('aria-sort', /.*/);
+
+  await byUpdate.getByRole('button', { name: 'Updated' }).click();
+  await expect(keys).toHaveText([`${PAGE_ORIGIN}/quiet`, `${PAGE_ORIGIN}/busy`]);
+
+  await dashboardApi(page, `/v1/sites/${site.id}`, 'DELETE');
+});

@@ -489,9 +489,11 @@ in `GITHUB_ALLOWED_LOGINS`).
   same way (nothing counted), and two snippets with Copy buttons: the one tag
   that renders the button where it is pasted, and the script plus an
   `<appreciator-button data-key="…">` element to place anywhere.
-- **Counts.** Per page (or item id), with paging and a site filter: type
-  `myblog.com`, `https://myblog.com` or any page address on it. Item ids
-  belong to no site, so the filter leaves them out.
+- **Counts.** Per page (or item id), most recently updated first; click the
+  Total header to list the most appreciated first, and Updated to go back.
+  With paging and a site filter: type `myblog.com`, `https://myblog.com` or
+  any page address on it. Item ids belong to no site, so the filter leaves
+  them out.
 - **Badge.** Each site's page shows its badge and the Markdown and HTML to
   paste it anywhere, linked to the leaderboard:
 
@@ -665,7 +667,7 @@ Every error has the same JSON shape:
 | `POST`   | `/v1/buttons`           | `{ allowedOrigins, name?, maxClicks?, svgSource?, colors?, svgSources?, keepIconColors?, iconRing?, urlNormalization? }` → `{ buttonId, publicKey, embedSnippet, elementSnippet }` |
 | `GET`    | `/v1/buttons`           | `{ buttons: ButtonConfig[] }` — each with its `embedSnippet` and `elementSnippet`                                                                                                  |
 | `PATCH`  | `/v1/buttons/:id`       | any subset of the create fields → `ButtonConfig`                                                                                                                                   |
-| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                                                                          |
+| `GET`    | `/v1/buttons/:id/items` | `?limit=&cursor=&origin=&sort=updated\|total` → `{ items: [{ itemKey, totalCount, updatedAt }], nextCursor }`                                                                      |
 | `DELETE` | `/v1/buttons/:id`       | `204`                                                                                                                                                                              |
 
 The same five routes exist under `/v1/sites/:siteId/buttons…` for the

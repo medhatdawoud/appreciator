@@ -231,9 +231,14 @@ exists only for tenants who ask for it.
 
 ### `GET /v1/buttons/:id/items`
 
-Per-item totals, ordered by item key, `limit` (1–200, default 50) per page. Pass
-the previous page's `nextCursor` as `cursor` to continue; it is `null` on the
-last page.
+Per-item totals, `limit` (1–200, default 50) per page, most recently updated
+first (`sort=updated`, the default) or highest total first (`sort=total`),
+ties by item key either way. Pass the previous page's `nextCursor` as `cursor`
+to continue, with the same `sort`; it is `null` on the last page. A cursor is
+tied to its sort, so one from the other sort, or from before sorting existed,
+answers `400 invalid_cursor`. Each order has an index of its own (migrations
+015 and 016), and paging never skips rows to reach a page; an item clicked
+while someone pages moves up, so it may land on a page they already have.
 
 `origin` narrows the listing to one site: `?origin=https://example.com` returns
 the key for the site root (`https://example.com`) and every page under it

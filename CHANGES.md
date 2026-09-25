@@ -3,6 +3,22 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Counts sorted by last update, or by total
+
+- A button's counts list the most recently updated first. In the dashboard,
+  clicking the Total header lists the highest total first, and Updated goes
+  back; the header in use carries an arrow and `aria-sort`, and opening
+  another button's counts starts from Updated again.
+- `GET /v1/buttons/:id/items` takes `sort=updated` (the default) or
+  `sort=total`, both descending with ties by key, instead of key order.
+  Cursors carry their sort and last value, so paging stays exact across
+  ties; one from the other sort, or an older key-only cursor, is a `400`.
+  Migrations 015 and 016 index each order.
+- Tests: integration tests for both orders with ties, paging one item at a
+  time through each, a crafted cursor, and refused cursors and sorts; seeded
+  counters share a fixed time so key order stays deterministic. An e2e makes
+  real clicks on two pages a second apart, then sorts by each header.
+
 ## 2026-09-25 — Owners get a way to their site's settings from the leaderboard
 
 - On the leaderboard, a signed-in owner's own sites carry a "Your site ·

@@ -348,6 +348,23 @@ button.link {
   text-align: right;
 }
 
+/* Column headers that re-sort the counts; the one in use carries an arrow. */
+.table .sort {
+  all: unset;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.table .sort:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.table [aria-sort='descending'] .sort::after {
+  content: ' ↓';
+}
+
 .form .check {
   display: flex;
   align-items: center;

@@ -336,8 +336,12 @@
           <thead>
             <tr>
               <th>Page or item</th>
-              <th class="num">Total</th>
-              <th>Updated</th>
+              <th class="num" data-sort-by="total">
+                <button type="button" class="sort">Total</button>
+              </th>
+              <th data-sort-by="updated" aria-sort="descending">
+                <button type="button" class="sort">Updated</button>
+              </th>
             </tr>
           </thead>
           <tbody data-items-body></tbody>

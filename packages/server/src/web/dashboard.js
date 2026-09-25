@@ -585,6 +585,25 @@
 
   let itemsContext = null;
 
+  /** How the counts are listed: newest update first unless a header says otherwise. */
+  let itemsSort = 'updated';
+
+  /** Marks the header of the order in use, for the arrow and for screen readers. */
+  function showItemsSort() {
+    for (const th of document.querySelectorAll('[data-sort-by]')) {
+      if (th.dataset.sortBy === itemsSort) th.setAttribute('aria-sort', 'descending');
+      else th.removeAttribute('aria-sort');
+    }
+  }
+
+  for (const th of document.querySelectorAll('[data-sort-by]')) {
+    $('button', th).addEventListener('click', () => {
+      itemsSort = th.dataset.sortBy;
+      showItemsSort();
+      loadItems(true).catch((error) => itemsError(error.message));
+    });
+  }
+
   /**
    * A page counter links to its page; an opaque item id stays text. Keys are
    * created by visitors' pages, so only plain http(s) becomes a link.
@@ -638,7 +657,7 @@
 
   async function loadItems(reset) {
     const { siteId, buttonId } = itemsContext;
-    const params = new URLSearchParams({ limit: '50' });
+    const params = new URLSearchParams({ limit: '50', sort: itemsSort });
     const input = $('[data-form="items-filter"] input');
     const origin = filterOrigin(input.value);
     if (origin === null) throw new Error(NOT_A_SITE);
@@ -688,6 +707,8 @@
     const button = buttons.find((b) => b.id === buttonId);
     $('[data-items-button]').textContent = button?.name || button?.publicKey || 'button';
     itemsContext = { siteId, buttonId };
+    itemsSort = 'updated';
+    showItemsSort();
     $('[data-form="items-filter"] input').value = '';
     itemsError(null);
     try {
