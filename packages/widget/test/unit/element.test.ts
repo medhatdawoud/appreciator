@@ -10,6 +10,7 @@ import {
   mount,
   setDefaultApi,
 } from '../../src/index.js';
+import { resetSound } from '../../src/sound.js';
 import { writeCachedConfig, writeCachedCounts } from '../../src/storage.js';
 import {
   installFakeServer,
@@ -799,6 +800,102 @@ describe('AppreciatorButton', () => {
       await Promise.resolve();
 
       expect(server.requests).toHaveLength(before);
+    });
+  });
+
+  describe('sounds', () => {
+    /** Each note started, as the Web Audio calls that made it. */
+    let notes: Array<{ type: string; hz: number }>;
+
+    /** Puts the recording Web Audio in place, after anything that unstubbed it. */
+    function stubAudio(): void {
+      const param = () => ({ setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() });
+      class FakeAudioContext {
+        state = 'running';
+        currentTime = 0;
+        destination = {};
+        resume = vi.fn();
+        createGain() {
+          return { gain: param(), connect: () => ({}) };
+        }
+        createOscillator() {
+          const note = { type: '', hz: 0 };
+          return {
+            set type(value: string) {
+              note.type = value;
+            },
+            frequency: {
+              setValueAtTime: (hz: number) => {
+                note.hz = hz;
+              },
+              exponentialRampToValueAtTime: vi.fn(),
+            },
+            connect: (gain: { connect: () => unknown }) => gain,
+            start: () => notes.push(note),
+            stop: vi.fn(),
+          };
+        }
+      }
+      vi.stubGlobal('AudioContext', FakeAudioContext);
+      resetSound();
+    }
+
+    beforeEach(() => {
+      notes = [];
+      stubAudio();
+    });
+
+    afterEach(() => {
+      resetSound();
+    });
+
+    it('pops on each counted click, a little higher each time, and chimes when full', async () => {
+      const element = await mountReady();
+
+      await clickAndSettle(element, 2);
+      expect(notes).toHaveLength(2);
+      expect(notes[1]?.hz).toBeGreaterThan(notes[0]?.hz ?? Infinity);
+
+      await clickAndSettle(element);
+      expect(notes.slice(2).map((note) => note.type)).toEqual(['sine', 'sine']);
+    });
+
+    it('answers a click on a spent button with a softer, lower pop', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      const first = notes[0]?.hz ?? 0;
+
+      innerButton(element).click();
+
+      expect(notes).toHaveLength(5);
+      expect(notes.at(-1)?.hz).toBeLessThan(first);
+    });
+
+    it('stays silent when the button, the page or read-only says so', async () => {
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ clickSound: false }));
+      stubAudio();
+      const quiet = await mountReady('quiet');
+      await clickAndSettle(quiet);
+      expect(notes).toHaveLength(0);
+
+      vi.unstubAllGlobals();
+      server = installFakeServer();
+      stubAudio();
+      const muted = await mountReady('muted');
+      muted.dataset.sound = 'off';
+      await clickAndSettle(muted);
+      expect(notes).toHaveLength(0);
+
+      const reading = await mountReady('reading');
+      reading.dataset.readonly = '';
+      innerButton(reading).click();
+      expect(notes).toHaveLength(0);
+
+      // And the same setup does play once nothing silences it.
+      delete reading.dataset.readonly;
+      await clickAndSettle(reading);
+      expect(notes).toHaveLength(1);
     });
   });
 

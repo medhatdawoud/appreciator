@@ -5,6 +5,7 @@ import { clipInsetTop, drawingBounds, type DrawingBounds } from './fill.js';
 import { parseSafeSvg } from './sanitize-svg.js';
 import { canClick, fillPercent, optimisticClick, progressPercent, visualState } from './state.js';
 import { onNavigate } from './navigation.js';
+import { playChime, playPop, playSpent } from './sound.js';
 import { withRetry } from './retry.js';
 import {
   readCachedConfig,
@@ -382,6 +383,8 @@ export interface ErrorDetail {
  * `data-api` is only needed when the bundle was not loaded from the server it
  * should talk to; otherwise the element uses the URL the bundle came from.
  *
+ * `data-sound="off"` silences the click sounds the config asks for.
+ *
  * `data-readonly` (any value but `false`) shows the count and this visitor's
  * progress but takes no clicks: the button is disabled, so it sends nothing,
  * plays nothing and has no hover. Toggling it takes effect at once, with no
@@ -403,6 +406,9 @@ export class AppreciatorButton extends HTMLElement {
 
   /** The config's thank-you message, empty for none. */
   private thanksMessage = '';
+
+  /** Whether the config asks for click sounds; a config from before they existed does. */
+  private clickSound = true;
 
   private api: ApiClient | null = null;
   private config: ButtonPublicConfig | null = null;
@@ -685,6 +691,7 @@ export class AppreciatorButton extends HTMLElement {
     );
     this.toggleAttribute('data-ring', config.iconRing === true);
     this.thanksMessage = config.thanksMessage?.trim() ?? '';
+    this.clickSound = config.clickSound !== false;
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }
@@ -710,13 +717,19 @@ export class AppreciatorButton extends HTMLElement {
     if (!canClick(counts)) {
       this.burst();
       this.thank();
+      if (this.sounds) playSpent();
       return;
     }
     this.pending += 1;
     this.pulse();
     this.rollNext = true;
     this.burst();
-    if (this.displayedCounts()?.maxed === true) this.thank();
+    const now = this.displayedCounts();
+    if (now?.maxed === true) this.thank();
+    if (this.sounds) {
+      if (now?.maxed === true) playChime();
+      else playPop(now === null ? 0 : now.visitorCount / Math.max(1, now.maxClicks));
+    }
     this.render();
     this.draining ??= this.drain().finally(() => {
       this.draining = null;
@@ -942,6 +955,11 @@ export class AppreciatorButton extends HTMLElement {
     }
     incoming.classList.add('roll-in');
     this.countLabel.append(incoming);
+  }
+
+  /** Click sounds play unless the config turns them off or the page says `data-sound="off"`. */
+  private get sounds(): boolean {
+    return this.clickSound && this.dataset.sound !== 'off';
   }
 
   /** Set by `data-readonly`, unless it says `false`. */
