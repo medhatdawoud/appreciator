@@ -170,7 +170,7 @@ not served by `/config`: a page's own `data-count` decides, so changing it
 reaches a page only through a freshly pasted snippet.
 
 `thanksMessage` is what the widget shows for three seconds on the click that
-uses up a visitor's allowance: up to 160 characters, trimmed, and empty for
+uses up a visitor's allowance, and on every click after it: up to 160 characters, trimmed, and empty for
 none. A new button, and every button that existed before migration 012,
 starts with "Thank you so much, we're truly grateful." It is served by
 `/config`, and the default is in `/web/config.json` as `defaultThanksMessage`

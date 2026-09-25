@@ -22,7 +22,7 @@ export const BURST_MS = 600;
 /** How long the count takes to roll to its new number. Matches the roll keyframes below. */
 export const ROLL_MS = 320;
 
-/** How long the thank-you message stays after the click that uses up the allowance. */
+/** How long the thank-you message stays after a click that finds the allowance used up. */
 export const THANKS_MS = 3000;
 
 /** The least room the thank-you message keeps from the edges of the window, in px. */
@@ -102,7 +102,8 @@ const RING_REACH = 1.5;
  * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
  *
  * `[part="thanks"]` is the button's thank-you message, shown for `THANKS_MS`
- * after the click that uses up the visitor's allowance (`data-thanked`):
+ * after the click that uses up the visitor's allowance, and again after each
+ * click once it is used up (`data-thanked`):
  * smaller than the page's text, fading in under the button, or above it when
  * the count is below, then fading out. It sits over whatever follows rather
  * than pushing it down, so nothing on the page moves, and is narrow enough to
@@ -686,13 +687,15 @@ export class AppreciatorButton extends HTMLElement {
 
   /**
    * Every click bursts. A click with allowance left also counts; a click once
-   * it is spent counts nothing, so a full button still answers.
+   * it is spent counts nothing, so a full button still answers, and thanks
+   * the visitor again.
    */
   private handleClick(): void {
     const counts = this.displayedCounts();
     if (this.config === null || counts === null) return;
     if (!canClick(counts)) {
       this.burst();
+      this.thank();
       return;
     }
     this.pending += 1;

@@ -829,10 +829,27 @@ describe('AppreciatorButton', () => {
       expect(element.hasAttribute('data-thanked')).toBe(false);
     });
 
-    it('does not thank again on later clicks, or a visitor who comes back spent', async () => {
+    it('thanks again on every click once spent, each time for the full while', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const element = await mountReady();
       await clickAndSettle(element, 3);
+      await vi.advanceTimersByTimeAsync(THANKS_MS);
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+
       innerButton(element).click();
+      expect(element.hasAttribute('data-thanked')).toBe(true);
+      await vi.advanceTimersByTimeAsync(THANKS_MS - 1000);
+      innerButton(element).click();
+      await vi.advanceTimersByTimeAsync(THANKS_MS - 1);
+      expect(element.hasAttribute('data-thanked')).toBe(true);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+      expect(server.requests.filter((request) => request.method === 'POST')).toHaveLength(3);
+    });
+
+    it('waits for a click from a visitor who comes back spent', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
 
       element.dataset.item = 'article-1-again';
       element.dataset.item = 'article-1';
@@ -840,7 +857,8 @@ describe('AppreciatorButton', () => {
 
       expect(element.getAttribute('data-state')).toBe('full');
       expect(element.hasAttribute('data-thanked')).toBe(false);
-      expect(thanks(element).textContent).toBe('');
+      innerButton(element).click();
+      expect(thanks(element).textContent).toBe('Thank you.');
     });
 
     it('stays silent when the button has no message', async () => {

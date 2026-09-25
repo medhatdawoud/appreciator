@@ -97,7 +97,7 @@ test('taps are never taken for a double-tap zoom or a text selection', async ({ 
   expect(await page.evaluate(() => String(window.getSelection()))).toBe('');
 });
 
-test('thanks the visitor under the button as they run out of clicks, then fades', async ({
+test('thanks the visitor under the button as they run out, and on every click after', async ({
   page,
 }) => {
   const ui = await open(page);
@@ -122,11 +122,11 @@ test('thanks the visitor under the button as they run out of clicks, then fades'
   const [above, moved] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
   expect((above?.y ?? 0) + (above?.height ?? 0)).toBeLessThanOrEqual(moved?.y ?? 0);
 
-  // It goes after a few seconds, and later clicks do not bring it back.
+  // It goes after a few seconds, and every later click brings it back.
   await expect(thanks).toBeHidden({ timeout: 5000 });
   await ui.button.click({ force: true });
-  await page.waitForTimeout(400);
-  await expect(thanks).toBeHidden();
+  await expect(thanks).toBeVisible();
+  await expect(ui.count).toHaveText(String(fixture.maxClicks));
 });
 
 test('keeps the thank-you message on screen next to the edge of the window', async ({ page }) => {

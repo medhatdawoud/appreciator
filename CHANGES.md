@@ -3,6 +3,15 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — The thank-you message answers every click on a spent button
+
+- A click on a button whose allowance is already used shows the thank-you
+  message again, for another 3 s, alongside the burst. A visitor who comes
+  back already spent still sees it only once they click.
+- Tests: a unit test clicks a spent button twice and checks each click
+  restarts the 3 s without counting; the e2e clicks once more after the
+  message fades and sees it return.
+
 ## 2026-09-25 — A thank-you message when a visitor runs out of clicks
 
 - Each button has a `thanksMessage` (migration 012, up to 160 characters,

@@ -123,15 +123,15 @@ nothing. A button that loads does not burst on its own. The copies live in
 `::part(burst)`; `prefers-reduced-motion` hides them.
 
 **Thank-you message.** On the click that uses up the visitor's allowance,
-the button's `thanksMessage` fades in under it (above it when `data-count` is
+and on every click after it, the button's `thanksMessage` fades in under it (above it when `data-count` is
 `bottom`) and fades out 3 s later (`THANKS_MS`); `data-thanked` is set
 meanwhile. It is 80% of the page's text size and wraps a typical message onto
 two lines, and it sits over whatever follows rather than pushing it down, so
 nothing on the page moves. Next to the edge of the window it slides back into
 view. Its text is filled in only as it appears, in a `role="status"` region,
-so screen readers announce it. Later clicks and a visitor who comes back
-already spent do not show it again, and an empty message shows nothing. It
-lives in `::part(thanks)`.
+so screen readers announce it. Each click restarts its 3 s. A visitor who
+comes back already spent sees it only once they click, and an empty message
+shows nothing. It lives in `::part(thanks)`.
 
 If loading fails the element gets `data-error` (e.g. `network_error`,
 `origin_not_allowed`, `invalid_svg`, `missing_attributes`) and stays disabled.
