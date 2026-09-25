@@ -6,9 +6,9 @@ import { API_ORIGIN, FIXTURE_PATH, type E2eFixture } from './constants.js';
 
 /**
  * Every demo slot on the page: the hero, the three variants, the four count
- * positions and the three blog post cards.
+ * positions, the read-only example and the three blog post cards.
  */
-const DEMO_SLOTS = 11;
+const DEMO_SLOTS = 12;
 
 let fixture: E2eFixture;
 
@@ -170,6 +170,27 @@ test('shows the count on every side, and on the left in the multi-button example
   expect(await side('multi-2')).toBe('left');
   expect(await side('multi-3')).toBe('left');
   expect(await side('hero')).toBe('right');
+});
+
+test('the read-only example shows the main demo count and follows it, untouchable', async ({
+  page,
+}) => {
+  await page.goto(`${API_ORIGIN}/`);
+  const hero = page.locator('[data-demo-slot="hero"] appreciator-button');
+  const mirror = page.locator('[data-demo-slot="readonly"] appreciator-button');
+  await expect(hero.locator('button')).toBeEnabled();
+  await expect(mirror).toHaveAttribute('data-readonly', '');
+  await expect(mirror.locator('button')).toBeDisabled();
+  const before = await hero.locator('[part="count"]').textContent();
+  await expect(mirror.locator('[part="count"]')).toHaveText(before ?? '');
+
+  await mirror.locator('button').click({ force: true });
+  await expect(mirror.locator('[part="count"]')).toHaveText(before ?? '');
+
+  await hero.locator('button').click();
+  const after = String(Number(before) + 1);
+  await expect(hero.locator('[part="count"]')).toHaveText(after);
+  await expect(mirror.locator('[part="count"]')).toHaveText(after);
 });
 
 test('explains a refused sign-in', async ({ page }) => {

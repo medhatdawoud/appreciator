@@ -168,6 +168,28 @@ appreciator-button {
             <figcaption><code>data-count="bottom"</code></figcaption>
           </figure>
         </div>
+        <div data-readonly-demo>
+          <h3>Read-only</h3>
+          <p>
+            Add <code>data-readonly</code> to show the count without taking clicks, say on a list of
+            posts that each link to the page with the real button. This one reads the main demo's
+            count: click the heart at the top and it follows, but it cannot be clicked itself.
+          </p>
+          <div class="readonly-demo">
+            <div class="code-block">
+              <pre><code>&lt;script src="https://your-instance.example.com/widget.js"
+  data-key="pk_…" data-readonly async&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <div class="card position">
+              <div
+                class="demo-slot"
+                data-demo-slot="readonly"
+                data-item="landing-hero"
+                data-readonly
+              ></div>
+            </div>
+          </div>
+        </div>
         <p class="footnote">
           Want a different icon? Any single-colour outline SVG works: a CLI strips its colours so
           the four states can restyle it. Icons that need four different drawings can be supplied as

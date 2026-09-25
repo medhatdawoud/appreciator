@@ -418,6 +418,28 @@ pre code {
   color: var(--muted);
 }
 
+.readonly-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  gap: 1rem;
+  align-items: stretch;
+  margin: 1.25rem 0;
+}
+
+.readonly-demo .code-block {
+  margin: 0;
+}
+
+.readonly-demo .position {
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .readonly-demo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .footnote {
   font-size: 0.95rem;
 }

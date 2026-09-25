@@ -3,6 +3,18 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Read-only on the landing page and in the dashboard
+
+- Read-only was only in the READMEs. The landing page now has a "Read-only"
+  example after the count positions: the snippet, and a live read-only
+  button reading the main demo's counter, which re-reads it after each click
+  there so it follows along while it cannot be clicked itself. Demo slots
+  can name their counter (`data-item`) and be read-only (`data-readonly`).
+- The dashboard notes under each button's snippets that `data-readonly`
+  works on either.
+- Tests: the landing e2e checks the example is disabled, shows the main
+  demo's count, ignores a forced click and follows a click on the main demo.
+
 ## 2026-09-25 — Read-only buttons
 
 - `data-readonly` on the element or the script tag (any value but `false`),

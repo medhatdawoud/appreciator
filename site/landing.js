@@ -72,6 +72,8 @@
       if (variants) variants.hidden = true;
       const positions = document.querySelector('[data-positions]');
       if (positions) positions.hidden = true;
+      const readonly = document.querySelector('[data-readonly-demo]');
+      if (readonly) readonly.hidden = true;
       if (multi) multi.hidden = true;
       return;
     }
@@ -81,10 +83,21 @@
       const element = document.createElement('appreciator-button');
       element.dataset.api = api;
       element.dataset.key = config.demoKey;
-      element.dataset.item = `landing-${slot.dataset.demoSlot}`;
+      element.dataset.item = slot.dataset.item || `landing-${slot.dataset.demoSlot}`;
       if (slot.dataset.label) element.dataset.label = slot.dataset.label;
       if (slot.dataset.count) element.dataset.count = slot.dataset.count;
+      if (slot.dataset.readonly !== undefined) element.dataset.readonly = '';
       slot.replaceChildren(element);
+    }
+
+    // The read-only demo shows the hero's counter; it re-reads it whenever a
+    // click on the hero settles, so it follows along.
+    const hero = document.querySelector('[data-demo-slot="hero"]');
+    const mirror = document.querySelector('[data-demo-slot="readonly"] appreciator-button');
+    if (hero && mirror) {
+      hero.addEventListener('appreciator:change', () => {
+        mirror.refresh?.();
+      });
     }
 
     const script = document.createElement('script');
