@@ -94,9 +94,15 @@ const RING_REACH = 1.5;
  *
  * `data-ring` draws a 1px circle around the icon, coloured like the state it
  * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
+ *
+ * `[part="thanks"]` is the button's thank-you message, shown once the visitor
+ * has used all their clicks (`data-thanked`): smaller than the page's text,
+ * fading in under the button, or above it when the count is below. It sits
+ * over whatever follows rather than pushing it down, so nothing on the page
+ * moves when it appears.
  */
 const STYLES = `
-:host { display: inline-block; line-height: 1; }
+:host { display: inline-block; line-height: 1; position: relative; }
 :host([hidden]) { display: none; }
 button {
   all: unset;
@@ -262,8 +268,32 @@ svg[data-layer="fill"] {
   40% { transform: scale(1.3); }
   100% { transform: scale(1); }
 }
+[part="thanks"] {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.4em);
+  transform: translate(-50%, -0.25em);
+  font-size: 0.8em;
+  line-height: 1.3;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 300ms ease, visibility 0s linear 300ms;
+}
+:host([data-count="bottom"]) [part="thanks"] {
+  top: auto;
+  bottom: calc(100% + 0.4em);
+  transform: translate(-50%, 0.25em);
+}
+:host([data-thanked]) [part="thanks"] {
+  opacity: 0.8;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
 @media (prefers-reduced-motion: reduce) {
-  [part="icon"], svg { transition: none; animation: none !important; }
+  [part="icon"], svg, [part="thanks"] { transition: none; animation: none !important; }
   [part="burst"] { display: none; }
   [part="count"] > span { animation: none !important; }
   [part="count"] > .roll-out { display: none; }
@@ -348,6 +378,10 @@ export class AppreciatorButton extends HTMLElement {
   private readonly icon: HTMLSpanElement;
   private readonly burstLayer: HTMLSpanElement;
   private readonly countLabel: HTMLSpanElement;
+  private readonly thanks: HTMLSpanElement;
+
+  /** The config's thank-you message, empty for none. */
+  private thanksMessage = '';
 
   private api: ApiClient | null = null;
   private config: ButtonPublicConfig | null = null;
@@ -411,7 +445,12 @@ export class AppreciatorButton extends HTMLElement {
     this.countLabel.setAttribute('part', 'count');
 
     this.button.append(stage, this.countLabel);
-    root.append(this.button);
+    // Filled in only once the visitor is out of clicks, so screen readers
+    // announce it then, and never read it before.
+    this.thanks = document.createElement('span');
+    this.thanks.setAttribute('part', 'thanks');
+    this.thanks.setAttribute('role', 'status');
+    root.append(this.button, this.thanks);
     this.button.addEventListener('click', () => this.handleClick());
   }
 
@@ -618,6 +657,7 @@ export class AppreciatorButton extends HTMLElement {
       config.svgSources === undefined && config.keepIconColors === true,
     );
     this.toggleAttribute('data-ring', config.iconRing === true);
+    this.thanksMessage = config.thanksMessage?.trim() ?? '';
     for (const state of COLOR_STATES) {
       this.button.style.setProperty(`--_c-${state}`, config.colors[state]);
     }
@@ -788,6 +828,10 @@ export class AppreciatorButton extends HTMLElement {
     this.button.disabled = this.config === null || counts === null;
     if (spent) this.button.setAttribute('aria-disabled', 'true');
     else this.button.removeAttribute('aria-disabled');
+
+    const thanks = spent ? this.thanksMessage : '';
+    if (this.thanks.textContent !== thanks) this.thanks.textContent = thanks;
+    this.toggleAttribute('data-thanked', thanks !== '');
 
     const label = this.dataset.label ?? 'Appreciate';
     const remaining = counts?.visitorRemaining;

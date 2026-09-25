@@ -97,6 +97,30 @@ test('taps are never taken for a double-tap zoom or a text selection', async ({ 
   expect(await page.evaluate(() => String(window.getSelection()))).toBe('');
 });
 
+test('thanks the visitor under the button once they are out of clicks', async ({ page }) => {
+  const ui = await open(page);
+  const thanks = ui.host.locator('[part="thanks"]');
+  await expect(thanks).toBeHidden();
+
+  for (let i = 0; i < fixture.maxClicks; i += 1) await ui.button.click({ force: true });
+
+  // The server's default message, a step smaller than the page's text.
+  await expect(thanks).toBeVisible();
+  await expect(thanks).toHaveText("Thank you so much, we're truly grateful.");
+  const hostFont = await ui.host.evaluate((element) => getComputedStyle(element).fontSize);
+  await expect(thanks).toHaveCSS('font-size', `${Number.parseFloat(hostFont) * 0.8}px`);
+  const below = async () => {
+    const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
+    return (text?.y ?? 0) >= (button?.y ?? 0) + (button?.height ?? 0);
+  };
+  expect(await below()).toBe(true);
+
+  // With the count under the icon, the message moves above the button.
+  await ui.host.evaluate((element) => element.setAttribute('data-count', 'bottom'));
+  const [text, button] = await Promise.all([thanks.boundingBox(), ui.button.boundingBox()]);
+  expect((text?.y ?? 0) + (text?.height ?? 0)).toBeLessThanOrEqual(button?.y ?? 0);
+});
+
 test('hover recolours the silhouette', async ({ page }) => {
   const ui = await open(page);
 

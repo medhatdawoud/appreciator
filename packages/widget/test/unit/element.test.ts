@@ -801,6 +801,65 @@ describe('AppreciatorButton', () => {
     });
   });
 
+  describe('the thank-you message', () => {
+    function thanks(element: AppreciatorButton): HTMLElement {
+      const part = shadow(element).querySelector<HTMLElement>('[part="thanks"]');
+      if (part === null) throw new Error('expected a thanks part');
+      return part;
+    }
+
+    it('says nothing until the visitor is out of clicks, then says thanks', async () => {
+      const element = await mountReady();
+      expect(thanks(element).getAttribute('role')).toBe('status');
+
+      await clickAndSettle(element, 2);
+      expect(thanks(element).textContent).toBe('');
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+
+      await clickAndSettle(element);
+      expect(thanks(element).textContent).toBe('Thank you.');
+      expect(element.hasAttribute('data-thanked')).toBe(true);
+    });
+
+    it('thanks a visitor who comes back already out of clicks', async () => {
+      const element = await mountReady();
+      await clickAndSettle(element, 3);
+      localStorage.clear();
+
+      element.dataset.item = 'article-1-again';
+      element.dataset.item = 'article-1';
+      await element.whenReady();
+
+      expect(element.getAttribute('data-state')).toBe('full');
+      expect(thanks(element).textContent).toBe('Thank you.');
+    });
+
+    it('stays silent when the button has no message', async () => {
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ thanksMessage: '' }));
+      const element = await mountReady();
+
+      await clickAndSettle(element, 3);
+
+      expect(element.currentCounts?.maxed).toBe(true);
+      expect(thanks(element).textContent).toBe('');
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+    });
+
+    it('goes away when a preview starts over', async () => {
+      const element = document.createElement('appreciator-button') as AppreciatorButton;
+      document.body.append(element);
+      await element.preview(sampleConfig({ thanksMessage: 'Cheers.' }));
+      await clickAndSettle(element, 3);
+      expect(thanks(element).textContent).toBe('Cheers.');
+
+      await element.preview(sampleConfig({ thanksMessage: 'Cheers.' }));
+
+      expect(thanks(element).textContent).toBe('');
+      expect(element.hasAttribute('data-thanked')).toBe(false);
+    });
+  });
+
   describe('the ring', () => {
     it('is drawn when the config asks for it', async () => {
       const element = await mountReady();
