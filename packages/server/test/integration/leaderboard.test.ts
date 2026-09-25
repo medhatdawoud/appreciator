@@ -9,10 +9,12 @@ import { execute } from '../../src/db/pool.js';
 import { ensureDemoButton } from '../../src/lib/bootstrap.js';
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
 import {
+  SIGN_IN_CONFIG,
   closeTestContext,
   createTestContext,
   seedAccount,
   seedTenant,
+  sessionHeaders,
   type TestContext,
 } from './helpers.js';
 
@@ -93,9 +95,27 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, gamma.id, [7, 7, 6]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'Gamma', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 20 },
-      { siteName: 'Alpha', url: 'https://example.com/post-0', buttonCount: 3, totalCount: 10 },
-      { siteName: 'Beta', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 10 },
+      {
+        siteId: gamma.id,
+        siteName: 'Gamma',
+        url: 'https://example.com/post-0',
+        buttonCount: 1,
+        totalCount: 20,
+      },
+      {
+        siteId: alpha.id,
+        siteName: 'Alpha',
+        url: 'https://example.com/post-0',
+        buttonCount: 3,
+        totalCount: 10,
+      },
+      {
+        siteId: beta.id,
+        siteName: 'Beta',
+        url: 'https://example.com/post-0',
+        buttonCount: 1,
+        totalCount: 10,
+      },
     ]);
   });
 
@@ -132,7 +152,13 @@ describe('GET /v1/leaderboard', () => {
     await seedButton(pool, siteId, [4]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'demo', url: 'https://example.com/post-0', buttonCount: 1, totalCount: 4 },
+      {
+        siteId: expect.any(String),
+        siteName: 'demo',
+        url: 'https://example.com/post-0',
+        buttonCount: 1,
+        totalCount: 4,
+      },
     ]);
   });
 
@@ -156,6 +182,7 @@ describe('GET /v1/leaderboard', () => {
     // b.example/one totals 4 over its two buttons, beating a.example/one's 3;
     // the opaque id and the loopback page never compete, however many clicks.
     expect(site).toEqual({
+      siteId: expect.any(String),
       siteName: 'Multi',
       url: 'https://b.example/one',
       buttonCount: 2,
@@ -190,7 +217,7 @@ describe('GET /v1/leaderboard', () => {
     ]);
 
     expect((await leaderboard(app)).sites).toEqual([
-      { siteName: 'Local', url: null, buttonCount: 1, totalCount: 10 },
+      { siteId: expect.any(String), siteName: 'Local', url: null, buttonCount: 1, totalCount: 10 },
     ]);
   });
 
@@ -216,6 +243,7 @@ describe('GET /v1/leaderboard', () => {
 
     expect(sites).toHaveLength(100);
     expect(sites[0]).toEqual({
+      siteId: expect.any(String),
       siteName: 'Site 100',
       url: 'https://example.com/post-0',
       buttonCount: 1,
@@ -274,5 +302,50 @@ describe('GET /v1/leaderboard', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.body).not.toContain(tenant.id);
+  });
+
+  describe('GET /v1/leaderboard/mine', () => {
+    it("names the signed-in account's own sites, and no one else's", async () => {
+      const { app, pool, config } = await context(SIGN_IN_CONFIG);
+      const me = await seedAccount(pool, 'octocat');
+      const them = await seedAccount(pool, 'hubot');
+      const mine = await seedTenant(pool, 'Mine');
+      const theirs = await seedTenant(pool, 'Theirs');
+      await execute(pool, 'UPDATE tenants SET account_id = ? WHERE id = ?', [me.id, mine.id]);
+      await execute(pool, 'UPDATE tenants SET account_id = ? WHERE id = ?', [them.id, theirs.id]);
+      await seedButton(pool, mine.id, [3]);
+      await seedButton(pool, theirs.id, [5]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/leaderboard/mine',
+        headers: sessionHeaders(config, me.id),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ siteIds: [mine.id] });
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      // The ids match the public list, which is how the page finds the rows.
+      expect((await leaderboard(app)).sites.map((site) => site.siteId)).toContain(mine.id);
+    });
+
+    it('is an empty list, not an error, when signed out or with a forged cookie', async () => {
+      const { app } = await context(SIGN_IN_CONFIG);
+
+      for (const headers of [{}, { cookie: 'appreciator_session=forged.value' }]) {
+        const response = await app.inject({ method: 'GET', url: '/v1/leaderboard/mine', headers });
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({ siteIds: [] });
+      }
+    });
+
+    it('is off with the leaderboard', async () => {
+      const { app } = await context({ leaderboardEnabled: false });
+
+      const response = await app.inject({ method: 'GET', url: '/v1/leaderboard/mine' });
+
+      expect(response.statusCode).toBe(404);
+    });
   });
 });

@@ -67,6 +67,8 @@ export interface WebConfig {
 
 /** One site on the public leaderboard. */
 export interface LeaderboardEntry {
+  /** The site's id, for its badge and, for its owner, a way back to its settings. */
+  siteId: string;
   siteName: string;
   /**
    * The site's most-clicked page, as origin and path (no query or fragment),
@@ -76,6 +78,11 @@ export interface LeaderboardEntry {
   buttonCount: number;
   /** Every click on every one of the site's buttons. */
   totalCount: number;
+}
+
+/** GET /v1/leaderboard/mine: which listed sites the signed-in account owns; empty when signed out. */
+export interface LeaderboardMineResponse {
+  siteIds: string[];
 }
 
 /** GET /v1/leaderboard: the top sites by total clicks. */

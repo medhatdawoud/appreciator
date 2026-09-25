@@ -1,10 +1,15 @@
-import type { LeaderboardEntry, LeaderboardResponse } from '@appreciator/shared';
+import type {
+  LeaderboardEntry,
+  LeaderboardMineResponse,
+  LeaderboardResponse,
+} from '@appreciator/shared';
 import type { FastifyInstance } from 'fastify';
 
 import { queryRows } from '../db/pool.js';
 import { DEMO_TENANT_NAME } from '../lib/bootstrap.js';
 import { notFound } from '../lib/errors.js';
 import { registerIpRateLimit } from '../lib/rate-limit.js';
+import { SESSION_COOKIE, readSession } from '../lib/session.js';
 
 const LEADERBOARD_SIZE = 100;
 
@@ -107,8 +112,9 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
                 items: {
                   type: 'object',
                   additionalProperties: false,
-                  required: ['siteName', 'url', 'buttonCount', 'totalCount'],
+                  required: ['siteId', 'siteName', 'url', 'buttonCount', 'totalCount'],
                   properties: {
+                    siteId: { type: 'string' },
                     siteName: { type: 'string' },
                     url: { type: ['string', 'null'] },
                     buttonCount: { type: 'integer' },
@@ -177,6 +183,7 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
         .header('cache-control', LEADERBOARD_CACHE_CONTROL);
       return {
         sites: rows.map((row): LeaderboardEntry => ({
+          siteId: row.tenant_id,
           siteName: row.site_name,
           url: urls.get(row.tenant_id) ?? null,
           // COUNT is a BIGINT and SUM a DECIMAL; the driver may return strings.
@@ -184,6 +191,44 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
           totalCount: Number(row.total_count),
         })),
       };
+    },
+  );
+
+  /**
+   * The sites the signed-in account owns, so the leaderboard page can offer
+   * their owner a way to each one's settings. Signed out, or signed in with
+   * a session this instance cannot read, it is an empty list rather than a
+   * 401, so visitors' consoles stay clean. Personal, so never cached and
+   * never readable cross-origin; the dashboard still checks ownership on
+   * every site route, so this is a convenience, not a key.
+   */
+  app.get(
+    '/v1/leaderboard/mine',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['siteIds'],
+            properties: { siteIds: { type: 'array', items: { type: 'string' } } },
+          },
+        },
+      },
+    },
+    async (request, reply): Promise<LeaderboardMineResponse> => {
+      if (!app.appConfig.leaderboardEnabled) {
+        throw notFound('The leaderboard is not enabled on this server', 'leaderboard_disabled');
+      }
+      void reply.header('cache-control', 'private, no-store');
+      const session = readSession(app.appConfig, request.cookies[SESSION_COOKIE]);
+      if (session === null) return { siteIds: [] };
+      const rows = await queryRows<{ id: string }>(
+        app.pool,
+        'SELECT id FROM tenants WHERE account_id = ?',
+        [session.accountId],
+      );
+      return { siteIds: rows.map((row) => row.id) };
     },
   );
 }
