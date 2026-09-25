@@ -108,6 +108,12 @@ button {
   font: inherit;
   color: inherit;
   -webkit-tap-highlight-color: transparent;
+  /* Quick taps are clicks: no double-tap zoom on phones, and no selecting
+     the count or opening a callout when it is tapped repeatedly. */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }

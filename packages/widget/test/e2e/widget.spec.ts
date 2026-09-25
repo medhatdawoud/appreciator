@@ -86,6 +86,17 @@ test('starts as a gray silhouette with nothing filled', async ({ page }) => {
   await expect(ui.host).not.toHaveAttribute('data-error', /./);
 });
 
+test('taps are never taken for a double-tap zoom or a text selection', async ({ page }) => {
+  const ui = await open(page);
+
+  await expect(ui.button).toHaveCSS('touch-action', 'manipulation');
+  await expect(ui.button).toHaveCSS('user-select', 'none');
+  // Two quick clicks on the count count twice and select nothing.
+  await ui.count.dblclick();
+  await expect(ui.count).toHaveText('2');
+  expect(await page.evaluate(() => String(window.getSelection()))).toBe('');
+});
+
 test('hover recolours the silhouette', async ({ page }) => {
   const ui = await open(page);
 

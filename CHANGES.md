@@ -3,6 +3,15 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — No double-tap zoom on the button
+
+- On phones, tapping the button twice quickly zoomed the page, the browser's
+  double-tap gesture. The button now sets `touch-action: manipulation`, so
+  every tap is a click, and turns off text selection and the long-press
+  callout, so repeated taps never select the count.
+- Tests: an e2e checks the two properties and that a double click on the
+  count counts twice and selects nothing.
+
 ## 2026-09-25 — Leaderboard and counts link to the pages themselves
 
 - The leaderboard links each site to its most-clicked page instead of its
