@@ -573,8 +573,10 @@ pre code {
   text-decoration: underline;
 }
 
+/* Always on a line of its own under the name, whether the name is a link or text. */
 .owner-link {
-  display: inline-block;
+  display: block;
+  width: fit-content;
   margin-top: 0.35rem;
   padding: 0.1rem 0.6rem;
   border: 1px solid var(--line);

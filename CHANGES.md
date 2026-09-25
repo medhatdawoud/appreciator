@@ -7,7 +7,8 @@ Each entry is written so it can seed a PR description.
 
 - On the leaderboard, a signed-in owner's own sites carry a "Your site ·
   Settings" link to that site's page in the dashboard, where its settings
-  are now at the top. No one else sees it, and the dashboard still checks
+  are now at the top. It sits on a line of its own under the name, whether
+  the name is a link to the site's page or plain text. No one else sees it, and the dashboard still checks
   ownership on every site route.
 - Leaderboard entries carry `siteId`, the random id the site's badge
   address already shows. `GET /v1/leaderboard/mine` lists which of them the

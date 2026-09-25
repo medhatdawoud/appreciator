@@ -131,6 +131,14 @@ test("offers a site's owner, and only its owner, a way to its settings", async (
   await expect(ownRow).toContainText(siteName);
   const settings = ownRow.getByRole('link', { name: 'Your site · Settings' });
   await expect(settings).toHaveAttribute('href', `/dashboard#/sites/${siteId}`);
+  // Its clicks came from 127.0.0.1, so the name is plain text, not a link;
+  // the settings link still starts a line of its own under it.
+  const [nameCell, linkBox] = await Promise.all([
+    ownRow.locator('td').nth(1).boundingBox(),
+    settings.boundingBox(),
+  ]);
+  expect((linkBox?.x ?? 0) - (nameCell?.x ?? 0)).toBeLessThan(16);
+  expect(linkBox?.y ?? 0).toBeGreaterThan((nameCell?.y ?? 0) + 16);
   // The fixture's site belongs to no account, so no link there.
   await expect(page.locator('.owner-link')).toHaveCount(1);
 
