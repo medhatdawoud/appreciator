@@ -372,6 +372,26 @@ erDiagram
 Redeploys are safe at any time: migrations are idempotent and run before the
 new server starts.
 
+**Deploy on every push to `main`.** CI ends with a `deploy` job that asks
+Coolify to deploy once every check has passed, so a failing build never
+ships. It needs two repository secrets:
+
+1. In Coolify, open **Keys & Tokens → API tokens** and create a token with
+   the `deploy` permission. If the API is switched off, turn it on under
+   **Settings → Advanced → API Access** first.
+2. Open the application's **Webhooks** tab and copy the **Deploy Webhook**
+   URL (`https://<coolify>/api/v1/deploy?uuid=…&force=false`).
+3. Store both in the repository, pasting each value when asked:
+
+   ```bash
+   gh secret set COOLIFY_WEBHOOK
+   gh secret set COOLIFY_TOKEN
+   ```
+
+Without them the job leaves a notice and deploys nothing. Turn off Coolify's
+own "Auto Deploy" for this application if it is on, so a push does not
+deploy twice, and before CI has finished.
+
 ### Docker anywhere
 
 ```bash

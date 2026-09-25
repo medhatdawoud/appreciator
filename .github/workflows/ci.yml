@@ -58,3 +58,28 @@ jobs:
           name: playwright-report
           path: packages/widget/playwright-report
           retention-days: 7
+
+  # Asks Coolify to deploy main, only once every check above has passed. It
+  # needs two repository secrets; without them it says so and does nothing.
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Trigger the Coolify deployment
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "$COOLIFY_WEBHOOK" ] || [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::notice::COOLIFY_WEBHOOK or COOLIFY_TOKEN is not set, so nothing was deployed."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            --header "Authorization: Bearer $COOLIFY_TOKEN" \
+            "$COOLIFY_WEBHOOK"

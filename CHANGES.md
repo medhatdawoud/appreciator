@@ -3,6 +3,15 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — Deploy to Coolify when CI passes on main
+
+- CI gains a `deploy` job that runs after every check has passed on a push
+  to `main` and calls Coolify's deploy webhook with an API token, from the
+  `COOLIFY_WEBHOOK` and `COOLIFY_TOKEN` repository secrets. Without them it
+  leaves a notice and deploys nothing. Deploys never overlap.
+- The Coolify guide in the README says how to create the token, find the
+  webhook and store both.
+
 ## 2026-09-25 — No double-tap zoom on the button
 
 - On phones, tapping the button twice quickly zoomed the page, the browser's
