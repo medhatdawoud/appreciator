@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
+import { DEFAULT_THANKS_MESSAGE } from '../../src/lib/default-thanks.js';
 import { closeTestContext, createTestContext, type TestContext } from './helpers.js';
 
 const CSP =
@@ -118,6 +119,7 @@ describe('web pages', () => {
       repoUrl: 'https://github.com/medhatdawoud/appreciator',
       leaderboardEnabled: false,
       defaultIcon: { svgSource: DEFAULT_SVG_SOURCE, colors: DEFAULT_COLORS },
+      defaultThanksMessage: DEFAULT_THANKS_MESSAGE,
     });
   });
 });

@@ -36,6 +36,11 @@ export interface ButtonConfig {
   iconRing: boolean;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition: CountPosition;
+  /**
+   * Shown under the button once a visitor has used all their clicks. Empty
+   * for none.
+   */
+  thanksMessage: string;
   urlNormalization: UrlNormalization;
   createdAt: string;
   /** The one-tag embed for this button, the same one `CreateButtonResponse` returns. */
@@ -68,6 +73,12 @@ export interface ButtonConfigInput {
   iconRing?: boolean;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition?: CountPosition;
+  /**
+   * Shown under the button once a visitor has used all their clicks, up to
+   * 160 characters, trimmed. Empty for none; the server's default when left
+   * out of a create.
+   */
+  thanksMessage?: string;
   urlNormalization?: UrlNormalization;
 }
 
@@ -91,6 +102,11 @@ export interface ButtonPublicConfig {
   keepIconColors: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing: boolean;
+  /**
+   * Shown under the button once a visitor has used all their clicks. Empty
+   * for none.
+   */
+  thanksMessage: string;
   urlNormalization: UrlNormalization;
 }
 

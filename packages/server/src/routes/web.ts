@@ -7,6 +7,7 @@ import type { WebConfig } from '@appreciator/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
+import { DEFAULT_THANKS_MESSAGE } from '../lib/default-thanks.js';
 import { notFound } from '../lib/errors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +55,15 @@ const CONTENT_SECURITY_POLICY = [
 const webConfigSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['apiUrl', 'demoKey', 'signInEnabled', 'repoUrl', 'leaderboardEnabled', 'defaultIcon'],
+  required: [
+    'apiUrl',
+    'demoKey',
+    'signInEnabled',
+    'repoUrl',
+    'leaderboardEnabled',
+    'defaultIcon',
+    'defaultThanksMessage',
+  ],
   properties: {
     apiUrl: { type: 'string' },
     demoKey: { type: ['string', 'null'] },
@@ -80,6 +89,7 @@ const webConfigSchema = {
         },
       },
     },
+    defaultThanksMessage: { type: 'string' },
   },
 };
 
@@ -154,6 +164,7 @@ export async function webRoutes(app: FastifyInstance): Promise<void> {
           repoUrl: app.appConfig.repoUrl,
           leaderboardEnabled: app.appConfig.leaderboardEnabled,
           defaultIcon: { svgSource: DEFAULT_SVG_SOURCE, colors: DEFAULT_COLORS },
+          defaultThanksMessage: DEFAULT_THANKS_MESSAGE,
         };
       },
     );

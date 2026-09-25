@@ -52,6 +52,8 @@ export interface WebConfig {
    * the server alone, and the GitHub Pages copy has no use for it.
    */
   defaultIcon?: { svgSource: string; colors: ButtonColors };
+  /** The thank-you message a new button starts with. Server copy only, as above. */
+  defaultThanksMessage?: string;
 }
 
 /** One site on the public leaderboard. */

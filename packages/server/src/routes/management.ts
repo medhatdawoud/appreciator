@@ -20,6 +20,7 @@ import { execute, queryRows, withTransaction } from '../db/pool.js';
 import { findSiteForAccount } from '../db/sites.js';
 import { ALLOWED_ORIGIN_PATTERN, extractBearerToken, findTenantBySecretKey } from '../lib/auth.js';
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../lib/default-icon.js';
+import { DEFAULT_THANKS_MESSAGE, MAX_THANKS_MESSAGE_LENGTH } from '../lib/default-thanks.js';
 import { badRequest, notFound, unauthorized } from '../lib/errors.js';
 import { accountOf, requireCsrf, requireSession } from '../lib/session.js';
 import { SvgValidationError, assertSafeSvg } from '../lib/svg-guard.js';
@@ -56,6 +57,7 @@ const inputProperties = {
   keepIconColors: { type: 'boolean' },
   iconRing: { type: 'boolean' },
   countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
+  thanksMessage: { type: 'string', maxLength: MAX_THANKS_MESSAGE_LENGTH },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
 };
 
@@ -92,6 +94,7 @@ const buttonConfigSchema = {
     'keepIconColors',
     'iconRing',
     'countPosition',
+    'thanksMessage',
     'urlNormalization',
     'createdAt',
     'embedSnippet',
@@ -109,6 +112,7 @@ const buttonConfigSchema = {
     keepIconColors: { type: 'boolean' },
     iconRing: { type: 'boolean' },
     countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
+    thanksMessage: { type: 'string' },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
     createdAt: { type: 'string' },
     embedSnippet: { type: 'string' },
@@ -334,6 +338,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         keepIconColors: input.keepIconColors ?? false,
         iconRing: input.iconRing ?? false,
         countPosition,
+        thanksMessage: (input.thanksMessage ?? DEFAULT_THANKS_MESSAGE).trim(),
         urlNormalization: input.urlNormalization ?? 'pathname',
       });
 
@@ -412,6 +417,9 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       if (patch.iconRing !== undefined) assignments.push(['icon_ring', patch.iconRing]);
       if (patch.countPosition !== undefined) {
         assignments.push(['count_position', patch.countPosition]);
+      }
+      if (patch.thanksMessage !== undefined) {
+        assignments.push(['thanks_message', patch.thanksMessage.trim()]);
       }
 
       const setClause = assignments.map(([column]) => `${column} = ?`).join(', ');

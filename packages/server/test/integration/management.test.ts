@@ -10,6 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { execute, queryOne } from '../../src/db/pool.js';
 import { DEFAULT_COLORS, DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
+import { DEFAULT_THANKS_MESSAGE } from '../../src/lib/default-thanks.js';
 import {
   closeTestContext,
   createTestContext,
@@ -615,6 +616,37 @@ describe('management routes', () => {
 
     it('refuses anything but a boolean', async () => {
       const response = await postButton(validInput({ keepIconColors: 'yes' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
+  describe('the thank-you message', () => {
+    it('starts with the default, and takes one of its own, trimmed', async () => {
+      await createButton();
+      const own = await createButton(validInput({ thanksMessage: '  Merci beaucoup.  ' }));
+
+      const buttons = await listButtons();
+
+      expect(buttons.find((button) => button.id === own.buttonId)?.thanksMessage).toBe(
+        'Merci beaucoup.',
+      );
+      expect(buttons.find((button) => button.id !== own.buttonId)?.thanksMessage).toBe(
+        DEFAULT_THANKS_MESSAGE,
+      );
+    });
+
+    it('can be turned off with an empty message, and changed with a PATCH', async () => {
+      const created = await createButton(validInput({ thanksMessage: '' }));
+      expect((await listButtons())[0]?.thanksMessage).toBe('');
+
+      const response = await patchButton(created.buttonId, { thanksMessage: 'Thanks, friend.' });
+
+      expect(response.json().thanksMessage).toBe('Thanks, friend.');
+    });
+
+    it('refuses a message longer than 160 characters', async () => {
+      const response = await postButton(validInput({ thanksMessage: 'x'.repeat(161) }));
 
       expect(response.statusCode).toBe(400);
     });

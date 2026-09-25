@@ -249,6 +249,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               'colors',
               'keepIconColors',
               'iconRing',
+              'thanksMessage',
               'urlNormalization',
             ],
             properties: {
@@ -260,6 +261,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               svgSources: svgSourcesSchema,
               keepIconColors: { type: 'boolean' },
               iconRing: { type: 'boolean' },
+              thanksMessage: { type: 'string' },
               urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
             },
           },
@@ -275,6 +277,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         svgSources,
         keepIconColors,
         iconRing,
+        thanksMessage,
         urlNormalization,
       } = toButtonConfig(button, app.appConfig.publicBaseUrl);
 
@@ -286,6 +289,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         ...(svgSources === null ? {} : { svgSources }),
         keepIconColors,
         iconRing,
+        thanksMessage,
         urlNormalization,
       };
     },

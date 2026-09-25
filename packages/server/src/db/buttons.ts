@@ -10,6 +10,7 @@ import type {
 } from '@appreciator/shared';
 
 import { generatePublicKey } from '../lib/auth.js';
+import { DEFAULT_THANKS_MESSAGE } from '../lib/default-thanks.js';
 
 import type { Executor } from './pool.js';
 import { execute, queryOne, queryRows } from './pool.js';
@@ -28,6 +29,7 @@ export interface ButtonRow {
   keep_icon_colors: number | boolean;
   icon_ring: number | boolean;
   count_position: CountPosition;
+  thanks_message: string;
   url_normalization: UrlNormalization;
   created_at: Date;
 }
@@ -37,7 +39,7 @@ export interface ButtonRow {
  * silently start pulling extra columns into responses.
  */
 export const BUTTON_COLUMNS =
-  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, count_position, url_normalization, created_at';
+  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, count_position, thanks_message, url_normalization, created_at';
 
 /**
  * mysql2 usually hands back JSON columns already parsed, but returns a string
@@ -144,6 +146,7 @@ export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonCon
     keepIconColors: Boolean(row.keep_icon_colors),
     iconRing: Boolean(row.icon_ring),
     countPosition: row.count_position,
+    thanksMessage: row.thanks_message,
     urlNormalization: row.url_normalization,
     createdAt: row.created_at.toISOString(),
     embedSnippet: buildEmbedSnippet(publicBaseUrl, row.public_key, row.count_position),
@@ -206,6 +209,8 @@ export interface NewButton {
   iconRing?: boolean;
   /** Defaults to `right`. */
   countPosition?: CountPosition;
+  /** Already trimmed and length-checked; empty for none. Defaults to `DEFAULT_THANKS_MESSAGE`. */
+  thanksMessage?: string;
   urlNormalization: UrlNormalization;
 }
 
@@ -220,8 +225,9 @@ export async function insertButton(
     executor,
     `INSERT INTO buttons
        (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
-        svg_sources, keep_icon_colors, icon_ring, count_position, url_normalization)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        svg_sources, keep_icon_colors, icon_ring, count_position, thanks_message,
+        url_normalization)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       button.tenantId,
@@ -235,6 +241,7 @@ export async function insertButton(
       button.keepIconColors === true,
       button.iconRing === true,
       button.countPosition ?? 'right',
+      button.thanksMessage ?? DEFAULT_THANKS_MESSAGE,
       button.urlNormalization,
     ],
   );

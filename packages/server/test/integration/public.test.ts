@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { queryOne } from '../../src/db/pool.js';
 import { DEFAULT_SVG_SOURCE } from '../../src/lib/default-icon.js';
+import { DEFAULT_THANKS_MESSAGE } from '../../src/lib/default-thanks.js';
 import { hashVisitor } from '../../src/lib/visitor-hash.js';
 import {
   closeTestContext,
@@ -211,6 +212,7 @@ describe('public routes', () => {
         colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
         keepIconColors: false,
         iconRing: false,
+        thanksMessage: DEFAULT_THANKS_MESSAGE,
         urlNormalization: 'pathname',
       });
     });
@@ -225,6 +227,14 @@ describe('public routes', () => {
       const ringed = await createButton(buttonInput({ iconRing: true }));
 
       expect((await config(ringed.publicKey)).json().iconRing).toBe(true);
+    });
+
+    it('serves the thank-you message, empty when there is none', async () => {
+      const own = await createButton(buttonInput({ thanksMessage: 'Much obliged.' }));
+      const none = await createButton(buttonInput({ thanksMessage: '' }));
+
+      expect((await config(own.publicKey)).json().thanksMessage).toBe('Much obliged.');
+      expect((await config(none.publicKey)).json().thanksMessage).toBe('');
     });
 
     it('exposes no private field', async () => {
@@ -244,6 +254,7 @@ describe('public routes', () => {
         'keepIconColors',
         'maxClicks',
         'svgSource',
+        'thanksMessage',
         'urlNormalization',
       ]);
       for (const leak of [
