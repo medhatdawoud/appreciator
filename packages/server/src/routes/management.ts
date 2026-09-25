@@ -56,6 +56,7 @@ const inputProperties = {
   svgSources: svgSourcesSchema,
   keepIconColors: { type: 'boolean' },
   iconRing: { type: 'boolean' },
+  clickSound: { type: 'boolean' },
   countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
   thanksMessage: { type: 'string', maxLength: MAX_THANKS_MESSAGE_LENGTH },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
@@ -93,6 +94,7 @@ const buttonConfigSchema = {
     'svgSources',
     'keepIconColors',
     'iconRing',
+    'clickSound',
     'countPosition',
     'thanksMessage',
     'urlNormalization',
@@ -111,6 +113,7 @@ const buttonConfigSchema = {
     svgSources: { ...svgSourcesSchema, type: ['object', 'null'] },
     keepIconColors: { type: 'boolean' },
     iconRing: { type: 'boolean' },
+    clickSound: { type: 'boolean' },
     countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
     thanksMessage: { type: 'string' },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
@@ -337,6 +340,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         svgSources: input.svgSources ?? null,
         keepIconColors: input.keepIconColors ?? false,
         iconRing: input.iconRing ?? false,
+        clickSound: input.clickSound ?? true,
         countPosition,
         thanksMessage: (input.thanksMessage ?? DEFAULT_THANKS_MESSAGE).trim(),
         urlNormalization: input.urlNormalization ?? 'pathname',
@@ -415,6 +419,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         assignments.push(['keep_icon_colors', patch.keepIconColors]);
       }
       if (patch.iconRing !== undefined) assignments.push(['icon_ring', patch.iconRing]);
+      if (patch.clickSound !== undefined) assignments.push(['click_sound', patch.clickSound]);
       if (patch.countPosition !== undefined) {
         assignments.push(['count_position', patch.countPosition]);
       }

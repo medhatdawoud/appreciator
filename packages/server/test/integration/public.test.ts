@@ -212,6 +212,7 @@ describe('public routes', () => {
         colors: { default: '#cccccc', hover: '#dddddd', clicked: '#ff0000', full: '#990000' },
         keepIconColors: false,
         iconRing: false,
+        clickSound: true,
         thanksMessage: DEFAULT_THANKS_MESSAGE,
         urlNormalization: 'pathname',
       });
@@ -227,6 +228,12 @@ describe('public routes', () => {
       const ringed = await createButton(buttonInput({ iconRing: true }));
 
       expect((await config(ringed.publicKey)).json().iconRing).toBe(true);
+    });
+
+    it('says whether clicks make a sound', async () => {
+      const quiet = await createButton(buttonInput({ clickSound: false }));
+
+      expect((await config(quiet.publicKey)).json().clickSound).toBe(false);
     });
 
     it('serves the thank-you message, empty when there is none', async () => {
@@ -249,6 +256,7 @@ describe('public routes', () => {
       const body = response.json();
 
       expect(Object.keys(body).sort()).toEqual([
+        'clickSound',
         'colors',
         'iconRing',
         'keepIconColors',

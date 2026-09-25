@@ -23,6 +23,7 @@ export function sampleConfig(overrides: Partial<ButtonPublicConfig> = {}): Butto
     colors: { default: '#111111', hover: '#222222', clicked: '#333333', full: '#444444' },
     keepIconColors: false,
     iconRing: false,
+    clickSound: true,
     thanksMessage: 'Thank you.',
     urlNormalization: 'pathname',
     ...overrides,

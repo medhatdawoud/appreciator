@@ -28,6 +28,7 @@ export interface ButtonRow {
   svg_sources: unknown;
   keep_icon_colors: number | boolean;
   icon_ring: number | boolean;
+  click_sound: number | boolean;
   count_position: CountPosition;
   thanks_message: string;
   url_normalization: UrlNormalization;
@@ -39,7 +40,7 @@ export interface ButtonRow {
  * silently start pulling extra columns into responses.
  */
 export const BUTTON_COLUMNS =
-  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, count_position, thanks_message, url_normalization, created_at';
+  'id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors, svg_sources, keep_icon_colors, icon_ring, click_sound, count_position, thanks_message, url_normalization, created_at';
 
 /**
  * mysql2 usually hands back JSON columns already parsed, but returns a string
@@ -145,6 +146,7 @@ export function toButtonConfig(row: ButtonRow, publicBaseUrl: string): ButtonCon
     // TINYINT(1) comes back as a number.
     keepIconColors: Boolean(row.keep_icon_colors),
     iconRing: Boolean(row.icon_ring),
+    clickSound: Boolean(row.click_sound),
     countPosition: row.count_position,
     thanksMessage: row.thanks_message,
     urlNormalization: row.url_normalization,
@@ -207,6 +209,8 @@ export interface NewButton {
   keepIconColors?: boolean;
   /** Defaults to false. */
   iconRing?: boolean;
+  /** Defaults to true. */
+  clickSound?: boolean;
   /** Defaults to `right`. */
   countPosition?: CountPosition;
   /** Already trimmed and length-checked; empty for none. Defaults to `DEFAULT_THANKS_MESSAGE`. */
@@ -225,9 +229,9 @@ export async function insertButton(
     executor,
     `INSERT INTO buttons
        (id, tenant_id, public_key, name, max_clicks, allowed_origins, svg_source, colors,
-        svg_sources, keep_icon_colors, icon_ring, count_position, thanks_message,
+        svg_sources, keep_icon_colors, icon_ring, click_sound, count_position, thanks_message,
         url_normalization)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       button.tenantId,
@@ -240,6 +244,7 @@ export async function insertButton(
       button.svgSources === null ? null : JSON.stringify(button.svgSources),
       button.keepIconColors === true,
       button.iconRing === true,
+      button.clickSound !== false,
       button.countPosition ?? 'right',
       button.thanksMessage ?? DEFAULT_THANKS_MESSAGE,
       button.urlNormalization,

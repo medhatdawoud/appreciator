@@ -621,6 +621,26 @@ describe('management routes', () => {
     });
   });
 
+  describe('the click sound', () => {
+    it('is on unless turned off, and can be switched with a PATCH', async () => {
+      const created = await createButton();
+      expect((await listButtons())[0]?.clickSound).toBe(true);
+
+      const off = await patchButton(created.buttonId, { clickSound: false });
+      expect(off.json().clickSound).toBe(false);
+
+      const quiet = await createButton(validInput({ clickSound: false }));
+      const listed = await listButtons();
+      expect(listed.find((button) => button.id === quiet.buttonId)?.clickSound).toBe(false);
+    });
+
+    it('refuses anything but a boolean', async () => {
+      const response = await postButton(validInput({ clickSound: 'loud' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('the thank-you message', () => {
     it('starts with the default, and takes one of its own, trimmed', async () => {
       await createButton();

@@ -34,6 +34,8 @@ export interface ButtonConfig {
   keepIconColors: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing: boolean;
+  /** Play a short sound on each click. */
+  clickSound: boolean;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition: CountPosition;
   /**
@@ -71,6 +73,8 @@ export interface ButtonConfigInput {
   keepIconColors?: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing?: boolean;
+  /** Play a short sound on each click. Defaults to true. */
+  clickSound?: boolean;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition?: CountPosition;
   /**
@@ -102,6 +106,8 @@ export interface ButtonPublicConfig {
   keepIconColors: boolean;
   /** Draw a thin circle around the icon, coloured like the icon's current state. */
   iconRing: boolean;
+  /** Play a short sound on each click. */
+  clickSound: boolean;
   /**
    * Shown under the button once a visitor has used all their clicks. Empty
    * for none.
