@@ -58,7 +58,7 @@ the person running an instance, or deploys their own in about ten minutes.
   count rolls up to its new number like an odometer on every counted click,
   and can sit on any side of the icon (`data-count`). The click that uses up
   a visitor's allowance, and every click after it, shows a short thank-you
-  message for three seconds.
+  message for a second and a half.
   Works with
   any single SVG; a built-in heart is used when you supply nothing. Buttons
   configured with four SVGs, one per state, swap drawings instead.
@@ -471,7 +471,7 @@ in `GITHUB_ALLOWED_LOGINS`).
   left, above or below the icon. The position is written into the button's
   snippets as `data-count`, so a page already embedding the button keeps its
   old position until its snippet is pasted again. "Thank-you message" is what
-  the button says, for three seconds, on the click that uses up a visitor's
+  the button says, for a second and a half, on the click that uses up a visitor's
   clicks and on every click after; it starts as "Thank you so much, we're truly grateful." and can be
   emptied for none. "Try it" at the end of the form is the real button built
   from the form: click it through its whole allowance to see the fill, pulse,

@@ -169,7 +169,7 @@ snippets as the widget's `data-count` attribute, left out for `right`. It is
 not served by `/config`: a page's own `data-count` decides, so changing it
 reaches a page only through a freshly pasted snippet.
 
-`thanksMessage` is what the widget shows for three seconds on the click that
+`thanksMessage` is what the widget shows for 1.5 seconds on the click that
 uses up a visitor's allowance, and on every click after it: up to 160 characters, trimmed, and empty for
 none. A new button, and every button that existed before migration 012,
 starts with "Thank you so much, we're truly grateful." It is served by

@@ -3,6 +3,11 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A shorter thank-you message
+
+- The thank-you message stays 1.5 s instead of 3 s (`THANKS_MS`), on the
+  maxing click and on each click after.
+
 ## 2026-09-25 — The thank-you message answers every click on a spent button
 
 - A click on a button whose allowance is already used shows the thank-you

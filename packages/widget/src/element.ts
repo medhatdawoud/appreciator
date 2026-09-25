@@ -23,7 +23,7 @@ export const BURST_MS = 600;
 export const ROLL_MS = 320;
 
 /** How long the thank-you message stays after a click that finds the allowance used up. */
-export const THANKS_MS = 3000;
+export const THANKS_MS = 1500;
 
 /** The least room the thank-you message keeps from the edges of the window, in px. */
 const THANKS_EDGE_PX = 8;
