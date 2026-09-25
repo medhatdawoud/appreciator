@@ -201,6 +201,10 @@ icon in the current state's colour. It defaults to `false` and is returned in
 every `ButtonConfig` and by `/config`. `colors` still matter with per-state
 icons and kept colours: they paint the ring and the count once full.
 
+`clickSound` (default `true`, and `true` for every button that existed before
+migration 013) has the widget play a short, quiet sound on each click. It is
+returned in every `ButtonConfig` and by `/config`.
+
 `svgSource` and `svgSources` in the same request answer
 `400 conflicting_icon`. A button created with `svgSources` still stores the
 default heart as its `svgSource`. A `PATCH` that sets `svgSource` drops any

@@ -25,6 +25,7 @@ after itself. Options are `data-*` attributes on the tag:
 | `data-label`    | no       | Accessible name prefix. Defaults to `Appreciate`.                       |
 | `data-count`    | no       | Where the count sits: `right` (default), `left`, `top` or `bottom`.     |
 | `data-readonly` | no       | Show the count without taking clicks (see below).                       |
+| `data-sound`    | no       | `off` silences the button's click sounds on this page.                  |
 | `data-target`   | no       | CSS selector of the element to render into, instead of after the tag.   |
 | `data-api`      | no       | Server base URL. Defaults to where the bundle was loaded from.          |
 
@@ -132,6 +133,15 @@ over about 0.5 s (`data-burst` is set on the element meanwhile, and
 `appreciator:burst` fires). A click on a spent button still bursts but counts
 nothing. A button that loads does not burst on its own. The copies live in
 `::part(burst)`; `prefers-reduced-motion` hides them.
+
+**Sound.** Unless the button's `clickSound` is off, or the page sets
+`data-sound="off"`, each counted click plays a soft pop, a tenth of a second
+long, that climbs a little in pitch as the allowance fills; the click that
+fills the button plays a two-note chime instead, and a click on a spent button
+a quieter, lower pop. The sounds are synthesised with Web Audio, so there is
+no file to fetch and nothing for a strict CSP to refuse, and they start only
+from a click, as browsers require. Read-only buttons are silent, and where Web
+Audio is missing nothing plays.
 
 **Thank-you message.** On the click that uses up the visitor's allowance,
 and on every click after it, the button's `thanksMessage` fades in under it (above it when `data-count` is

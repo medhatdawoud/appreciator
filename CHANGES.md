@@ -3,6 +3,26 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-25 — A short, quiet click sound
+
+- Each counted click plays a soft pop, about a tenth of a second, climbing a
+  little in pitch as the allowance fills. The click that fills the button
+  plays a two-note chime instead, and a click on a spent button a quieter,
+  lower pop. Peak level is about an eighth of full scale.
+- Synthesised with Web Audio: no file to fetch, nothing for a strict CSP to
+  refuse, and started only from the click, as browsers require. Where Web
+  Audio is missing or refuses, nothing plays and the click works as before.
+- On by default. `clickSound` on the button (migration 013, the dashboard's
+  "Play a short, quiet sound on each click") turns it off everywhere;
+  `data-sound="off"` on the script tag or element silences one page.
+  Read-only buttons are silent.
+- Tests: integration tests for the default, PATCH, a non-boolean and
+  `/config`. Unit tests with a recording Web Audio: rising pops, the chime,
+  the spent pop, and silence from the setting, the page and read-only, with
+  a check that the same setup does play. An e2e records the notes started
+  through Chromium's real Web Audio, and the dashboard e2e saves the setting
+  off.
+
 ## 2026-09-25 — Read-only on the landing page and in the dashboard
 
 - Read-only was only in the READMEs. The landing page now has a "Read-only"

@@ -282,6 +282,11 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(thanksInput).toHaveValue("Thank you so much, we're truly grateful.");
   await thanksInput.fill('Thanks a ton.');
 
+  // Sound starts on; this button is silent.
+  const soundBox = page.locator('input[name="clickSound"]');
+  await expect(soundBox).toBeChecked();
+  await soundBox.uncheck();
+
   // The ring, then the preview, clicked through its whole allowance.
   await page.locator('input[name="iconRing"]').check();
   await expect(preview).toHaveAttribute('data-ring', '');
@@ -373,6 +378,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
       id: string;
       iconRing: boolean;
       thanksMessage: string;
+      clickSound: boolean;
       svgSource: string;
       colors: { full: string };
     }>;
@@ -380,6 +386,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   expect(buttons).toHaveLength(1);
   expect(buttons[0]).toMatchObject({
     thanksMessage: 'Thanks a ton.',
+    clickSound: false,
     iconRing: true,
     svgSource: RAW_SVG,
     colors: { full: '#00aa00' },
@@ -391,6 +398,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(page.locator('input[name="iconRing"]')).toBeChecked();
   await expect(page.locator('select[name="countPosition"]')).toHaveValue('left');
   await expect(thanksInput).toHaveValue('Thanks a ton.');
+  await expect(soundBox).not.toBeChecked();
   await expect(page.locator('input[name="color-full"]')).toHaveValue('#00aa00');
   await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
 

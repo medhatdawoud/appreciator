@@ -343,6 +343,7 @@
       colors: readColors(),
       keepIconColors: false,
       iconRing: form.elements.iconRing.checked,
+      clickSound: form.elements.clickSound.checked,
       thanksMessage: form.elements.thanksMessage.value.trim(),
       urlNormalization: form.elements.urlNormalization.value,
     };
@@ -426,6 +427,7 @@
     form.elements.maxClicks.value = String(button.maxClicks);
     form.elements.urlNormalization.value = button.urlNormalization;
     form.elements.iconRing.checked = button.iconRing === true;
+    form.elements.clickSound.checked = button.clickSound !== false;
     form.elements.countPosition.value = button.countPosition ?? 'right';
     for (const s of STATES) form.elements[`color-${s}`].value = toHex(button.colors[s]);
     if (button.svgSources) {
@@ -456,6 +458,7 @@
       urlNormalization: form.elements.urlNormalization.value,
       colors: readColors(),
       iconRing: form.elements.iconRing.checked,
+      clickSound: form.elements.clickSound.checked,
       countPosition: form.elements.countPosition.value,
       thanksMessage: form.elements.thanksMessage.value.trim(),
     };

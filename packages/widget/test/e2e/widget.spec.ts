@@ -179,6 +179,37 @@ test('read-only shows the count and takes no clicks, until it is switched off', 
   await expect.poll(() => clicks.length).toBe(1);
 });
 
+test('clicks play a short sound, unless the page turns it off', async ({ page }) => {
+  // Records each note the widget starts, through the browser's real Web Audio.
+  await page.addInitScript(() => {
+    const notes: string[] = [];
+    (window as unknown as { notes: string[] }).notes = notes;
+    const Real = window.AudioContext;
+    window.AudioContext = class extends Real {
+      createOscillator(): OscillatorNode {
+        const oscillator = super.createOscillator();
+        const start = oscillator.start.bind(oscillator);
+        oscillator.start = (when?: number) => {
+          notes.push(oscillator.type);
+          start(when);
+        };
+        return oscillator;
+      }
+    };
+  });
+  const ui = await open(page);
+  const notes = () => page.evaluate(() => (window as unknown as { notes: string[] }).notes);
+
+  await ui.button.click();
+  await ui.button.click();
+  expect(await notes()).toEqual(['triangle', 'triangle']);
+
+  await ui.host.evaluate((element) => element.setAttribute('data-sound', 'off'));
+  await ui.button.click();
+  await expect(ui.count).toHaveText('3');
+  expect(await notes()).toHaveLength(2);
+});
+
 test('hover recolours the silhouette', async ({ page }) => {
   const ui = await open(page);
 
