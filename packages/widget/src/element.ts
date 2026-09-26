@@ -134,9 +134,10 @@ button {
 }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 button:disabled { cursor: default; }
-/* Read-only takes no pointer at all: clicks, hover and the cursor belong to
-   whatever holds the button, such as a link around a post card. */
-button[data-readonly] { pointer-events: none; }
+/* Read-only takes no pointer events at all, the element included: the pointer
+   goes straight to whatever holds it, such as a link around a post card, for
+   clicks, hover and the cursor alike. */
+:host([data-readonly]:not([data-readonly="false"])) { pointer-events: none; }
 :host([data-count="left"]) button { flex-direction: row-reverse; }
 :host([data-count="top"]) button {
   flex-direction: column-reverse;

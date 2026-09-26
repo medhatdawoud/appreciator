@@ -205,21 +205,31 @@ test('read-only hands clicks, hover and the cursor to what holds it, like a card
   const card = page.locator('#card');
   await expect(ui.count).toHaveText('0');
 
-  // The count itself takes no pointer, so Playwright aims at the element,
-  // which is where a visitor's pointer lands too.
-  await ui.host.hover();
-  await expect(card).toHaveCSS('background-color', 'rgb(1, 2, 3)');
-  const under = await ui.count.evaluate((count) => {
-    const box = count.getBoundingClientRect();
-    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-    return { tag: hit?.tagName, cursor: hit ? getComputedStyle(hit).cursor : '' };
-  });
-  expect(under).toEqual({ tag: 'APPRECIATOR-BUTTON', cursor: 'pointer' });
+  // No part of the element takes the pointer: over the count, it is the card
+  // that is under it.
+  await expect(ui.host).toHaveCSS('pointer-events', 'none');
+  const box = await ui.count.boundingBox();
+  const x = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  const under = await page.evaluate(
+    ({ x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      return { id: hit?.id, cursor: hit ? getComputedStyle(hit).cursor : '' };
+    },
+    { x, y },
+  );
+  expect(under).toEqual({ id: 'card', cursor: 'pointer' });
 
-  await ui.host.click();
+  await page.mouse.move(x, y);
+  await expect(card).toHaveCSS('background-color', 'rgb(1, 2, 3)');
+  await page.mouse.click(x, y);
   await expect(page).toHaveURL(/#followed$/);
   await expect(ui.count).toHaveText('0');
   expect(clicks).toEqual([]);
+
+  // data-readonly="false" is not read-only: the pointer is its own again.
+  await ui.host.evaluate((element) => element.setAttribute('data-readonly', 'false'));
+  await expect(ui.host).toHaveCSS('pointer-events', 'auto');
 });
 
 test('clicks play a short sound, unless the page turns it off', async ({ page }) => {

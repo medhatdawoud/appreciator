@@ -72,8 +72,9 @@ for reading, such as a list of posts that each link to the page with the real
 button.
 
 It is not a control then, so it stays out of the way of whatever holds it:
-the inner button takes no pointer, so clicks, hover and the cursor belong to
-the parent, and a click on the count inside a post card's link follows the
+the element takes no pointer events at all (`pointer-events: none`), so the
+pointer goes straight to what is under or around it for clicks, hover and the
+cursor, and a click on the count inside a post card's link follows the
 link. It is out of the tab order, and the element presents itself as an image
 named with the count ("Appreciate, 12 total"), which inside a link becomes
 part of the link's name; a role or label the page set on the element is left

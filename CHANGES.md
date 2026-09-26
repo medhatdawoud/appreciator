@@ -8,9 +8,10 @@ Each entry is written so it can seed a PR description.
 - A read-only button was a disabled `<button>`, and browsers swallow clicks
   on those: inside a post card's link, a click on the count went nowhere, and
   the arrow cursor replaced the link's pointer.
-- Read-only now leaves the button enabled but takes it off the pointer
-  (`pointer-events: none`), out of the tab order and out of the
-  accessibility tree, so clicks, hover and the cursor belong to the parent.
+- Read-only now leaves the button enabled but takes the whole element off the
+  pointer (`pointer-events: none` on the element itself, not only its inner
+  button), out of the tab order and out of the accessibility tree, so the
+  pointer goes straight to the parent for clicks, hover and the cursor.
   The element speaks as an image with the count instead, which inside a link
   joins the link's name, and it never clears a role or label the page set.
 - Tests: unit tests for the attributes on and off and a page's own role left
