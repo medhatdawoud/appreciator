@@ -1,9 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { API_ORIGIN, FIXTURE_PATH, PAGE_ORIGIN, type E2eFixture } from './constants.js';
+import { API_ORIGIN, FIXTURE_PATH, type E2eFixture } from './constants.js';
 
 /**
  * Every demo slot on the page: the hero, the three variants, the four count
@@ -216,48 +215,24 @@ test("documents the button's events, and logs the demo's as they happen", async 
   await expect(log.nth(2)).toContainText('appreciator:ready');
 });
 
-test('offers a prompt for coding agents whose check really works', async ({ page, context }) => {
+test('offers a short prompt for coding agents that asks only for the key', async ({
+  page,
+  context,
+}) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto(`${API_ORIGIN}/`);
   const prompt = page.locator('[data-agent-prompt]');
   await expect(prompt).toContainText(
     `<script src="${API_ORIGIN}/widget.js" data-key="pk_YOUR_BUTTON_KEY" async></script>`,
   );
-  await expect(prompt).toContainText('data-item="POST_ID"');
-  await expect(prompt).toContainText(`${API_ORIGIN}/dashboard`);
-  // It knows no button here, so it asks for the key first, then the rest.
-  const asks = await prompt.evaluate((element) => {
-    const text = element.textContent ?? '';
-    const block = text.slice(text.indexOf('ask me these'), text.indexOf('1. Place it'));
-    return [...block.matchAll(/^\d\. (.+)$/gm)].map((match) => match[1]);
-  });
-  expect(asks).toHaveLength(4);
-  expect(asks[0]).toMatch(/^What is the button's public key\?/);
-  expect(asks[3]).toContain('I will make sure the button allows each of them');
+  await expect(prompt).toContainText("First ask me for my button's key");
+  await expect(prompt).toContainText('do not fetch the script or call the server');
   const text = (await prompt.textContent()) ?? '';
+  // Short enough to act on: a longer, spec-like prompt had agents
+  // investigating instead of pasting a tag.
+  expect(text.split(/\s+/).length).toBeLessThan(230);
   await page.locator('[data-copy="[data-agent-prompt]"]').click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
-
-  // The console check, exactly as the prompt gives it, run where a button is.
-  const check = text.slice(text.indexOf('(async () => {'), text.indexOf('})();') + '})();'.length);
-  expect(check.length).toBeGreaterThan(100);
-  const run = async (url: string): Promise<string[]> => {
-    const lines: string[] = [];
-    const listener = (message: { text(): string }) => lines.push(message.text());
-    page.on('console', listener);
-    await page.goto(url);
-    await page.waitForFunction(() => customElements.get('appreciator-button') !== undefined);
-    await page.evaluate((code) => new Function(`return ${code}`)(), check.replace(/;$/, ''));
-    await expect.poll(() => lines.some((line) => /Button (ready|failed)/.test(line))).toBe(true);
-    page.off('console', listener);
-    return lines;
-  };
-  const ready = await run(
-    `${PAGE_ORIGIN}/?${new URLSearchParams({ api: API_ORIGIN, key: fixture.publicKey, item: `e2e-${randomUUID()}` })}`,
-  );
-  expect(ready.find((line) => line.startsWith('Button ready'))).toMatch(
-    /^Button ready, \d+ appreciations$/,
-  );
 });
 
 test('explains a refused sign-in', async ({ page }) => {

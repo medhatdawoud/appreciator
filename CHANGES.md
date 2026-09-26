@@ -3,6 +3,26 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — A short agent prompt that just adds the tag
+
+- Tried for real, the longer prompt turned a one-line change into research:
+  agents curled the instance, looked for ways to test, and weighed options
+  that did not apply. The prompt is now about 180 words (was about 540). It
+  says the button is a drop-in tag with nothing to install, fetch, inspect
+  or test; puts it right after the content in the single-post template, or
+  the element where a script tag would not run; asks only for the key where
+  it is not known, and which template only if that is unclear; and ends with
+  the files changed.
+- Allowing the site's origins is the owner's step, so it moves out of the
+  prompt into the text beside it, on the landing page and in the dashboard.
+- Checked with Claude Code on a sample Jekyll blog: with a known key it
+  added the tag to `_layouts/post.html` in 31 s and three tool calls, while
+  the previous prompt stopped to ask three questions and changed nothing in
+  50 s; without a key it found the template and asked only for the key.
+- Tests: the landing e2e checks the prompt asks for the key, says not to
+  fetch anything, and stays under 230 words; the dashboard e2e checks a
+  button's prompt carries its key and asks nothing.
+
 ## 2026-09-26 — The agent prompt asks before it changes anything
 
 - The prompt now opens with the questions only the owner can answer, and

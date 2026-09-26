@@ -307,7 +307,6 @@
           publicKey: button.publicKey,
           embedSnippet: button.embedSnippet,
           elementSnippet: button.elementSnippet,
-          allowedOrigins: button.allowedOrigins,
         });
         $('[data-button-row-prompt]', row).textContent = prompt ?? '';
         $('.agent-prompt', row).hidden = prompt === undefined;
