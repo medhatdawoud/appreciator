@@ -391,7 +391,16 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(rowPrompt).toBeVisible();
   const rowKey = (await row.locator('[data-button-row-key]').textContent()) ?? '';
   await expect(rowPrompt).toContainText(`data-key="${rowKey}" data-count="left" async`);
-  await expect(rowPrompt).toContainText(`It allows these origins now: ${PAGE_ORIGIN}.`);
+  // It has the key, so it does not ask for it, and lists the origins it knows.
+  const asks = await rowPrompt.evaluate((element) => {
+    const text = element.textContent ?? '';
+    const block = text.slice(text.indexOf('ask me these'), text.indexOf('1. Place it'));
+    return [...block.matchAll(/^\d\. (.+)$/gm)].map((match) => match[1]);
+  });
+  expect(asks).toHaveLength(3);
+  expect(asks.join('\n')).not.toContain('public key');
+  expect(asks[2]).toContain(`The button allows ${PAGE_ORIGIN} now`);
+  await expect(rowPrompt).not.toContainText('pk_YOUR_BUTTON_KEY');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await row.locator('[data-copy-prompt]').click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(

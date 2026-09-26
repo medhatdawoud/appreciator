@@ -304,6 +304,7 @@
         wireCopy($('[data-copy-element]', row), () => button.elementSnippet);
         const prompt = window.appreciatorAgentPrompt?.({
           apiUrl: state.config?.apiUrl || location.origin,
+          publicKey: button.publicKey,
           embedSnippet: button.embedSnippet,
           elementSnippet: button.elementSnippet,
           allowedOrigins: button.allowedOrigins,

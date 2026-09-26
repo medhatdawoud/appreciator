@@ -42,18 +42,15 @@
     snippet.textContent = `<script src="${trimSlash(config.apiUrl)}/widget.js" data-key="${key}" async></script>`;
   }
 
-  /** The agent prompt, for this instance, with a placeholder for the button's key. */
+  /**
+   * The agent prompt for this instance. It knows no button here, so it asks
+   * the owner for the key along with the rest.
+   */
   function fillAgentPrompt(config) {
     const target = document.querySelector('[data-agent-prompt]');
     if (!target || typeof window.appreciatorAgentPrompt !== 'function') return;
-    const api = trimSlash(config.apiUrl || 'https://your-instance.example');
-    const key = 'pk_YOUR_BUTTON_KEY';
     target.textContent = window.appreciatorAgentPrompt({
-      apiUrl: api,
-      embedSnippet: `<script src="${api}/widget.js" data-key="${key}" async></script>`,
-      elementSnippet:
-        `<script src="${api}/widget.js" async></script>\n` +
-        `<appreciator-button data-key="${key}"></appreciator-button>`,
+      apiUrl: trimSlash(config.apiUrl || 'https://your-instance.example'),
     });
   }
 

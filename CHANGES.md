@@ -3,6 +3,21 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — The agent prompt asks before it changes anything
+
+- The prompt now opens with the questions only the owner can answer, and
+  tells the agent to wait for the answers: the button's key, which pages or
+  templates get it and whether list pages show read-only counts, whether to
+  count by URL or by a stable id, and every origin the site runs on (only the
+  owner can allow them in the dashboard). Its steps follow those answers.
+- It asks only what it does not know: the landing page's prompt asks all
+  four, the dashboard's skips the key and lists the origins the button
+  already allows, to confirm or add to.
+- The console check now also names a wrong key (`not_found`).
+- Tests: the landing e2e checks its prompt asks four questions, the key
+  first; the dashboard e2e checks a button's prompt asks three, never the
+  key, and lists its origins.
+
 ## 2026-09-26 — A prompt for coding agents
 
 - The landing page's Install section has "Let your agent add it": a prompt

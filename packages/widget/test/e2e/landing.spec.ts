@@ -225,6 +225,15 @@ test('offers a prompt for coding agents whose check really works', async ({ page
   );
   await expect(prompt).toContainText('data-item="POST_ID"');
   await expect(prompt).toContainText(`${API_ORIGIN}/dashboard`);
+  // It knows no button here, so it asks for the key first, then the rest.
+  const asks = await prompt.evaluate((element) => {
+    const text = element.textContent ?? '';
+    const block = text.slice(text.indexOf('ask me these'), text.indexOf('1. Place it'));
+    return [...block.matchAll(/^\d\. (.+)$/gm)].map((match) => match[1]);
+  });
+  expect(asks).toHaveLength(4);
+  expect(asks[0]).toMatch(/^What is the button's public key\?/);
+  expect(asks[3]).toContain('I will make sure the button allows each of them');
   const text = (await prompt.textContent()) ?? '';
   await page.locator('[data-copy="[data-agent-prompt]"]').click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);

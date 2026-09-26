@@ -491,8 +491,11 @@ in `GITHUB_ALLOWED_LOGINS`).
   `<appreciator-button data-key="…">` element to place anywhere. Under them,
   "Prompt for your coding agent" opens a prompt to paste into Claude Code,
   Cursor or another agent, filled in with the button's key, snippets and
-  allowed origins: it places the button, sets up the allowed origins and CSP,
-  and checks with a console snippet that the button loads.
+  allowed origins. It first has the agent ask you what only you know (which
+  pages get it, whether to count by URL or by id, and any origin still to
+  allow), then places the button, sets up the CSP, and checks with a console
+  snippet that the button loads. The landing page's version asks for the key
+  too.
 - **Counts.** Per page (or item id), most recently updated first. Click the
   Total or Updated header to sort by it, highest or newest first, and click
   it again to flip the direction; the arrow shows which way.
