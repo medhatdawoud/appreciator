@@ -93,7 +93,7 @@ The element reflects `data-state` on itself so the host page can style around it
   ending in "all used", so assistive tech still reports it as finished.
 
 `hover` is pure CSS: the icon grows slightly and the unfilled part takes the
-`hover` colour.
+`hover` colour. A full button has no hover effect.
 
 It also reflects `data-progress`, the share of this visitor's allowance
 already spent as a whole percentage (`0`–`100`), counting clicks still in
@@ -133,18 +133,18 @@ And `data-icons`, which says how the icon is drawn:
   an enabled button, and `clicked` and `full` follow `data-state`. Hover is
   still pure CSS. These buttons do not show progress.
 
-**Burst.** Every click, counted or not, throws five full-colour particles out
+**Burst.** Every counted click throws five particles in the `clicked` colour out
 from around the icon, to the corners of a pentagon with one corner pointing
 straight away from the count, so the count sits in the widest gap between them
 on whichever side `data-count` puts it. The button's `burstStyle` chooses what
 they are: small copies of the icon (`icons`, the default), plain `dashes`
 turned to point along their flight, or `none`, where nothing flies while the
 click still counts, sounds, sets `data-burst` and fires `appreciator:burst`.
-Each particle appears just outside the icon's edge and flies to 0.95 icon
-widths from its centre at a constant size as it fades, over about 0.4 s (a
-ring pushes it 1.35× further so it clears the circle). A click on a spent
-button still bursts but counts nothing. A button that loads does not burst on
-its own. The particles live in `::part(burst)`; `prefers-reduced-motion` hides
+Each particle's near end appears just outside the icon's edge, or the ring's
+when there is one, and it flies 0.35 icon widths further out at a constant
+size as it fades, over about 0.4 s. A click on a spent button plays no burst
+and counts nothing; it still thanks the visitor and fires `appreciator:burst`.
+A button that loads does not burst on its own. The particles live in `::part(burst)`; `prefers-reduced-motion` hides
 them.
 
 **Sound.** Unless the button's `clickSound` is off, or the page sets
@@ -208,7 +208,7 @@ works the same whether anything listens.
 | Event                | Fires                                                                   | `event.detail`                         |
 | -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
 | `appreciator:ready`  | Once the button has loaded and shows its count.                         | counts                                 |
-| `appreciator:burst`  | On every click, counted or not, as the burst plays.                     | counts, as shown right after the click |
+| `appreciator:burst`  | On every click, counted or not; a spent button plays no burst.          | counts, as shown right after the click |
 | `appreciator:change` | When the server confirms a counted click.                               | counts                                 |
 | `appreciator:maxed`  | Once, when the click that uses up the visitor's allowance is confirmed. | counts                                 |
 | `appreciator:error`  | When loading or a click fails.                                          | `{ code, message }`                    |

@@ -363,8 +363,9 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(preview.locator('[part="count"]')).toHaveText('10');
   await expect(preview.locator('[part="thanks"]')).toHaveText('Thanks a ton.');
   await expect(preview.locator('[part="thanks"]')).toBeVisible();
+  // Spent: a click counts nothing and plays no burst.
   await button.click({ force: true });
-  await expect(preview).toHaveAttribute('data-burst', '');
+  await expect(preview).not.toHaveAttribute('data-burst', /.*/);
   await expect(preview.locator('[part="count"]')).toHaveText('10');
   await page.locator('[data-action="reset-preview"]').click();
   await expect(preview.locator('[part="count"]')).toHaveText('0');

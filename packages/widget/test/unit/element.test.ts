@@ -403,6 +403,11 @@ describe('AppreciatorButton', () => {
       return Array.from(shadow(element).querySelectorAll('[part="burst"] > svg'));
     }
 
+    /** How far past the edge (`--_edge`) a particle's offset puts its centre, in icon sizes. */
+    function beyondEdge(value: string): number {
+      return Number(/var\(--_edge, 0\.5\) \+ ([\d.]+)\)/.exec(value)?.[1]);
+    }
+
     function posts(): number {
       return server.requests.filter((request) => request.method === 'POST').length;
     }
@@ -436,27 +441,25 @@ describe('AppreciatorButton', () => {
       expect(element.hasAttribute('data-burst')).toBe(false);
     });
 
-    it('starts each copy just outside the icon and sends it further out', async () => {
+    it('starts each copy clear of the icon and sends it a short hop further out', async () => {
       const element = await mountReady();
-      const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
 
       for (const particle of particles(element)) {
         const style = (particle as SVGElement).style;
-        const start = Math.hypot(
-          size(style.getPropertyValue('--sx')),
-          size(style.getPropertyValue('--sy')),
-        );
-        const end = Math.hypot(
-          size(style.getPropertyValue('--dx')),
-          size(style.getPropertyValue('--dy')),
-        );
-        // The icon is one size across, so its edge is half a size out.
-        expect(start).toBeGreaterThan(0.5);
-        expect(end).toBeGreaterThan(start);
+        const start = beyondEdge(style.getPropertyValue('--sx'));
+        const end = beyondEdge(style.getPropertyValue('--dx'));
+        expect(beyondEdge(style.getPropertyValue('--sy'))).toBe(start);
+        // A copy flies at 0.6 of its 0.55 size, so its near side is 0.165 in
+        // from its centre: the centre starts that far past the edge, and a gap more.
+        expect(start).toBeCloseTo(0.165 + 0.08, 3);
+        expect(end - start).toBeCloseTo(0.35, 3);
       }
     });
 
     it('flies as a pentagon pointing away from the count, wherever the count is', async () => {
+      // A click on each side, all counted: a spent button plays no burst to aim.
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ maxClicks: 10 }));
       const element = await mountReady();
       const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
       const toward = { right: 0, bottom: 90, left: 180, top: -90 };
@@ -524,21 +527,18 @@ describe('AppreciatorButton', () => {
       expect(bursts).toHaveLength(1);
     });
 
-    it('ends the flight a short hop past the icon', async () => {
+    it('starts a dash clear of the icon by half its length', async () => {
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ burstStyle: 'dashes' }));
       const element = await mountReady();
-      const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
 
-      for (const particle of particles(element)) {
-        const style = (particle as SVGElement).style;
-        const end = Math.hypot(
-          size(style.getPropertyValue('--dx')),
-          size(style.getPropertyValue('--dy')),
-        );
-        expect(end).toBeCloseTo(0.95, 2);
+      for (const dash of shadow(element).querySelectorAll<HTMLElement>('[part="burst"] > .dash')) {
+        // 0.3 long at 0.6 scale: its near end is 0.09 in from its centre.
+        expect(beyondEdge(dash.style.getPropertyValue('--sx'))).toBeCloseTo(0.09 + 0.08, 3);
       }
     });
 
-    it('replays on every click once spent, counting nothing', async () => {
+    it('plays nothing once spent, counting nothing, yet still tells the page', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const element = await mountReady();
       await clickAndSettle(element, 3);
@@ -547,8 +547,7 @@ describe('AppreciatorButton', () => {
 
       innerButton(element).click();
       await element.whenIdle();
-      expect(element.hasAttribute('data-burst')).toBe(true);
-      await vi.advanceTimersByTimeAsync(BURST_MS);
+      expect(element.hasAttribute('data-burst')).toBe(false);
       innerButton(element).click();
 
       expect(bursts).toHaveLength(2);
@@ -1122,7 +1121,7 @@ describe('AppreciatorButton', () => {
 
       const particle = shadow(element).querySelector<SVGElement>('[part="burst"] > svg');
 
-      expect(particle?.style.getPropertyValue('--dx')).toContain('var(--_reach, 1)');
+      expect(particle?.style.getPropertyValue('--dx')).toContain('var(--_edge, 0.5)');
     });
   });
 

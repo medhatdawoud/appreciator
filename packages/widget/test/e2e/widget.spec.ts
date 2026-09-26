@@ -318,15 +318,29 @@ test('fills up at the cap and stays full even after localStorage is cleared', as
   expect(atCap).toBeGreaterThan(0);
   expect(atCap).toBeLessThan(15);
 
-  // Spent: the button still answers with a burst, but counts nothing.
+  // Spent: hovering no longer grows the icon, and a click thanks the
+  // visitor but plays no burst and counts nothing.
   await expect(ui.host).not.toHaveAttribute('data-burst', /.*/);
   expect(await ui.button.evaluate((element) => (element as HTMLButtonElement).disabled)).toBe(
     false,
   );
+  await ui.button.hover({ force: true });
+  await expect(ui.host.locator('[part="icon"]')).toHaveCSS('transform', 'none');
+  await ui.host.evaluate((element) => {
+    const drawn: boolean[] = [];
+    (window as unknown as { drawn: boolean[] }).drawn = drawn;
+    element.addEventListener('appreciator:burst', () =>
+      drawn.push(element.hasAttribute('data-burst')),
+    );
+  });
   // Forced, because Playwright treats aria-disabled as not clickable.
   await ui.button.click({ force: true });
-  await expect(ui.host).toHaveAttribute('data-burst', '');
-  await expect(ui.host.locator('[part="burst"] > svg')).toHaveCount(5);
+  // Still reported to the page, with nothing drawn.
+  expect(await page.evaluate(() => (window as unknown as { drawn: boolean[] }).drawn)).toEqual([
+    false,
+  ]);
+  await expect(ui.host).toHaveAttribute('data-thanked', '');
+  await expect(ui.host).not.toHaveAttribute('data-burst', /.*/);
   await expect(ui.count).toHaveText(String(fixture.maxClicks));
 
   // Full shows at once; the clicks are still being sent one by one. Reload
@@ -563,19 +577,21 @@ test('bursts as dashes when the button asks, and not at all when it asks for non
   await expect(burst.locator('> svg')).toHaveCount(0);
   await expect(burst.locator('> .dash').first()).toHaveCSS(
     'background-color',
-    rgb(fixture.colors.full),
+    rgb(fixture.colors.clicked),
   );
-  await dashes.button.click();
-  await expect(dashes.host).toHaveAttribute('data-burst', '');
-  // Each dash is drawn turned by its own --turn, and they point different ways.
-  const turns = await burst.locator('> .dash').evaluateAll((all) =>
-    all.map((dash) => {
+  // Each dash is drawn turned by its own --turn, and they point different
+  // ways. Read in the same task as the click: the burst is over in half a second.
+  const turns = await dashes.host.evaluate((host) => {
+    const root = host.shadowRoot as ShadowRoot;
+    (root.querySelector('button') as HTMLButtonElement).click();
+    if (!host.hasAttribute('data-burst')) throw new Error('expected the click to burst');
+    return Array.from(root.querySelectorAll<HTMLElement>('[part="burst"] > .dash')).map((dash) => {
       const matrix = new DOMMatrix(getComputedStyle(dash).transform);
       const drawn = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
-      const asked = Number.parseFloat((dash as HTMLElement).style.getPropertyValue('--turn'));
+      const asked = Number.parseFloat(dash.style.getPropertyValue('--turn'));
       return { drawn: Math.round(drawn), off: ((((drawn - asked) % 360) + 540) % 360) - 180 };
-    }),
-  );
+    });
+  });
   for (const { off } of turns) expect(Math.abs(off)).toBeLessThan(1);
   expect(new Set(turns.map(({ drawn }) => drawn)).size).toBe(5);
 
@@ -637,6 +653,50 @@ test('the burst never crosses the count, wherever it sits, with or without a rin
       });
       expect(overlaps, `${position}, ${key === fixture.ringKey ? 'ring' : 'no ring'}`).toEqual([]);
     }
+  }
+});
+
+test('the burst flies in the clicked colour from outside the icon or its ring', async ({
+  page,
+}) => {
+  for (const key of [fixture.publicKey, fixture.ringKey]) {
+    const params = new URLSearchParams({ api: fixture.api, key, item: `e2e-${randomUUID()}` });
+    await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+    const ui = widget(page);
+    await expect(ui.button).toBeEnabled();
+    await expect(ui.host.locator('[part="burst"] > svg path').first()).toHaveCSS(
+      'fill',
+      rgb(fixture.colors.clicked),
+    );
+
+    // Samples every frame of one burst, in the page: a visible copy's near
+    // side stays outside the icon's circle at rest, which with a ring is the
+    // ring. (The click's pulse grows the icon for a moment; that is not
+    // where the copies start from.)
+    const overlaps = await ui.host.evaluate(async (element) => {
+      const root = element.shadowRoot as ShadowRoot;
+      const icon = root.querySelector('[part="icon"]') as Element;
+      const copies = Array.from(root.querySelectorAll('[part="burst"] > svg'));
+      const circle = icon.getBoundingClientRect();
+      (root.querySelector('button') as HTMLButtonElement).click();
+      const hits: string[] = [];
+      const start = performance.now();
+      while (performance.now() - start < 500) {
+        await new Promise((done) => requestAnimationFrame(done));
+        const cx = circle.left + circle.width / 2;
+        const cy = circle.top + circle.height / 2;
+        for (const copy of copies) {
+          if (Number(getComputedStyle(copy).opacity) < 0.05) continue;
+          const box = copy.getBoundingClientRect();
+          const near =
+            Math.hypot(box.left + box.width / 2 - cx, box.top + box.height / 2 - cy) -
+            box.width / 2;
+          if (near < circle.width / 2) hits.push(`${Math.round(near)} < ${circle.width / 2}`);
+        }
+      }
+      return hits;
+    });
+    expect(overlaps, key === fixture.ringKey ? 'ring' : 'no ring').toEqual([]);
   }
 });
 

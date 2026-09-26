@@ -30,11 +30,19 @@ export const THANKS_MS = 1500;
 const THANKS_EDGE_PX = 8;
 
 /**
- * Where a burst particle appears and where it ends, in icon sizes from the
- * icon's centre: just outside its edge, then a short hop further.
+ * Where a burst particle appears and how far it flies, in icon sizes: its
+ * nearest end starts `BURST_GAP` past the icon's edge (or its ring's), and it
+ * flies `BURST_TRAVEL` further out.
  */
-const BURST_START_RADIUS = 0.6;
-const BURST_END_RADIUS = 0.95;
+const BURST_GAP = 0.08;
+const BURST_TRAVEL = 0.35;
+
+/** The scale particles fly at, of the size they are drawn. */
+const BURST_SCALE = 0.6;
+
+/** An icon copy's width and a dash's length, before `BURST_SCALE`, in icon sizes. */
+const COPY_SIZE = 0.55;
+const DASH_LENGTH = 0.3;
 
 /** Copies of the icon thrown out on each click, one per corner of a pentagon. */
 export const BURST_PARTICLES = 5;
@@ -58,8 +66,8 @@ export const REST_OPACITY = { default: 0.45, hover: 0.6 } as const;
  */
 export const PAINT_EXEMPT = 'defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *';
 
-/** How much further out the burst reaches when a ring is drawn around the icon, to clear it. */
-const RING_REACH = 1.35;
+/** The room between the icon and its ring, in icon sizes. */
+const RING_PADDING = 0.3;
 
 /**
  * Colours come from the button config as `--_c-<state>` on the inner button;
@@ -96,8 +104,8 @@ const RING_REACH = 1.35;
  * click raises it, the old number rolls up and out (`.roll-out`) while the new
  * one rolls in from below (`.roll-in`), like an odometer.
  *
- * `[part="burst"]` holds five particles in the full colour, hidden until
- * `data-burst` is set on a click: small copies of the icon, or dashes
+ * `[part="burst"]` holds five particles in the clicked colour, hidden until
+ * `data-burst` is set on a counted click: small copies of the icon, or dashes
  * (`.dash`) turned to point outward (`--turn`), or none at all, as the
  * config's `burstStyle` says. Each appears just outside the icon's edge
  * (`--sx`/`--sy`) and flies a little further out to `--dx`/`--dy` at a
@@ -105,7 +113,8 @@ const RING_REACH = 1.35;
  * with one corner pointing away from the count (see `aimParticles`).
  *
  * `data-ring` draws a 1px circle around the icon, coloured like the state it
- * is in (`--_ring`), and pushes the burst out past it (`--_reach`).
+ * is in (`--_ring`), and moves the edge the burst starts from out to it
+ * (`--_edge`).
  *
  * `[part="thanks"]` is the button's thank-you message, shown for `THANKS_MS`
  * after the click that uses up the visitor's allowance, and again after each
@@ -185,7 +194,7 @@ button:disabled { cursor: default; }
   display: inline-grid;
   transition: transform 150ms ease;
 }
-button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
+:host(:not([data-state="full"])) button:not(:disabled):hover [part="icon"] { transform: scale(1.08); }
 :host([data-state="clicked"]) [part="icon"] {
   animation: appreciator-pulse ${PULSE_MS}ms ease-out;
 }
@@ -201,7 +210,7 @@ svg[data-layer="base"] {
   transition: opacity 150ms ease;
 }
 :host([data-own-colors]) svg[data-layer="base"] { filter: grayscale(1); }
-button:not(:disabled):hover svg[data-layer="base"] {
+:host(:not([data-state="full"])) button:not(:disabled):hover svg[data-layer="base"] {
   --appr-fill: var(--appreciator-hover, var(--_c-hover));
   --appr-stroke: var(--appreciator-hover, var(--_c-hover));
   opacity: ${REST_OPACITY.hover};
@@ -237,7 +246,7 @@ svg[data-layer="fill"] {
   --_ring: var(--appreciator-default, var(--_c-default));
   border: 1px solid var(--_ring);
   border-radius: 50%;
-  padding: calc(var(--appreciator-size, 1.5em) * 0.3);
+  padding: calc(var(--appreciator-size, 1.5em) * ${RING_PADDING});
   transition: transform 150ms ease, border-color 300ms ease;
 }
 :host([data-ring][data-state="default"]) button:not(:disabled):hover [part="icon"] {
@@ -254,7 +263,7 @@ svg[data-layer="fill"] {
   inset: 0;
   pointer-events: none;
 }
-:host([data-ring]) [part="burst"] { --_reach: ${RING_REACH}; }
+:host([data-ring]) [part="burst"] { --_edge: ${0.5 + RING_PADDING}; }
 [part="burst"] > * {
   position: absolute;
   left: 50%;
@@ -263,28 +272,28 @@ svg[data-layer="fill"] {
   visibility: hidden;
 }
 [part="burst"] svg {
-  --appr-fill: var(--appreciator-full, var(--_c-full));
-  --appr-stroke: var(--appreciator-full, var(--_c-full));
-  width: calc(var(--appreciator-size, 1.5em) * 0.55);
-  height: calc(var(--appreciator-size, 1.5em) * 0.55);
-  margin: calc(var(--appreciator-size, 1.5em) * -0.275) 0 0 calc(var(--appreciator-size, 1.5em) * -0.275);
+  --appr-fill: var(--appreciator-clicked, var(--_c-clicked));
+  --appr-stroke: var(--appreciator-clicked, var(--_c-clicked));
+  width: calc(var(--appreciator-size, 1.5em) * ${COPY_SIZE});
+  height: calc(var(--appreciator-size, 1.5em) * ${COPY_SIZE});
+  margin: calc(var(--appreciator-size, 1.5em) * ${-COPY_SIZE / 2}) 0 0 calc(var(--appreciator-size, 1.5em) * ${-COPY_SIZE / 2});
 }
 [part="burst"] > .dash {
   width: calc(var(--appreciator-size, 1.5em) * 0.08);
-  height: calc(var(--appreciator-size, 1.5em) * 0.3);
-  margin: calc(var(--appreciator-size, 1.5em) * -0.15) 0 0 calc(var(--appreciator-size, 1.5em) * -0.04);
+  height: calc(var(--appreciator-size, 1.5em) * ${DASH_LENGTH});
+  margin: calc(var(--appreciator-size, 1.5em) * ${-DASH_LENGTH / 2}) 0 0 calc(var(--appreciator-size, 1.5em) * -0.04);
   border-radius: 999px;
-  background: var(--appreciator-full, var(--_c-full));
+  background: var(--appreciator-clicked, var(--_c-clicked));
 }
 :host([data-burst]) [part="burst"] > * {
   visibility: visible;
   animation: appreciator-burst 380ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
 }
 @keyframes appreciator-burst {
-  0% { transform: translate(var(--sx), var(--sy)) rotate(var(--turn, 0deg)) scale(0.6); opacity: 0; }
+  0% { transform: translate(var(--sx), var(--sy)) rotate(var(--turn, 0deg)) scale(${BURST_SCALE}); opacity: 0; }
   10% { opacity: 1; }
   65% { opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--turn, 0deg)) scale(0.6); opacity: 0; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--turn, 0deg)) scale(${BURST_SCALE}); opacity: 0; }
 }
 @keyframes appreciator-roll-out {
   to { transform: translateY(-100%); opacity: 0; }
@@ -728,15 +737,15 @@ export class AppreciatorButton extends HTMLElement {
   }
 
   /**
-   * Every click bursts. A click with allowance left also counts; a click once
-   * it is spent counts nothing, so a full button still answers, and thanks
-   * the visitor again.
+   * A click with allowance left counts and bursts. A click once it is spent
+   * counts nothing and plays no burst, but a full button still answers: it
+   * thanks the visitor again, and still fires `appreciator:burst`.
    */
   private handleClick(): void {
     const counts = this.displayedCounts();
     if (this.config === null || counts === null || this.readonly) return;
     if (!canClick(counts)) {
-      this.burst();
+      this.emit('appreciator:burst', counts);
       this.thank();
       if (this.sounds) playSpent();
       return;
@@ -1091,17 +1100,20 @@ function aimParticles(particles: Iterable<Element>, countPosition: string | unde
   for (const particle of particles) {
     const angle = away + (i * 2 * Math.PI) / BURST_PARTICLES;
     const style = (particle as SVGElement).style;
-    const at = (radius: number, trig: (value: number) => number): string =>
-      `calc(var(--appreciator-size, 1.5em) * var(--_reach, 1) * ${round(trig(angle) * radius)})`;
-    // From just outside the icon's edge (the icon is one size across) to well
-    // beyond it.
-    style.setProperty('--sx', at(BURST_START_RADIUS, Math.cos));
-    style.setProperty('--sy', at(BURST_START_RADIUS, Math.sin));
-    style.setProperty('--dx', at(BURST_END_RADIUS, Math.cos));
-    style.setProperty('--dy', at(BURST_END_RADIUS, Math.sin));
+    const dash = particle.classList.contains('dash');
+    // Half the particle along its flight: a dash points along it, a copy is square.
+    const half = ((dash ? DASH_LENGTH : COPY_SIZE) * BURST_SCALE) / 2;
+    // Past the edge (half a size out for the icon, which is one size across,
+    // or the ring's) by the particle's half and the gap, then further out.
+    const at = (beyondEdge: number, trig: (value: number) => number): string =>
+      `calc(var(--appreciator-size, 1.5em) * (var(--_edge, 0.5) + ${round(beyondEdge)}) * ${round(trig(angle))})`;
+    style.setProperty('--sx', at(half + BURST_GAP, Math.cos));
+    style.setProperty('--sy', at(half + BURST_GAP, Math.sin));
+    style.setProperty('--dx', at(half + BURST_GAP + BURST_TRAVEL, Math.cos));
+    style.setProperty('--dy', at(half + BURST_GAP + BURST_TRAVEL, Math.sin));
     // A dash stands upright, so it turns a quarter less than its direction
     // to point along it. Icon copies stay upright.
-    if (particle.classList.contains('dash')) {
+    if (dash) {
       style.setProperty('--turn', `${round((angle * 180) / Math.PI - 90)}deg`);
     }
     i += 1;

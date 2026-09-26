@@ -3,6 +3,28 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — A tighter burst in the clicked colour, and a quiet full button
+
+- The burst starts outside the icon, or outside the ring when there is one:
+  each particle's near end starts a small gap past that edge, measured by its
+  own size, instead of its centre sitting at a fixed radius that let icon
+  copies overlap the icon and sat on top of the ring. From there it flies
+  0.35 icon widths, over 380 ms instead of 500 ms.
+- Dashes are smaller: 0.08 × 0.3 of the icon instead of 0.1 × 0.45.
+- Particles take the `clicked` colour instead of the `full` one.
+- A full button no longer grows or brightens on hover, and a click on it
+  plays no burst. It still shows the thank-you message, plays its sound and
+  fires `appreciator:burst`, so pages listening for clicks keep working.
+- Known: the click's pulse grows the icon (and its ring) to 1.3× for a
+  moment, and with a ring it briefly passes over the particles as they fade
+  in.
+- Tests: unit tests for where copies and dashes start and how far they fly,
+  and for a spent click drawing nothing while still reporting; e2e checks,
+  frame by frame, that copies start outside the icon and the ring, that
+  they and dashes are drawn in the clicked colour, that a full button has no
+  hover scale or burst, and burst checks recorded as the event fires, since
+  a burst is now over too soon to look for afterwards.
+
 ## 2026-09-26 — Choose the burst, and keep it closer to the button
 
 - Each button has a `burstStyle` (migration 017): `icons`, the copies it

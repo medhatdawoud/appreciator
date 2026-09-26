@@ -604,7 +604,7 @@ page lists them with a live log under "Listen to it".
 | Event                | Fires                                                                   | `event.detail`                         |
 | -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
 | `appreciator:ready`  | Once the button has loaded and shows its count.                         | counts                                 |
-| `appreciator:burst`  | On every click, counted or not, as the burst plays.                     | counts, as shown right after the click |
+| `appreciator:burst`  | On every click, counted or not; a spent button plays no burst.          | counts, as shown right after the click |
 | `appreciator:change` | When the server confirms a counted click.                               | counts                                 |
 | `appreciator:maxed`  | Once, when the click that uses up the visitor's allowance is confirmed. | counts                                 |
 | `appreciator:error`  | When loading or a click fails.                                          | `{ code, message }`                    |

@@ -76,7 +76,7 @@ test('renders the live demo under the server CSP with nothing refused', async ({
   expect(problems.console).toEqual([]);
 });
 
-test('bursts when the demo is used up, keeps bursting, and resets for another try', async ({
+test('bursts until the demo is used up, then stops, and resets for another try', async ({
   page,
 }) => {
   const problems = await watchProblems(page);
@@ -92,6 +92,17 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
   const reset = page.getByRole('button', { name: 'Reset my votes' });
   await expect(hero).toHaveAttribute('data-icons', 'single');
   await expect(button).toBeEnabled();
+  // Whether each click drew a burst, recorded as it fires: the burst is over
+  // in under half a second, too soon to check for afterwards.
+  await hero.evaluate((element) => {
+    const drawn: boolean[] = [];
+    (window as unknown as { drawn: boolean[] }).drawn = drawn;
+    element.addEventListener('appreciator:burst', () =>
+      drawn.push(element.hasAttribute('data-burst')),
+    );
+  });
+  const drawn = (): Promise<boolean[]> =>
+    page.evaluate(() => (window as unknown as { drawn: boolean[] }).drawn);
 
   // Not offered until the demo is used up.
   await expect(reset).toBeHidden();
@@ -108,9 +119,8 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
     if (i < visitorRemaining - 1) await expect(reset).toBeHidden();
   }
   const full = totalCount + visitorRemaining;
-  await expect(hero).toHaveAttribute('data-burst', '');
+  expect(await drawn()).toEqual(Array.from({ length: visitorRemaining }, () => true));
   await expect(particles).toHaveCount(5);
-  await expect(particles.first()).toBeVisible();
   await expect(count).toHaveText(String(full));
   await expect(hero).toHaveAttribute('data-state', 'full');
   // Spent but still clickable: aria-disabled for assistive tech, not disabled.
@@ -120,10 +130,11 @@ test('bursts when the demo is used up, keeps bursting, and resets for another tr
   await expect(hero).not.toHaveAttribute('data-burst', /.*/);
   expect(clicks).toHaveLength(visitorRemaining);
 
-  // Spent: another click counts nothing and sends nothing, but bursts again.
+  // Spent: another click counts nothing, sends nothing and draws no burst.
   // Forced, because Playwright treats aria-disabled as not clickable.
   await button.click({ force: true });
-  await expect(hero).toHaveAttribute('data-burst', '');
+  expect((await drawn()).at(-1)).toBe(false);
+  await expect(hero).not.toHaveAttribute('data-burst', /.*/);
   await expect(count).toHaveText(String(full));
   expect(clicks).toHaveLength(visitorRemaining);
 
