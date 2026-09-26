@@ -22,6 +22,7 @@
         <a href="#customise">Customise</a>
         <a href="#how">How it works</a>
         <a href="#multiple">Multiple buttons</a>
+        <a href="#events">Events</a>
         <a href="./leaderboard" data-leaderboard-link>Most appreciated</a>
         <a class="nav-github" data-repo-link href="https://github.com/medhatdawoud/appreciator">
           <img src="img/github.svg" alt="" width="18" height="18" />
@@ -195,6 +196,83 @@ appreciator-button {
           the four states can restyle it. Icons that need four different drawings can be supplied as
           four SVGs.
         </p>
+      </section>
+
+      <section id="events" class="section">
+        <h2>Listen to it</h2>
+        <p>
+          The button tells the page what happens through DOM events. They bubble and cross its
+          shadow root, so one listener on <code>document</code> hears every button on the page:
+          <code>event.target</code> is the button, and <code>event.detail</code> carries the data.
+          All of them are optional; the button works the same whether anything listens or not.
+        </p>
+        <div class="table-scroll">
+          <table class="table events-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Fires</th>
+                <th><code>event.detail</code></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>appreciator:ready</code></td>
+                <td>Once the button has loaded and shows its count.</td>
+                <td>counts</td>
+              </tr>
+              <tr>
+                <td><code>appreciator:burst</code></td>
+                <td>On every click, counted or not, as the burst plays.</td>
+                <td>counts, as shown right after the click</td>
+              </tr>
+              <tr>
+                <td><code>appreciator:change</code></td>
+                <td>When the server confirms a counted click.</td>
+                <td>counts</td>
+              </tr>
+              <tr>
+                <td><code>appreciator:maxed</code></td>
+                <td>Once, when the click that uses up the visitor's allowance is confirmed.</td>
+                <td>counts</td>
+              </tr>
+              <tr>
+                <td><code>appreciator:error</code></td>
+                <td>When loading or a click fails.</td>
+                <td><code>{ code, message }</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The counts are
+          <code>{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }</code>: the total
+          from everyone, this visitor's cap, how many they have used and have left, and whether they
+          are out.
+        </p>
+        <div class="events-demo">
+          <div class="code-block">
+            <pre><code data-events-snippet>&lt;script&gt;
+  document.addEventListener('appreciator:ready', (event) =&gt; {
+    console.log('loaded with', event.detail.totalCount);
+  });
+  document.addEventListener('appreciator:burst', (event) =&gt; {
+    console.log('clicked', event.target, event.detail.totalCount);
+  });
+  document.addEventListener('appreciator:maxed', () =&gt; {
+    console.log('all clicks used, say thanks');
+  });
+  document.addEventListener('appreciator:error', (event) =&gt; {
+    console.warn(event.detail.code, event.detail.message);
+  });
+&lt;/script&gt;</code></pre>
+            <button class="copy" type="button" data-copy="[data-events-snippet]">Copy</button>
+          </div>
+          <figure class="card event-log-card">
+            <figcaption>Live, from the demo at the top: click it and watch.</figcaption>
+            <ol class="event-log" data-event-log aria-live="polite"></ol>
+          </figure>
+        </div>
       </section>
 
       <section id="how" class="section">

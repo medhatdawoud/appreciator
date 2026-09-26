@@ -166,12 +166,47 @@
     }
   }
 
+  /**
+   * The live log in "Listen to it": the events the hero demo sends, newest
+   * first, the way a page's own listener would see them.
+   */
+  function wireEventLog() {
+    const log = document.querySelector('[data-event-log]');
+    const hero = document.querySelector('[data-demo-slot="hero"]');
+    if (!log || !hero) return;
+    const names = [
+      'appreciator:ready',
+      'appreciator:burst',
+      'appreciator:change',
+      'appreciator:maxed',
+      'appreciator:error',
+    ];
+    for (const name of names) {
+      document.addEventListener(name, (event) => {
+        if (!hero.contains(event.target)) return;
+        const detail = event.detail ?? {};
+        const entry = document.createElement('li');
+        const label = document.createElement('code');
+        label.textContent = name;
+        const data =
+          name === 'appreciator:error'
+            ? ` ${detail.code}`
+            : ` total ${detail.totalCount}, ${detail.visitorRemaining} left`;
+        entry.append(label, data);
+        log.prepend(entry);
+        while (log.children.length > 8) log.lastElementChild.remove();
+      });
+    }
+  }
+
   async function main() {
     const config = await loadConfig();
     setLinks(config);
     showSignInError();
     fillSnippet(config);
     wireCopyButtons();
+    // Before the demos, so the hero's first ready is in the log.
+    wireEventLog();
     mountDemos(config);
     wireReset(config);
   }

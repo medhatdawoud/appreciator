@@ -198,10 +198,25 @@ icon. Package the four files with `svg-gen generate --explicit`.
 
 ### Events
 
-All bubble and cross the shadow boundary, with the counts (or an error) in `detail`:
+All bubble and cross the shadow boundary, and all are optional: the button
+works the same whether anything listens.
 
-`appreciator:ready`, `appreciator:change`, `appreciator:maxed`, `appreciator:burst`,
-`appreciator:error`.
+| Event                | Fires                                                                   | `event.detail`                         |
+| -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
+| `appreciator:ready`  | Once the button has loaded and shows its count.                         | counts                                 |
+| `appreciator:burst`  | On every click, counted or not, as the burst plays.                     | counts, as shown right after the click |
+| `appreciator:change` | When the server confirms a counted click.                               | counts                                 |
+| `appreciator:maxed`  | Once, when the click that uses up the visitor's allowance is confirmed. | counts                                 |
+| `appreciator:error`  | When loading or a click fails.                                          | `{ code, message }`                    |
+
+The counts are `{ totalCount, maxClicks, visitorCount, visitorRemaining, maxed }`.
+`event.target` is the button, so one listener on `document` hears every button:
+
+```js
+document.addEventListener('appreciator:burst', (event) => {
+  console.log('clicked', event.target, event.detail.totalCount);
+});
+```
 
 ### Methods
 

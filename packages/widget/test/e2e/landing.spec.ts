@@ -193,6 +193,28 @@ test('the read-only example shows the main demo count and follows it, untouchabl
   await expect(mirror.locator('[part="count"]')).toHaveText(after);
 });
 
+test("documents the button's events, and logs the demo's as they happen", async ({ page }) => {
+  await page.goto(`${API_ORIGIN}/`);
+  const section = page.locator('#events');
+  for (const name of ['ready', 'burst', 'change', 'maxed', 'error']) {
+    await expect(section.locator('tbody code', { hasText: `appreciator:${name}` })).toHaveCount(1);
+  }
+  await expect(section.locator('[data-events-snippet]')).toContainText(
+    "document.addEventListener('appreciator:burst'",
+  );
+
+  const log = section.locator('[data-event-log] li');
+  const hero = page.locator('[data-demo-slot="hero"] appreciator-button');
+  await expect(log.first()).toContainText('appreciator:ready');
+  await expect(hero.locator('button')).toBeEnabled();
+
+  await hero.locator('button').click({ force: true });
+  // Newest first: the server's confirmation, then the click itself.
+  await expect(log.nth(0)).toContainText('appreciator:change');
+  await expect(log.nth(1)).toContainText('appreciator:burst');
+  await expect(log.nth(2)).toContainText('appreciator:ready');
+});
+
 test('explains a refused sign-in', async ({ page }) => {
   await page.goto(`${API_ORIGIN}/?error=not_allowed`);
 

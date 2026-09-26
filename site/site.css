@@ -440,6 +440,75 @@ pre code {
   }
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+.events-table code {
+  white-space: nowrap;
+}
+
+.events-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 1.25rem 0;
+}
+
+.events-demo .code-block {
+  margin: 0;
+}
+
+.event-log-card {
+  margin: 0;
+}
+
+.event-log-card figcaption {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.event-log {
+  margin: 0;
+  padding-left: 1.2rem;
+  min-height: 8rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.2rem;
+}
+
+@media (max-width: 800px) {
+  .events-demo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On a phone each event stacks: its name, when it fires, then its detail. */
+@media (max-width: 640px) {
+  .events-table thead {
+    display: none;
+  }
+
+  .table.events-table tr {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .table.events-table td {
+    padding: 0;
+    border: 0;
+  }
+
+  .events-table td:last-child::before {
+    content: 'Detail: ';
+    color: var(--muted);
+  }
+}
+
 .footnote {
   font-size: 0.95rem;
 }

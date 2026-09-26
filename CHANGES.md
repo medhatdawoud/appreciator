@@ -3,6 +3,21 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — The button's events, on the landing page
+
+- A "Listen to it" section (and an Events link in the nav) lists the events
+  every button already sends: `appreciator:ready` on load, `appreciator:burst`
+  on every click, `appreciator:change` when the server confirms a counted
+  click, `appreciator:maxed` once the allowance is used up, and
+  `appreciator:error`, each with what fires it and what `event.detail`
+  carries. A snippet to copy shows the listeners, and a live log beside it
+  shows the demo's events as it is clicked. On a phone, each event stacks as
+  one entry instead of a cramped table.
+- Both READMEs carry the same table.
+- Tests: the landing e2e checks the five events are listed, the snippet, and
+  that clicking the demo logs its load, the click and the confirmation, newest
+  first.
+
 ## 2026-09-25 — Read-only buttons pass clicks and hover to what holds them
 
 - A read-only button was a disabled `<button>`, and browsers swallow clicks
