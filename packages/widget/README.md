@@ -133,15 +133,19 @@ And `data-icons`, which says how the icon is drawn:
   an enabled button, and `clicked` and `full` follow `data-state`. Hover is
   still pure CSS. These buttons do not show progress.
 
-**Burst.** Every click, counted or not, throws five small full-colour copies
-of the icon out from around it, to the corners of a pentagon with one corner
-pointing straight away from the count, so the count sits in the widest gap
-between copies on whichever side `data-count` puts it. Each copy appears just
-outside the icon's edge and flies further out at a constant size as it fades,
-over about 0.5 s (`data-burst` is set on the element meanwhile, and
-`appreciator:burst` fires). A click on a spent button still bursts but counts
-nothing. A button that loads does not burst on its own. The copies live in
-`::part(burst)`; `prefers-reduced-motion` hides them.
+**Burst.** Every click, counted or not, throws five full-colour particles out
+from around the icon, to the corners of a pentagon with one corner pointing
+straight away from the count, so the count sits in the widest gap between them
+on whichever side `data-count` puts it. The button's `burstStyle` chooses what
+they are: small copies of the icon (`icons`, the default), plain `dashes`
+turned to point along their flight, or `none`, where nothing flies while the
+click still counts, sounds, sets `data-burst` and fires `appreciator:burst`.
+Each particle appears just outside the icon's edge and flies to 0.95 icon
+widths from its centre at a constant size as it fades, over about 0.4 s (a
+ring pushes it 1.35× further so it clears the circle). A click on a spent
+button still bursts but counts nothing. A button that loads does not burst on
+its own. The particles live in `::part(burst)`; `prefers-reduced-motion` hides
+them.
 
 **Sound.** Unless the button's `clickSound` is off, or the page sets
 `data-sound="off"`, each counted click plays a soft pop, a tenth of a second

@@ -534,7 +534,7 @@ describe('AppreciatorButton', () => {
           size(style.getPropertyValue('--dx')),
           size(style.getPropertyValue('--dy')),
         );
-        expect(end).toBeCloseTo(1.2, 2);
+        expect(end).toBeCloseTo(0.95, 2);
       }
     });
 

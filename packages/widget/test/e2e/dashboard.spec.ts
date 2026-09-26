@@ -346,11 +346,17 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(soundBox).toBeChecked();
   await soundBox.uncheck();
 
+  // Dashes instead of icon copies, seen in the preview and saved.
+  await page.locator('select[name="burstStyle"]').selectOption('dashes');
+
   // The ring, then the preview, clicked through its whole allowance.
   await page.locator('input[name="iconRing"]').check();
   await expect(preview).toHaveAttribute('data-ring', '');
   await expect(preview.locator('svg[data-layer="fill"] path')).toHaveCSS('fill', rgb('#00aa00'));
   await expect(preview.locator('[part="icon"]')).toHaveCSS('border-top-width', '1px');
+  // The preview bursts as dashes, as the picker asks.
+  await expect(preview.locator('[part="burst"] > .dash')).toHaveCount(5);
+  await expect(preview.locator('[part="burst"] > svg')).toHaveCount(0);
   const button = preview.locator('button');
   for (let i = 0; i < 10; i += 1) await button.click({ force: true });
   await expect(preview).toHaveAttribute('data-state', 'full');
@@ -459,6 +465,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
       id: string;
       iconRing: boolean;
       thanksMessage: string;
+      burstStyle: string;
       clickSound: boolean;
       svgSource: string;
       colors: { full: string };
@@ -467,6 +474,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   expect(buttons).toHaveLength(1);
   expect(buttons[0]).toMatchObject({
     thanksMessage: 'Thanks a ton.',
+    burstStyle: 'dashes',
     clickSound: false,
     iconRing: true,
     svgSource: RAW_SVG,
@@ -480,6 +488,7 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await expect(page.locator('select[name="countPosition"]')).toHaveValue('left');
   await expect(thanksInput).toHaveValue('Thanks a ton.');
   await expect(soundBox).not.toBeChecked();
+  await expect(page.locator('select[name="burstStyle"]')).toHaveValue('dashes');
   await expect(page.locator('input[name="color-full"]')).toHaveValue('#00aa00');
   await expect(swatch('full').locator('path')).toHaveCSS('fill', rgb('#00aa00'));
 

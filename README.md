@@ -56,8 +56,9 @@ the person running an instance, or deploys their own in about ten minutes.
   colour bottom-up in proportion to the clicks spent: 3 of 10 colours the
   bottom 30%, 10 of 10 is fully coloured. Each click also pulses and throws
   five small copies of the icon out from around it, in a pentagon aimed away
-  from the count so none crosses it, with a short, quiet sound; clicking a
-  full button still bursts but counts nothing. The
+  from the count so none crosses it, with a short, quiet sound; a button can
+  burst as plain dashes, or not at all, instead. Clicking a full button still
+  bursts but counts nothing. The
   count rolls up to its new number like an odometer on every counted click,
   and can sit on any side of the icon (`data-count`). The click that uses up
   a visitor's allowance, and every click after it, shows a short thank-you
@@ -474,8 +475,9 @@ in `GITHUB_ALLOWED_LOGINS`).
   SVGs (one per state), pasted or picked from files. A table shows the four
   colours (default, hover, clicked, full), each with the icon drawn as it
   looks in that state. Under it, "Draw a circle around the icon" adds a ring
-  that follows the state colours, "Play a short, quiet sound on each click"
-  is on unless you turn it off, and "Count position" puts the count right,
+  that follows the state colours, "Burst on click" picks what flies out
+  (copies of the icon, dashes, or none), "Play a short, quiet sound on each
+  click" is on unless you turn it off, and "Count position" puts the count right,
   left, above or below the icon. The position is written into the button's
   snippets as `data-count`, so a page already embedding the button keeps its
   old position until its snippet is pasted again. "Thank-you message" is what

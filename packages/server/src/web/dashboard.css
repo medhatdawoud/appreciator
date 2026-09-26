@@ -278,6 +278,7 @@ button.link {
   --appreciator-size: 3rem;
 }
 
+.burst-style,
 .count-position,
 .thanks-message {
   display: grid;

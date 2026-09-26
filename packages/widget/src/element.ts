@@ -17,8 +17,8 @@ import {
 /** How long the `clicked` state is held after a click. Matches the pulse keyframes below. */
 export const PULSE_MS = 350;
 
-/** How long one burst plays: the 500 ms keyframes below plus the particles' stagger. */
-export const BURST_MS = 600;
+/** How long one burst plays: the 380 ms keyframes below plus the particles' stagger. */
+export const BURST_MS = 450;
 
 /** How long the count takes to roll to its new number. Matches the roll keyframes below. */
 export const ROLL_MS = 320;
@@ -34,7 +34,7 @@ const THANKS_EDGE_PX = 8;
  * icon's centre: just outside its edge, then a short hop further.
  */
 const BURST_START_RADIUS = 0.6;
-const BURST_END_RADIUS = 1.2;
+const BURST_END_RADIUS = 0.95;
 
 /** Copies of the icon thrown out on each click, one per corner of a pentagon. */
 export const BURST_PARTICLES = 5;
@@ -270,15 +270,15 @@ svg[data-layer="fill"] {
   margin: calc(var(--appreciator-size, 1.5em) * -0.275) 0 0 calc(var(--appreciator-size, 1.5em) * -0.275);
 }
 [part="burst"] > .dash {
-  width: calc(var(--appreciator-size, 1.5em) * 0.1);
-  height: calc(var(--appreciator-size, 1.5em) * 0.45);
-  margin: calc(var(--appreciator-size, 1.5em) * -0.225) 0 0 calc(var(--appreciator-size, 1.5em) * -0.05);
+  width: calc(var(--appreciator-size, 1.5em) * 0.08);
+  height: calc(var(--appreciator-size, 1.5em) * 0.3);
+  margin: calc(var(--appreciator-size, 1.5em) * -0.15) 0 0 calc(var(--appreciator-size, 1.5em) * -0.04);
   border-radius: 999px;
   background: var(--appreciator-full, var(--_c-full));
 }
 :host([data-burst]) [part="burst"] > * {
   visibility: visible;
-  animation: appreciator-burst 500ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
+  animation: appreciator-burst 380ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
 }
 @keyframes appreciator-burst {
   0% { transform: translate(var(--sx), var(--sy)) rotate(var(--turn, 0deg)) scale(0.6); opacity: 0; }

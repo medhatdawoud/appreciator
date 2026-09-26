@@ -205,6 +205,11 @@ icons and kept colours: they paint the ring and the count once full.
 migration 013) has the widget play a short, quiet sound on each click. It is
 returned in every `ButtonConfig` and by `/config`.
 
+`burstStyle` (`icons`, the default and the value every button had before
+migration 017, `dashes` or `none`) is what flies out of the button on a click.
+With `none` nothing flies, and the click still counts, sounds and fires
+`appreciator:burst`. It is returned in every `ButtonConfig` and by `/config`.
+
 `svgSource` and `svgSources` in the same request answer
 `400 conflicting_icon`. A button created with `svgSources` still stores the
 default heart as its `svgSource`. A `PATCH` that sets `svgSource` drops any

@@ -3,6 +3,24 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — Choose the burst, and keep it closer to the button
+
+- Each button has a `burstStyle` (migration 017): `icons`, the copies it
+  always threw and still the default, `dashes`, short rounded strokes in the
+  full colour turned to point along their flight, or `none`. With `none`
+  nothing flies while the click still counts, plays its sound, sets
+  `data-burst` and fires `appreciator:burst`. The dashboard picks it with
+  "Burst on click", shown in "Try it" and in the button list.
+- The burst ends nearer the button: 1.2 icon widths from the centre instead
+  of 1.5, and a ring pushes it 1.35× instead of 1.5×, still clearing the
+  circle.
+- Tests: integration tests for the default, each style, PATCH, a refused
+  style and `/config`; unit tests for dashes pointing outward, nothing flying
+  with `none` while the click still counts and reports, and the shorter
+  distance; e2e fixtures for a dashes button and a no-burst button, checking
+  the dashes are drawn in the full colour and turned five different ways, and
+  that the dashboard's preview bursts as dashes.
+
 ## 2026-09-26 — A short agent prompt that just adds the tag
 
 - Tried for real, the longer prompt turned a one-line change into research:
