@@ -29,6 +29,10 @@ export interface E2eFixture {
   ownKey: string;
   /** The raw SVG painted with `colors`, with a ring drawn around it. */
   ringKey: string;
+  /** The example icon, bursting as dashes instead of icon copies. */
+  dashKey: string;
+  /** The example icon, with no burst at all. */
+  quietKey: string;
   maxClicks: number;
   colors: Record<'default' | 'hover' | 'clicked' | 'full', string>;
   /** Name of the tenant that owns `publicKey`, as the leaderboard lists it. */

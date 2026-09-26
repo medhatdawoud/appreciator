@@ -29,9 +29,12 @@ export const THANKS_MS = 1500;
 /** The least room the thank-you message keeps from the edges of the window, in px. */
 const THANKS_EDGE_PX = 8;
 
-/** Where a burst copy appears and where it ends, in icon sizes from the icon's centre. */
+/**
+ * Where a burst particle appears and where it ends, in icon sizes from the
+ * icon's centre: just outside its edge, then a short hop further.
+ */
 const BURST_START_RADIUS = 0.6;
-const BURST_END_RADIUS = 1.5;
+const BURST_END_RADIUS = 1.2;
 
 /** Copies of the icon thrown out on each click, one per corner of a pentagon. */
 export const BURST_PARTICLES = 5;
@@ -55,8 +58,8 @@ export const REST_OPACITY = { default: 0.45, hover: 0.6 } as const;
  */
 export const PAINT_EXEMPT = 'defs, defs *, mask *, clipPath *, pattern *, marker *, symbol *';
 
-/** How much further out the burst reaches when a ring is drawn around the icon. */
-const RING_REACH = 1.5;
+/** How much further out the burst reaches when a ring is drawn around the icon, to clear it. */
+const RING_REACH = 1.35;
 
 /**
  * Colours come from the button config as `--_c-<state>` on the inner button;
@@ -93,10 +96,12 @@ const RING_REACH = 1.5;
  * click raises it, the old number rolls up and out (`.roll-out`) while the new
  * one rolls in from below (`.roll-in`), like an odometer.
  *
- * `[part="burst"]` holds small full-colour copies of the icon, hidden until
- * `data-burst` is set on a click: each then appears just outside the icon's
- * edge (`--sx`/`--sy`) and flies further out to `--dx`/`--dy` at a constant
- * size, fading in and out. The five copies fly to the corners of a pentagon
+ * `[part="burst"]` holds five particles in the full colour, hidden until
+ * `data-burst` is set on a click: small copies of the icon, or dashes
+ * (`.dash`) turned to point outward (`--turn`), or none at all, as the
+ * config's `burstStyle` says. Each appears just outside the icon's edge
+ * (`--sx`/`--sy`) and flies a little further out to `--dx`/`--dy` at a
+ * constant size, fading in and out. They fly to the corners of a pentagon
  * with one corner pointing away from the count (see `aimParticles`).
  *
  * `data-ring` draws a 1px circle around the icon, coloured like the state it
@@ -250,27 +255,36 @@ svg[data-layer="fill"] {
   pointer-events: none;
 }
 :host([data-ring]) [part="burst"] { --_reach: ${RING_REACH}; }
-[part="burst"] svg {
-  --appr-fill: var(--appreciator-full, var(--_c-full));
-  --appr-stroke: var(--appreciator-full, var(--_c-full));
+[part="burst"] > * {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--appreciator-size, 1.5em) * 0.55);
-  height: calc(var(--appreciator-size, 1.5em) * 0.55);
-  margin: calc(var(--appreciator-size, 1.5em) * -0.275) 0 0 calc(var(--appreciator-size, 1.5em) * -0.275);
   opacity: 0;
   visibility: hidden;
 }
-:host([data-burst]) [part="burst"] svg {
+[part="burst"] svg {
+  --appr-fill: var(--appreciator-full, var(--_c-full));
+  --appr-stroke: var(--appreciator-full, var(--_c-full));
+  width: calc(var(--appreciator-size, 1.5em) * 0.55);
+  height: calc(var(--appreciator-size, 1.5em) * 0.55);
+  margin: calc(var(--appreciator-size, 1.5em) * -0.275) 0 0 calc(var(--appreciator-size, 1.5em) * -0.275);
+}
+[part="burst"] > .dash {
+  width: calc(var(--appreciator-size, 1.5em) * 0.1);
+  height: calc(var(--appreciator-size, 1.5em) * 0.45);
+  margin: calc(var(--appreciator-size, 1.5em) * -0.225) 0 0 calc(var(--appreciator-size, 1.5em) * -0.05);
+  border-radius: 999px;
+  background: var(--appreciator-full, var(--_c-full));
+}
+:host([data-burst]) [part="burst"] > * {
   visibility: visible;
   animation: appreciator-burst 500ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay, 0ms) both;
 }
 @keyframes appreciator-burst {
-  0% { transform: translate(var(--sx), var(--sy)) scale(0.6); opacity: 0; }
+  0% { transform: translate(var(--sx), var(--sy)) rotate(var(--turn, 0deg)) scale(0.6); opacity: 0; }
   10% { opacity: 1; }
   65% { opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(0.6); opacity: 0; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--turn, 0deg)) scale(0.6); opacity: 0; }
 }
 @keyframes appreciator-roll-out {
   to { transform: translateY(-100%); opacity: 0; }
@@ -1038,18 +1052,28 @@ function parseIcons(config: ButtonPublicConfig): Element[] | null {
 }
 
 /**
- * Small copies of the icon for the burst: the full-state drawing for a
- * four-SVG button, the single icon otherwise (painted in the `full` colour by
- * the styles). Parsed, not cloned, for the same CSP reason as the layers.
- * An icon that cannot be parsed simply has no burst.
+ * The burst's particles, as the config's `burstStyle` asks (icon copies when
+ * it says nothing): none; plain dashes; or small copies of the icon, the
+ * full-state drawing for a four-SVG button and the single icon otherwise
+ * (painted in the `full` colour by the styles). Copies are parsed, not
+ * cloned, for the same CSP reason as the layers; an icon that cannot be
+ * parsed simply has no burst.
  */
 function parseParticles(config: ButtonPublicConfig): Element[] {
+  const style = config.burstStyle ?? 'icons';
+  if (style === 'none') return [];
   const source = config.svgSources?.full ?? config.svgSource;
   const particles: Element[] = [];
   for (let i = 0; i < BURST_PARTICLES; i += 1) {
-    const particle = parseSafeSvg(source);
-    if (particle === null) return [];
-    (particle as SVGElement).style.setProperty('--delay', `${i * 15}ms`);
+    let particle: Element | null;
+    if (style === 'dashes') {
+      particle = document.createElement('span');
+      particle.className = 'dash';
+    } else {
+      particle = parseSafeSvg(source);
+      if (particle === null) return [];
+    }
+    (particle as HTMLElement).style.setProperty('--delay', `${i * 15}ms`);
     particles.push(particle);
   }
   return particles;
@@ -1075,6 +1099,11 @@ function aimParticles(particles: Iterable<Element>, countPosition: string | unde
     style.setProperty('--sy', at(BURST_START_RADIUS, Math.sin));
     style.setProperty('--dx', at(BURST_END_RADIUS, Math.cos));
     style.setProperty('--dy', at(BURST_END_RADIUS, Math.sin));
+    // A dash stands upright, so it turns a quarter less than its direction
+    // to point along it. Icon copies stay upright.
+    if (particle.classList.contains('dash')) {
+      style.setProperty('--turn', `${round((angle * 180) / Math.PI - 90)}deg`);
+    }
     i += 1;
   }
 }

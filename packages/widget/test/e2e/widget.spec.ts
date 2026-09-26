@@ -546,6 +546,57 @@ test('--appreciator-size scales the count and the gap with the icon', async ({ p
   expect((await measure()).fontSize).toBe('26px');
 });
 
+test('bursts as dashes when the button asks, and not at all when it asks for none', async ({
+  page,
+}) => {
+  const openKey = async (key: string) => {
+    const params = new URLSearchParams({ api: fixture.api, key, item: `e2e-${randomUUID()}` });
+    await page.goto(`http://127.0.0.1:${PAGE_PORT}/?${params.toString()}`);
+    const ui = widget(page);
+    await expect(ui.button).toBeEnabled();
+    return ui;
+  };
+
+  const dashes = await openKey(fixture.dashKey);
+  const burst = dashes.host.locator('[part="burst"]');
+  await expect(burst.locator('> .dash')).toHaveCount(5);
+  await expect(burst.locator('> svg')).toHaveCount(0);
+  await expect(burst.locator('> .dash').first()).toHaveCSS(
+    'background-color',
+    rgb(fixture.colors.full),
+  );
+  await dashes.button.click();
+  await expect(dashes.host).toHaveAttribute('data-burst', '');
+  // Each dash is drawn turned by its own --turn, and they point different ways.
+  const turns = await burst.locator('> .dash').evaluateAll((all) =>
+    all.map((dash) => {
+      const matrix = new DOMMatrix(getComputedStyle(dash).transform);
+      const drawn = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
+      const asked = Number.parseFloat((dash as HTMLElement).style.getPropertyValue('--turn'));
+      return { drawn: Math.round(drawn), off: ((((drawn - asked) % 360) + 540) % 360) - 180 };
+    }),
+  );
+  for (const { off } of turns) expect(Math.abs(off)).toBeLessThan(1);
+  expect(new Set(turns.map(({ drawn }) => drawn)).size).toBe(5);
+
+  // With none, nothing flies, yet the click counts and still reports a burst.
+  const quiet = await openKey(fixture.quietKey);
+  await quiet.host.evaluate((element) => {
+    const seen: string[] = [];
+    (window as unknown as { seen: string[] }).seen = seen;
+    // Recorded as it fires: data-burst is cleared again a moment later.
+    element.addEventListener('appreciator:burst', () =>
+      seen.push(element.hasAttribute('data-burst') ? 'burst marked' : 'burst'),
+    );
+  });
+  await expect(quiet.host.locator('[part="burst"] > *')).toHaveCount(0);
+  await quiet.button.click();
+  await expect(quiet.count).toHaveText('1');
+  expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).toEqual([
+    'burst marked',
+  ]);
+});
+
 test('the burst never crosses the count, wherever it sits, with or without a ring', async ({
   page,
 }) => {

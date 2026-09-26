@@ -484,6 +484,60 @@ describe('AppreciatorButton', () => {
       }
     });
 
+    it('flies dashes pointing outward when the button asks for dashes', async () => {
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ burstStyle: 'dashes' }));
+      const element = await mountReady();
+
+      const dashes = Array.from(
+        shadow(element).querySelectorAll<HTMLElement>('[part="burst"] > .dash'),
+      );
+      expect(dashes).toHaveLength(5);
+      expect(shadow(element).querySelectorAll('[part="burst"] > svg')).toHaveLength(0);
+      for (const dash of dashes) {
+        const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
+        const direction =
+          (Math.atan2(
+            size(dash.style.getPropertyValue('--dy')),
+            size(dash.style.getPropertyValue('--dx')),
+          ) *
+            180) /
+          Math.PI;
+        const turn = Number.parseFloat(dash.style.getPropertyValue('--turn'));
+        // Upright plus its turn points along its flight: the difference is a
+        // whole number of turns, so it lands on 0 once wrapped into ±180.
+        const off = ((((turn + 90 - direction) % 360) + 540) % 360) - 180;
+        expect(off).toBeCloseTo(0, 1);
+      }
+    });
+
+    it('flies nothing with no burst, yet the click still counts and says so', async () => {
+      vi.unstubAllGlobals();
+      server = installFakeServer(sampleConfig({ burstStyle: 'none' }));
+      const element = await mountReady();
+      const bursts = recordEvents(element, 'appreciator:burst');
+
+      await clickAndSettle(element);
+
+      expect(shadow(element).querySelector('[part="burst"]')?.children).toHaveLength(0);
+      expect(countText(element)).toBe('1');
+      expect(bursts).toHaveLength(1);
+    });
+
+    it('ends the flight a short hop past the icon', async () => {
+      const element = await mountReady();
+      const size = (value: string): number => Number(/\* (-?[\d.]+)\)$/.exec(value)?.[1]);
+
+      for (const particle of particles(element)) {
+        const style = (particle as SVGElement).style;
+        const end = Math.hypot(
+          size(style.getPropertyValue('--dx')),
+          size(style.getPropertyValue('--dy')),
+        );
+        expect(end).toBeCloseTo(1.2, 2);
+      }
+    });
+
     it('replays on every click once spent, counting nothing', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const element = await mountReady();

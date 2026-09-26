@@ -176,6 +176,22 @@ async function registerButtons(
       colors,
       keepIconColors: true,
     }),
+    dashKey: await createButton(secret, {
+      name: 'Dashes',
+      maxClicks,
+      allowedOrigins,
+      svgSource,
+      colors,
+      burstStyle: 'dashes',
+    }),
+    quietKey: await createButton(secret, {
+      name: 'No burst',
+      maxClicks,
+      allowedOrigins,
+      svgSource,
+      colors,
+      burstStyle: 'none',
+    }),
     ringKey: await createButton(secret, {
       name: 'Raw SVG, ringed',
       maxClicks,
