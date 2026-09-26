@@ -440,6 +440,15 @@ pre code {
   }
 }
 
+/* A prompt is prose: it wraps, and scrolls within its block when long. */
+pre.prompt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 24rem;
+  overflow-y: auto;
+  padding-right: 4.5rem;
+}
+
 .table-scroll {
   overflow-x: auto;
 }

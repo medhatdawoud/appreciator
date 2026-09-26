@@ -105,6 +105,17 @@
           </li>
           <li>9 KB, no dependencies, works in any HTML page, CMS, or framework.</li>
         </ul>
+        <h3>Let your agent add it</h3>
+        <p>
+          Using Claude Code, Cursor or another coding agent? Paste this prompt into it. It places
+          the button, sets up what the page needs, and checks that the button loads. Replace
+          <code>pk_YOUR_BUTTON_KEY</code> with your button's key, or copy the same prompt from the
+          dashboard, where it comes filled in.
+        </p>
+        <div class="code-block">
+          <pre class="prompt"><code data-agent-prompt>Loading the prompt…</code></pre>
+          <button class="copy" type="button" data-copy="[data-agent-prompt]">Copy</button>
+        </div>
       </section>
 
       <section id="customise" class="section">
@@ -368,6 +379,7 @@ appreciator-button {
       </p>
     </footer>
 
+    <script src="agent-prompt.js"></script>
     <script src="landing.js"></script>
   </body>
 </html>
