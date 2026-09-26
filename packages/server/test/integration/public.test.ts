@@ -213,6 +213,7 @@ describe('public routes', () => {
         keepIconColors: false,
         iconRing: false,
         clickSound: true,
+        burstStyle: 'icons',
         thanksMessage: DEFAULT_THANKS_MESSAGE,
         urlNormalization: 'pathname',
       });
@@ -228,6 +229,12 @@ describe('public routes', () => {
       const ringed = await createButton(buttonInput({ iconRing: true }));
 
       expect((await config(ringed.publicKey)).json().iconRing).toBe(true);
+    });
+
+    it('says what flies out on a click', async () => {
+      const dashes = await createButton(buttonInput({ burstStyle: 'dashes' }));
+
+      expect((await config(dashes.publicKey)).json().burstStyle).toBe('dashes');
     });
 
     it('says whether clicks make a sound', async () => {
@@ -256,6 +263,7 @@ describe('public routes', () => {
       const body = response.json();
 
       expect(Object.keys(body).sort()).toEqual([
+        'burstStyle',
         'clickSound',
         'colors',
         'iconRing',

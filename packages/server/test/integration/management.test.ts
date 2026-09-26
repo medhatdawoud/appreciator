@@ -621,6 +621,26 @@ describe('management routes', () => {
     });
   });
 
+  describe('the burst style', () => {
+    it('is icon copies unless set, and takes dashes or none', async () => {
+      const created = await createButton();
+      expect((await listButtons())[0]?.burstStyle).toBe('icons');
+
+      const dashes = await patchButton(created.buttonId, { burstStyle: 'dashes' });
+      expect(dashes.json().burstStyle).toBe('dashes');
+
+      const quiet = await createButton(validInput({ burstStyle: 'none' }));
+      const listed = await listButtons();
+      expect(listed.find((button) => button.id === quiet.buttonId)?.burstStyle).toBe('none');
+    });
+
+    it('refuses a style the widget does not draw', async () => {
+      const response = await postButton(validInput({ burstStyle: 'confetti' as never }));
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('the click sound', () => {
     it('is on unless turned off, and can be switched with a PATCH', async () => {
       const created = await createButton();

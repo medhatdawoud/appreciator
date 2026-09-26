@@ -13,6 +13,9 @@ export type ButtonSvgSources = Record<ButtonState, string>;
 /** How a button derives its per-item counter key from the embedding page. */
 export type UrlNormalization = 'pathname' | 'full';
 
+/** What flies out of the button on a click. */
+export type BurstStyle = 'icons' | 'dashes' | 'none';
+
 /** Where the count sits relative to the icon: the widget's `data-count`. */
 export type CountPosition = 'right' | 'left' | 'top' | 'bottom';
 
@@ -36,6 +39,8 @@ export interface ButtonConfig {
   iconRing: boolean;
   /** Play a short sound on each click. */
   clickSound: boolean;
+  /** What flies out on a click: copies of the icon, dashes, or nothing. */
+  burstStyle: BurstStyle;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition: CountPosition;
   /**
@@ -75,6 +80,8 @@ export interface ButtonConfigInput {
   iconRing?: boolean;
   /** Play a short sound on each click. Defaults to true. */
   clickSound?: boolean;
+  /** What flies out on a click. Defaults to `icons`. */
+  burstStyle?: BurstStyle;
   /** Where the embed snippets place the count beside the icon. Defaults to `right`. */
   countPosition?: CountPosition;
   /**
@@ -108,6 +115,8 @@ export interface ButtonPublicConfig {
   iconRing: boolean;
   /** Play a short sound on each click. */
   clickSound: boolean;
+  /** What flies out on a click: copies of the icon, dashes, or nothing. */
+  burstStyle: BurstStyle;
   /**
    * Shown under the button once a visitor has used all their clicks. Empty
    * for none.

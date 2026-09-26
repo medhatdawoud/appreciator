@@ -24,6 +24,7 @@ export function sampleConfig(overrides: Partial<ButtonPublicConfig> = {}): Butto
     keepIconColors: false,
     iconRing: false,
     clickSound: true,
+    burstStyle: 'icons',
     thanksMessage: 'Thank you.',
     urlNormalization: 'pathname',
     ...overrides,

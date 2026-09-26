@@ -250,6 +250,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               'keepIconColors',
               'iconRing',
               'clickSound',
+              'burstStyle',
               'thanksMessage',
               'urlNormalization',
             ],
@@ -263,6 +264,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
               keepIconColors: { type: 'boolean' },
               iconRing: { type: 'boolean' },
               clickSound: { type: 'boolean' },
+              burstStyle: { type: 'string', enum: ['icons', 'dashes', 'none'] },
               thanksMessage: { type: 'string' },
               urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
             },
@@ -280,6 +282,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         keepIconColors,
         iconRing,
         clickSound,
+        burstStyle,
         thanksMessage,
         urlNormalization,
       } = toButtonConfig(button, app.appConfig.publicBaseUrl);
@@ -293,6 +296,7 @@ export async function publicRoutes(app: FastifyInstance): Promise<void> {
         keepIconColors,
         iconRing,
         clickSound,
+        burstStyle,
         thanksMessage,
         urlNormalization,
       };

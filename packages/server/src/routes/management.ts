@@ -59,6 +59,7 @@ const inputProperties = {
   keepIconColors: { type: 'boolean' },
   iconRing: { type: 'boolean' },
   clickSound: { type: 'boolean' },
+  burstStyle: { type: 'string', enum: ['icons', 'dashes', 'none'] },
   countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
   thanksMessage: { type: 'string', maxLength: MAX_THANKS_MESSAGE_LENGTH },
   urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
@@ -97,6 +98,7 @@ const buttonConfigSchema = {
     'keepIconColors',
     'iconRing',
     'clickSound',
+    'burstStyle',
     'countPosition',
     'thanksMessage',
     'urlNormalization',
@@ -116,6 +118,7 @@ const buttonConfigSchema = {
     keepIconColors: { type: 'boolean' },
     iconRing: { type: 'boolean' },
     clickSound: { type: 'boolean' },
+    burstStyle: { type: 'string', enum: ['icons', 'dashes', 'none'] },
     countPosition: { type: 'string', enum: ['right', 'left', 'top', 'bottom'] },
     thanksMessage: { type: 'string' },
     urlNormalization: { type: 'string', enum: ['pathname', 'full'] },
@@ -424,6 +427,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
         keepIconColors: input.keepIconColors ?? false,
         iconRing: input.iconRing ?? false,
         clickSound: input.clickSound ?? true,
+        burstStyle: input.burstStyle ?? 'icons',
         countPosition,
         thanksMessage: (input.thanksMessage ?? DEFAULT_THANKS_MESSAGE).trim(),
         urlNormalization: input.urlNormalization ?? 'pathname',
@@ -503,6 +507,7 @@ async function buttonRoutes(app: FastifyInstance, options: ButtonRoutesOptions):
       }
       if (patch.iconRing !== undefined) assignments.push(['icon_ring', patch.iconRing]);
       if (patch.clickSound !== undefined) assignments.push(['click_sound', patch.clickSound]);
+      if (patch.burstStyle !== undefined) assignments.push(['burst_style', patch.burstStyle]);
       if (patch.countPosition !== undefined) {
         assignments.push(['count_position', patch.countPosition]);
       }
