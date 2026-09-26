@@ -113,6 +113,20 @@ button.link {
   min-width: 0;
 }
 
+.agent-prompt {
+  margin-top: 0.4rem;
+}
+
+.agent-prompt summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.agent-prompt[open] summary {
+  margin-bottom: 0.4rem;
+}
+
 .code-block.small pre {
   font-size: 0.78rem;
   padding: 0.6rem 4.5rem 0.6rem 0.9rem;

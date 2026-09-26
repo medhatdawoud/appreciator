@@ -384,6 +384,20 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await rowPreview.locator('button').click();
   await expect(rowPreview.locator('[part="count"]')).toHaveText('1');
 
+  // A prompt for a coding agent, filled in with this button.
+  const promptBox = row.locator('.agent-prompt');
+  await promptBox.locator('summary').click();
+  const rowPrompt = row.locator('[data-button-row-prompt]');
+  await expect(rowPrompt).toBeVisible();
+  const rowKey = (await row.locator('[data-button-row-key]').textContent()) ?? '';
+  await expect(rowPrompt).toContainText(`data-key="${rowKey}" data-count="left" async`);
+  await expect(rowPrompt).toContainText(`It allows these origins now: ${PAGE_ORIGIN}.`);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await row.locator('[data-copy-prompt]').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    (await rowPrompt.textContent()) ?? '',
+  );
+
   // Beside the one-tag embed, the script and element to place it anywhere.
   const publicKey = (await row.locator('[data-button-row-key]').textContent()) ?? '';
   await expect(row.locator('[data-button-row-snippet]')).toHaveText(
@@ -398,14 +412,20 @@ test('designs a button from its own SVG, tries it without counting, and saves it
   await page.setViewportSize({ width: 700, height: 900 });
   const fits = await row.evaluate((element) => {
     const edge = element.getBoundingClientRect().right;
+    const prompt = element.querySelector('pre.prompt');
     return {
       page: document.documentElement.scrollWidth <= window.innerWidth,
-      blocks: Array.from(element.querySelectorAll('pre')).map(
+      blocks: Array.from(element.querySelectorAll('pre:not(.prompt)')).map(
         (pre) => pre.getBoundingClientRect().right <= edge && pre.scrollWidth > pre.clientWidth,
       ),
+      // The agent prompt is prose: it wraps inside the row instead.
+      prompt:
+        prompt !== null &&
+        prompt.getBoundingClientRect().right <= edge &&
+        prompt.scrollWidth <= prompt.clientWidth,
     };
   });
-  expect(fits).toEqual({ page: true, blocks: [true, true] });
+  expect(fits).toEqual({ page: true, blocks: [true, true], prompt: true });
   await page.setViewportSize({ width: 1280, height: 720 });
 
   // Each snippet fills the row beside the preview, and shows its scrollbar

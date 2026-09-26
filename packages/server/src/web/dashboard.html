@@ -401,11 +401,23 @@
             >Add <code>data-readonly</code> to either to show the count without taking
             clicks.</small
           >
+          <details class="agent-prompt">
+            <summary>Prompt for your coding agent</summary>
+            <small class="muted"
+              >Paste it into Claude Code, Cursor or another agent: it adds this button to your
+              project and checks that it loads.</small
+            >
+            <div class="code-block small">
+              <pre class="prompt"><code data-button-row-prompt></code></pre>
+              <button class="copy" type="button" data-copy-prompt>Copy</button>
+            </div>
+          </details>
         </div>
       </li>
     </template>
 
     <script src="/widget.js"></script>
+    <script src="/site/agent-prompt.js"></script>
     <script src="/web/dashboard.js"></script>
   </body>
 </html>

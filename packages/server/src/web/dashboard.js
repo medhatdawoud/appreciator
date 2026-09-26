@@ -302,6 +302,15 @@
         $('[data-button-row-edit]', row).href = `#/sites/${siteId}/buttons/${button.id}/edit`;
         wireCopy($('[data-copy-snippet]', row), () => button.embedSnippet);
         wireCopy($('[data-copy-element]', row), () => button.elementSnippet);
+        const prompt = window.appreciatorAgentPrompt?.({
+          apiUrl: state.config?.apiUrl || location.origin,
+          embedSnippet: button.embedSnippet,
+          elementSnippet: button.elementSnippet,
+          allowedOrigins: button.allowedOrigins,
+        });
+        $('[data-button-row-prompt]', row).textContent = prompt ?? '';
+        $('.agent-prompt', row).hidden = prompt === undefined;
+        wireCopy($('[data-copy-prompt]', row), () => prompt ?? '');
         $('[data-button-row-delete]', row).addEventListener('click', async () => {
           if (!confirm(`Delete "${button.name || button.publicKey}"? Its counts are lost.`)) return;
           try {

@@ -3,6 +3,27 @@
 A running record of the significant changes to this repository, newest first.
 Each entry is written so it can seed a PR description.
 
+## 2026-09-26 — A prompt for coding agents
+
+- The landing page's Install section has "Let your agent add it": a prompt
+  to paste into Claude Code, Cursor or another coding agent, with the
+  instance's address and a placeholder key. Each button's row in the
+  dashboard has the same prompt, filled in with its key, snippets and allowed
+  origins, under "Prompt for your coding agent".
+- The prompt says where to put the tag, when to use the element with
+  `data-item` or `data-readonly`, how to size it, that the key is public, to
+  allow every origin the site runs on (local development included) and the
+  instance in a CSP, and how to prove it works: a console check that waits
+  for the button and prints its count or its error, an automated test that
+  waits for `appreciator:ready` without clicking, and the events to react
+  to. It ends by asking for a report of what changed.
+- One copy of the wording, `site/agent-prompt.js`, is loaded by both pages.
+- Tests: the landing e2e checks the prompt and its copy button, then runs
+  the prompt's console check, exactly as written, on a page with a real
+  button and sees it report ready. The dashboard e2e checks the row's prompt
+  carries the button's key, its count position and its origins, copies it,
+  and that it wraps inside the row on a narrow screen.
+
 ## 2026-09-26 — The button's events, on the landing page
 
 - A "Listen to it" section (and an Events link in the nav) lists the events

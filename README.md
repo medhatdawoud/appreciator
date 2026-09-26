@@ -488,7 +488,11 @@ in `GITHUB_ALLOWED_LOGINS`).
 - **The button list.** Each row shows its button as saved, clickable in the
   same way (nothing counted), and two snippets with Copy buttons: the one tag
   that renders the button where it is pasted, and the script plus an
-  `<appreciator-button data-key="…">` element to place anywhere.
+  `<appreciator-button data-key="…">` element to place anywhere. Under them,
+  "Prompt for your coding agent" opens a prompt to paste into Claude Code,
+  Cursor or another agent, filled in with the button's key, snippets and
+  allowed origins: it places the button, sets up the allowed origins and CSP,
+  and checks with a console snippet that the button loads.
 - **Counts.** Per page (or item id), most recently updated first. Click the
   Total or Updated header to sort by it, highest or newest first, and click
   it again to flip the direction; the arrow shows which way.
@@ -516,6 +520,10 @@ with the next action already open.
 ## The widget
 
 ### One-tag embed
+
+To have a coding agent do it, copy the prompt from the landing page's
+Install section (with a placeholder key) or from the button's row in the
+dashboard (filled in). Both come from `site/agent-prompt.js`.
 
 ```html
 <script src="https://appreciator.example.com/widget.js" data-key="pk_..." async></script>
